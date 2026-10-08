@@ -66,31 +66,3 @@ Cloud2BIM, NumPy, Shapely, OpenCV headless and the IfcOpenShell library are sele
 SpatialLM can inform an independently written element/proposal contract now, but its source-code terms are not assumed permissive. Pointcept's reviewed MIT root licence does not cover every associated pretrained asset. Model weights and datasets remain separate inventory entries.
 
 The ACM and May 2026 arXiv references are recorded together as PointLLM-R, not counted as separate engines. The general local-LLM blog is background reading, not an implementation dependency.
-
-## Evidence limits and required actions
-
-- **Cloud2BIM:** MIT notice retained; selected geometry helpers adapted. No upstream AI assets or full application copied.
-- **Avalonia:** Pin and review the exact component and its dependencies before incorporation.
-- **.NET runtime:** Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.
-- **CPython:** Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.
-- **pye57:** Pin and review the exact component and its dependencies before incorporation.
-- **libE57Format:** Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.
-- **Open3D:** Pin and review the exact component and its dependencies before incorporation.
-- **IfcOpenShell library:** Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.
-- **PDAL:** Pin and review the exact component and its dependencies before incorporation.
-- **numpy:** Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.
-- **scipy:** Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.
-- **shapely:** Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.
-- **scikit-image:** Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.
-- **opencv:** Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.
-- **SpatialLM repository code:** Select files and exact model variant; preserve component-specific licences. Clarify general repository-code scope and obtain any required permission for noncommercial weights/data.
-- **SpatialLM1.1-Qwen-0.5B weights:** No bundling in initial app. Resolve intended-use and redistribution permission, encoder/base-model terms and hardware feasibility.
-- **Sonata encoder weights:** Pin and review the exact component and its dependencies before incorporation.
-- **SpatialLM Dataset:** Resolve permitted evaluation/training/distribution uses before acquisition or inclusion; real survey evaluation still required.
-- **Pointcept repository code:** Review chosen files and checkpoint terms separately; not a licence clearance for Sonata or other weights.
-- **GPT4Point:** Retain MIT notice for covered code; clarify conflicting README scope before incorporating models/data or disputed files.
-- **MiniGPT-3D:** Resolve intended-use and redistribution permission for noncommercial/share-alike components before incorporation.
-- **ENEL:** Cite the paper under its publication terms; separately establish implementation, base-model and weight permissions before incorporation.
-- **PointLLM-R:** Keep paper and model licences separate; check retained base-model and data terms before use or redistribution.
-- **Pts3D-LLM:** Verify exact publication licence/version and independently establish code/weight availability and terms before incorporation.
-- **LLM-Supervised Point Cloud Processing paper:** Cite research. Benchmark an independently implemented method; review separately any external code, models or data. No paper performance guarantee adopted.
