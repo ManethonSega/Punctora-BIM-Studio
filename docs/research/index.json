@@ -5,7 +5,16 @@
     {
       "id": "spatiallm-2506.07491v2",
       "title": "SpatialLM: Training Large Language Models for Structured Indoor Modeling",
-      "authors": ["Yongsen Mao", "Junhao Zhong", "Chuan Fang", "Jia Zheng", "Rui Tang", "Hao Zhu", "Ping Tan", "Zihan Zhou"],
+      "authors": [
+        "Yongsen Mao",
+        "Junhao Zhong",
+        "Chuan Fang",
+        "Jia Zheng",
+        "Rui Tang",
+        "Hao Zhu",
+        "Ping Tan",
+        "Zihan Zhou"
+      ],
       "publication": "NeurIPS 2025",
       "arxiv_version": "2506.07491v2",
       "revision_date": "2025-11-05",
@@ -17,9 +26,23 @@
       "assessment": "SPATIALLM.md",
       "upstream_revision": "8913c44d84a450c53e9340b13317f8cf7144a738",
       "status": "reviewed_research_optional_provider_not_integrated",
-      "project_use": ["structured architectural proposals", "opening host relationships", "M3 review design", "M6 optional provider comparison"],
-      "key_limits": ["2.5 cm proposal quantization", "domain-specific fine-tuning for strongest results", "inferred completion is not measured evidence", "no detector confidence scores", "XYZRGB and axis-alignment assumptions", "not a complete IFC or BIM authoring engine"],
-      "implementation_license_register": "../DEPENDENCIES.md#spatiallm-component-licences"
+      "project_use": [
+        "structured architectural proposals",
+        "opening host relationships",
+        "M3 review design",
+        "M6 optional provider comparison"
+      ],
+      "key_limits": [
+        "2.5 cm proposal quantization",
+        "domain-specific fine-tuning for strongest results",
+        "inferred completion is not measured evidence",
+        "no detector confidence scores",
+        "XYZRGB and axis-alignment assumptions",
+        "not a complete IFC or BIM authoring engine"
+      ],
+      "implementation_license_register": "../DEPENDENCIES.md#spatiallm-component-licences",
+      "related_project_evidence": "../M2_SUPPLIED_E57_VERIFICATION.md",
+      "follow_up": "Supplied PDF hash reconfirmed; two E57 import checks inform coordinate/crop and review requirements. No SpatialLM inference performed."
     }
   ]
 }

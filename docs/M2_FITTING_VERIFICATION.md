@@ -74,7 +74,7 @@ Start with the desktop/worker job protocol and a local-origin cloud/model overla
 
 Keep these checks open while developing M3:
 
-1. Actual scanner/export E57 files, optional channels and vendor extensions, checked against an independent reference.
+1. Broader scanner/export E57 files, optional channels and vendor extensions, checked against an independent reference. Two supplied examples have passed [full-record import checks](M2_SUPPLIED_E57_VERIFICATION.md), using a shared native decoder; reconstruction and independent scanner accuracy remain unverified.
 2. Annotated real floor subsets, assessed with the same provider comparison and agreed model tolerances.
 3. A representative building E57 with measured import, fitting, RAM, evidence storage and correction effort.
 4. Confirmed project CRS, vertical datum, orientation and control-point round trips. Missing CRS can remain explicitly unknown for local processing.

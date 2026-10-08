@@ -1,6 +1,6 @@
 # M2 direct E57 import verification
 
-Status: implemented and checked with generated fixtures on 2026-10-08. Direct import, coordinate handling and the generated surface-method benchmark are implemented. See [M2 fitting verification](M2_FITTING_VERIFICATION.md). No performance or compatibility claim for a real survey is established yet.
+Status: implemented and checked with generated fixtures and two supplied E57 examples on 2026-10-08. Direct import, coordinate handling and the generated surface-method benchmark are implemented. See [M2 fitting verification](M2_FITTING_VERIFICATION.md) and [supplied E57 import verification](M2_SUPPLIED_E57_VERIFICATION.md). The sample checks establish import integrity for those files, not reconstruction accuracy or general scanner compatibility.
 
 ## Implemented behaviour
 
@@ -31,9 +31,11 @@ Current result: 74 tests pass on the local Python 3.12 environment, including co
 
 ## Remaining M2 work
 
+The supplied examples add full-record and repeat-import evidence for five-scan and single-scan Cartesian files, including RGB/intensity and a missing pose. They contain 1,213,990 and 4,067,815 retained points. Coordinate metadata is empty in both, and row/column fields are deliberately ignored with warnings. The reference decoder is shared with the importer, so independent scanner/reference acceptance is still required.
+
 - Repeat the implemented contour/fixed-region/adaptive-region comparison on annotated real scan subsets.
 - Measure peak memory and runtime on a representative building E57. Generated size measurements exist, but repeated synthetic records do not establish building-scale geometric diversity. Detection samples and original-record fitting temporaries are bounded; mapped pages, XYZ loading and output size still contribute memory/storage costs.
-- Test vendor-specific E57 extensions and channels from real scanners; generated validity-field tests do not establish vendor compatibility.
+- Extend compatibility checks beyond the two supplied examples to known scanner/exporter variants and vendor extensions, using an independent reference. The sample checks and generated validity-field tests do not establish universal vendor compatibility.
 - Confirm CRS and vertical datum with the user or project documentation before treating source coordinates as georeferenced map coordinates.
 
 These field checks remain visible while M3 desktop development proceeds. They are required before real-survey acceptance, not a reason to claim generated results are real-survey validation.

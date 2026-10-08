@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "test_date": "2026-10-08",
+  "source": {
+    "kind": "E57",
+    "filename": "pumpNoInvalidPoints.e57",
+    "sha256": "5b85b18fe9860e9f9a2f397434530f2d403fefcc15cf1ff92d75d96d274ff5a5",
+    "size_bytes": 22146048,
+    "units": "metres"
+  },
+  "environment": {
+    "python": "3.12.14",
+    "os": "Linux",
+    "machine": "x86_64",
+    "punctora_version": "0.2.0a2",
+    "pye57_version": "0.4.19"
+  },
+  "scope": "Cartesian example file import integrity only; no survey or reconstruction accuracy claim",
+  "reference": {
+    "native_decoder": "pye57/libE57Format shared with importer",
+    "pose_reference": "Separately parsed E57 XML and scipy Rotation, not importer pose helpers",
+    "chunk_points": 65536,
+    "records_checked": 1213990,
+    "coordinate_absolute_tolerance_m": 1e-07,
+    "maximum_coordinate_component_difference_m": 2.6645352591003757e-15,
+    "scan_and_original_record_indices_equal": true,
+    "available_rgb_intensity_and_validity_equal": true
+  },
+  "scan_count": 5,
+  "raw_point_count": 1213990,
+  "valid_point_count": 1213990,
+  "scans": [
+    {
+      "index": 0,
+      "coordinate_system": "cartesian",
+      "raw_point_count": 174479,
+      "valid_point_count": 174479,
+      "invalid_coordinate_count": 0,
+      "nonfinite_coordinate_count": 0,
+      "has_pose": true,
+      "has_color": true,
+      "has_intensity": true,
+      "invalid_color_count": 0,
+      "invalid_intensity_count": 0,
+      "unsupported_fields": [
+        "columnIndex",
+        "rowIndex"
+      ]
+    },
+    {
+      "index": 1,
+      "coordinate_system": "cartesian",
+      "raw_point_count": 155201,
+      "valid_point_count": 155201,
+      "invalid_coordinate_count": 0,
+      "nonfinite_coordinate_count": 0,
+      "has_pose": false,
+      "has_color": true,
+      "has_intensity": true,
+      "invalid_color_count": 0,
+      "invalid_intensity_count": 0,
+      "unsupported_fields": [
+        "columnIndex",
+        "rowIndex"
+      ]
+    },
+    {
+      "index": 2,
+      "coordinate_system": "cartesian",
+      "raw_point_count": 161619,
+      "valid_point_count": 161619,
+      "invalid_coordinate_count": 0,
+      "nonfinite_coordinate_count": 0,
+      "has_pose": true,
+      "has_color": true,
+      "has_intensity": true,
+      "invalid_color_count": 0,
+      "invalid_intensity_count": 0,
+      "unsupported_fields": [
+        "columnIndex",
+        "rowIndex"
+      ]
+    },
+    {
+      "index": 3,
+      "coordinate_system": "cartesian",
+      "raw_point_count": 118053,
+      "valid_point_count": 118053,
+      "invalid_coordinate_count": 0,
+      "nonfinite_coordinate_count": 0,
+      "has_pose": true,
+      "has_color": true,
+      "has_intensity": true,
+      "invalid_color_count": 0,
+      "invalid_intensity_count": 0,
+      "unsupported_fields": [
+        "columnIndex",
+        "rowIndex"
+      ]
+    },
+    {
+      "index": 4,
+      "coordinate_system": "cartesian",
+      "raw_point_count": 604638,
+      "valid_point_count": 604638,
+      "invalid_coordinate_count": 0,
+      "nonfinite_coordinate_count": 0,
+      "has_pose": true,
+      "has_color": true,
+      "has_intensity": true,
+      "invalid_color_count": 0,
+      "invalid_intensity_count": 0,
+      "unsupported_fields": [
+        "columnIndex",
+        "rowIndex"
+      ]
+    }
+  ],
+  "extent_m": [
+    4.764365637931958,
+    5.033460845319626,
+    3.8300822981719493
+  ],
+  "coordinate_metadata_status": "absent",
+  "warnings": [
+    "Confirm source Z-up orientation, CRS and vertical datum before survey use.",
+    "E57 coordinateMetadata is absent; no coordinate reference system was inferred.",
+    "Scan 0: ignored point fields: columnIndex, rowIndex.",
+    "Scan 1: pose absent; identity transform used.",
+    "Scan 1: ignored point fields: columnIndex, rowIndex.",
+    "Scan 2: ignored point fields: columnIndex, rowIndex.",
+    "Scan 3: ignored point fields: columnIndex, rowIndex.",
+    "Scan 4: ignored point fields: columnIndex, rowIndex."
+  ],
+  "source_bytes_unchanged": true,
+  "first_import": {
+    "chunk_points": 200000,
+    "seconds": 0.6280052049999085,
+    "process_peak_memory_bytes": 203251712,
+    "cache_size_bytes": 84979300
+  },
+  "repeat_import": {
+    "chunk_points": 75000,
+    "seconds": 0.6236078619999716,
+    "all_arrays_equal": true,
+    "first_generation_still_readable": true,
+    "new_generation_created": true
+  },
+  "complete_check_process_peak_memory_bytes": 287666176
+}

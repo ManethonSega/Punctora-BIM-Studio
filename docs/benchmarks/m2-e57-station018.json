@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "test_date": "2026-10-08",
+  "source": {
+    "kind": "E57",
+    "filename": "Station018.e57",
+    "sha256": "80e2904a84da6581d55bea7b5f6b62bd513b776a4e87d4194eb98a9b9a5d1b01",
+    "size_bytes": 117242880,
+    "units": "metres"
+  },
+  "environment": {
+    "python": "3.12.14",
+    "os": "Linux",
+    "machine": "x86_64",
+    "punctora_version": "0.2.0a2",
+    "pye57_version": "0.4.19"
+  },
+  "scope": "Cartesian example file import integrity only; no survey or reconstruction accuracy claim",
+  "reference": {
+    "native_decoder": "pye57/libE57Format shared with importer",
+    "pose_reference": "Separately parsed E57 XML and scipy Rotation, not importer pose helpers",
+    "chunk_points": 65536,
+    "records_checked": 4067815,
+    "coordinate_absolute_tolerance_m": 1e-07,
+    "maximum_coordinate_component_difference_m": 0.0,
+    "scan_and_original_record_indices_equal": true,
+    "available_rgb_intensity_and_validity_equal": true
+  },
+  "scan_count": 1,
+  "raw_point_count": 4067815,
+  "valid_point_count": 4067815,
+  "scans": [
+    {
+      "index": 0,
+      "coordinate_system": "cartesian",
+      "raw_point_count": 4067815,
+      "valid_point_count": 4067815,
+      "invalid_coordinate_count": 0,
+      "nonfinite_coordinate_count": 0,
+      "has_pose": true,
+      "has_color": true,
+      "has_intensity": true,
+      "invalid_color_count": 0,
+      "invalid_intensity_count": 0,
+      "unsupported_fields": [
+        "columnIndex",
+        "rowIndex"
+      ]
+    }
+  ],
+  "extent_m": [
+    711.0771571108123,
+    205.2064282420979,
+    25.842748999999998
+  ],
+  "coordinate_metadata_status": "absent",
+  "warnings": [
+    "Confirm source Z-up orientation, CRS and vertical datum before survey use.",
+    "E57 coordinateMetadata is absent; no coordinate reference system was inferred.",
+    "Scan 0: ignored point fields: columnIndex, rowIndex."
+  ],
+  "source_bytes_unchanged": true,
+  "first_import": {
+    "chunk_points": 200000,
+    "seconds": 2.1747298949999276,
+    "process_peak_memory_bytes": 381083648,
+    "cache_size_bytes": 284747050
+  },
+  "repeat_import": {
+    "chunk_points": 75000,
+    "seconds": 2.2643564640000022,
+    "all_arrays_equal": true,
+    "first_generation_still_readable": true,
+    "new_generation_created": true
+  },
+  "complete_check_process_peak_memory_bytes": 690524160
+}

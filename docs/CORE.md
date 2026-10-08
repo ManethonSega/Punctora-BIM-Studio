@@ -73,7 +73,7 @@ Parameter provenance is `measured`, `inferred`, `user_supplied` or `unknown`. Me
 - Observed-face fit RMSE covers selected original supporting points only, within documented finite face and Z bounds. It is not a whole-cloud deviation, coverage or project-tolerance report. Wall heights extrapolated to detected floor/ceiling levels are inferred.
 - XYZ is loaded into memory. E57 decoding/cache writing and original-record fitting are chunked. Detection samples cap KD-tree/adjacency and fitting arrays. The default budget is 50,000 points per detection stage with 100,000-record processing chunks. Raster allocation and level-histogram guards remain. This does not guarantee constant process RSS or unlimited building size.
 
-No real survey accuracy, clean Windows installation or desktop usability claim is made. Generated E57 and fitting checks establish implementation behaviour only. M3 review can start now; real scanner compatibility, annotated real subsets and representative E57 performance remain open field checks.
+No real survey accuracy, clean Windows installation or desktop usability claim is made. Generated E57 and fitting checks establish implementation behaviour only. Two supplied E57 examples have also passed [full-record import and repeat checks](M2_SUPPLIED_E57_VERIFICATION.md). M3 review can start now; broader scanner compatibility, annotated real reconstruction and representative reconstruction performance remain open field checks.
 
 ## Benchmark commands
 

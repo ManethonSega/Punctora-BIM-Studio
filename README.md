@@ -8,7 +8,7 @@ Punctora BIM Studio is a planned standalone desktop application for importing re
 
 **M2 development implemented; M3 desktop review is next.** The developer core reads registered E57 scans in bounded-memory chunks, applies each scan pose once, filters invalid coordinates, creates a disk-backed local working cloud and writes validated IFC4 with a reversible mapping to source coordinates. Contour and CPU region-growing providers are compared on repeatable generated benchmarks. Detection uses capped voxel samples; wall faces are refitted to original records with traceable evidence files. Local XYZ input remains supported.
 
-There is no desktop interface, AI integration or installer yet. No real building scan has been processed. Real-scanner compatibility, representative survey performance and confirmed CRS/vertical datum remain field acceptance checks. Generated benchmarks do not close those checks. Automatic door/window detection is not enabled; explicitly supplied openings are supported by the exporter.
+There is no desktop interface, AI integration or installer yet. Two supplied E57 examples, with 1.21 million and 4.07 million points, have passed full-record import-integrity and repeat-import checks. No annotated real building reconstruction has been accepted. Broader scanner compatibility, representative reconstruction performance and confirmed CRS/vertical datum remain field acceptance checks. See [supplied E57 verification](docs/M2_SUPPLIED_E57_VERIFICATION.md). Automatic door/window detection is not enabled; explicitly supplied openings are supported by the exporter.
 
 The first usable milestone targets Windows x64 and one representative building floor. It must run locally without Revit, an AI model or an NVIDIA GPU.
 
@@ -52,6 +52,7 @@ Doors, windows and spaces follow once the basic pipeline passes its checks. AI r
 | [Development plan](docs/DEVELOPMENT_PLAN.md) | Milestones and acceptance criteria |
 | [Architecture](docs/ARCHITECTURE.md) | Desktop, worker, geometry, quality and AI boundaries |
 | [M2 E57 verification](docs/M2_E57_VERIFICATION.md) | Direct-import behaviour, automated evidence and remaining M2 work |
+| [Supplied E57 verification](docs/M2_SUPPLIED_E57_VERIFICATION.md) | Full-record checks of the two supplied examples, resource measurements and coordinate warnings |
 | [M2 fitting verification](docs/M2_FITTING_VERIFICATION.md) | Provider comparison, measured resource use and M3 handoff |
 | [Project requirements](docs/PROJECT_REQUIREMENTS.md) | Units, coordinates, evidence and quality requirements |
 | [Dependency inventory](docs/DEPENDENCIES.md) | Candidate components and licence evidence |

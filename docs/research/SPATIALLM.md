@@ -78,3 +78,18 @@ The paper's training run used 32 NVIDIA H20 GPUs for approximately one day (Appe
 ## Conclusion for the development plan
 
 SpatialLM is a directly relevant architectural-proposal reference. Its strongest contribution to Punctora is an explicit, editable structure with host relationships, coupled to a learned semantic proposal provider. The current geometric core, reversible E57 handling, original-record fitting and user review remain necessary. Continue M3 desktop review and the real-scan trial; prepare the adapter boundary now and evaluate actual AI integration in M6.
+
+## Follow-up: supplied E57 examples and practical priorities
+
+The PDF supplied again on 2026-10-08 has the same SHA-256 as the indexed version above. Its representation and encoder figures were visually checked against the extracted text. The two supplied E57 examples have now passed full-record import-integrity checks; see [sample verification](../M2_SUPPLIED_E57_VERIFICATION.md). They have not been run through SpatialLM or accepted as reconstructed BIM.
+
+| Finding | Practical consequence | Status |
+| --- | --- | --- |
+| Station018 has a source-aligned X extent of about 711 m, substantially beyond the paper's nominal 32 m quantized span | Record crop bounds, alignment and inverse transforms; test overlaps, deduplication and opening hosts before any whole-floor AI claim | Future adapter requirement; cropping/stitching is not implemented |
+| Both examples include RGB and intensity, but their coordinateMetadata strings are empty | They exercise coloured input import, not colourless-model performance or verified georeferencing | Import checked; AI suitability and CRS remain unverified |
+| One of the pump's five scans has no pose | Keep the missing-pose warning visible. Identity is the import fallback, not evidence that scan registration is correct | Existing importer behaviour verified |
+| The paper uses a learned hierarchical point encoder; naive feature pooling performs poorly in its Table 2 | Preserve local geometry for semantic proposals; do not assume a cheap RGB/feature average reproduces the model. This result does not invalidate voxel sampling for classical plane fitting | Research finding, no new encoder integrated |
+| More visual tokens do not improve every score in Table 3 | Measure crop resolution versus accuracy, runtime and memory instead of blindly increasing density | Future controlled experiment |
+| Appendix B includes edge noise, floating points, colour loss and partial crops | Extend future real-scan comparisons with reflections, incomplete walls and colourless inputs, keeping the same reference geometry and correction-time measures | Benchmark backlog; generated M2 results remain unchanged |
+
+The immediate M3 benefit is review design: show evidence and unsupported extents, distinguish observed surfaces from inferred completions, preserve identity through edits, and allow rejection. The later M6 benefit is an optional structured proposal provider for walls and openings. No weights, training corpus, model source or figures have been added to the repository, and no new runtime dependency is introduced by this research note.
