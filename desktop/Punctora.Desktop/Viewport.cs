@@ -204,7 +204,7 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
             var renderer=gl.Renderer??"Unknown adapter";
             var software=new[]{"llvmpipe","softpipe","software","swrast","swiftshader","warp","basic render","gdi generic"}.Any(s=>renderer.Contains(s,StringComparison.OrdinalIgnoreCase));
             Backend=(renderer=="Unknown adapter"?"OpenGL (unknown adapter): ":software?"Software OpenGL: ":"Hardware OpenGL: ")+renderer+" / "+gl.Vendor;
-            GraphicsReady=true;dirty=true;Ready?.Invoke(Backend);
+            width=height=0;GraphicsReady=true;dirty=true;Ready?.Invoke(Backend);
         }
         catch(Exception e){Failed?.Invoke("3D renderer unavailable: "+e.Message);}
     }

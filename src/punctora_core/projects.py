@@ -195,9 +195,13 @@ def close_cloud(cloud):
     """Release cached file mappings before directory publication on Windows."""
     for name in ("points", "colors", "intensity", "color_valid", "intensity_valid", "scan_index", "source_record_index"):
         channel = getattr(cloud, name, None)
-        mapping = getattr(channel, "_mmap", None)
-        if mapping is not None and not mapping.closed:
-            mapping.close()
+        while channel is not None:
+            mapping = getattr(channel, "_mmap", None)
+            if mapping is not None:
+                if not mapping.closed:
+                    mapping.close()
+                break
+            channel = getattr(channel, "base", None)
 
 
 @contextmanager

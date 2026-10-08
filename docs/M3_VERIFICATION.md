@@ -17,7 +17,7 @@ Recorded 2026-10-08. Initial desktop implementation is ready for Windows preview
 
 ## Automated evidence
 
-The test suite contains **88 tests**: 74 previous core regressions and 14 project/worker regressions. Project checks cover edit/save/reopen/copy/export, retained evidence, stable IFC IDs, rejected geometry, invalid/nonfinite edits, overlapping storeys, stale revisions, a simulated failed atomic replacement, path escape, real worker termination during reconstruction, lock release, cleanup, malformed protocol, and resuming an interrupted copy.
+The test suite contains **89 tests**: 74 previous core regressions and 15 project/worker regressions. Project checks cover edit/save/reopen/copy/export, retained evidence, stable IFC IDs, rejected geometry, invalid/nonfinite edits, overlapping storeys, stale revisions, a simulated failed atomic replacement, path escape, real worker termination during reconstruction, lock release, cleanup, malformed protocol, resuming an interrupted copy, and releasing mapped ndarray views before Windows directory publication.
 
 Release desktop builds complete with zero warnings/errors. Automated desktop walkthroughs create a two-storey model, exercise ray picking/inspector selection, correct wall thickness to **0.27 m**, mark it reviewed, save, reopen and export validated IFC. Camera updates and PNG capture exercise both renderer modes. Linux automation uses Xvfb and Mesa llvmpipe (LLVM 20.1.2, 256 bits), not a physical graphics card. The window is 1440×920; the viewport is 845×697.
 
@@ -63,3 +63,5 @@ The [desktop CI workflow](../.github/workflows/desktop.yml) builds on Linux/Wind
 5. Profile CPU conversion by stage before implementing bounded multicore orchestration and a compatible GPU compute backend. Conversion remains CPU-only; the renderer is a separate acceleration path. R13 in the requirements and the M3 acceleration plan remain open.
 
 The research-informed boundary is preserved: observations and original evidence are separate from edited/inferred proposals; explicit unknowns remain unknown; rejected proposals do not enter the reviewed export. SpatialLM/Pointcept/GPT4Point and other research code/weights are not integrated into M3.
+
+Windows CI identified an initial E57 publication failure caused by live NumPy views retaining mapped-file handles. The follow-up fix walks the array base chain to close the owning mapping before directory publication and adds a focused regression. The graphics depth buffer is also reallocated when a context is initialized again.

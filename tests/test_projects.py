@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 
 from punctora_core import projects
+from punctora_core.cloud_io import CloudData
 from test_e57_io import _write_building_e57
 
 
@@ -183,3 +184,15 @@ def test_copy_can_resume_owned_folder_left_by_cancelled_worker(project, tmp_path
     (partial / "preview.bin").write_bytes(b"interrupted")
     copied = projects.save_copy(path, destination, request(state))
     assert projects.load_project(destination)["revision"] == copied["revision"]
+
+
+def test_release_cached_array_views_before_publishing_directory(tmp_path):
+    folder = tmp_path / "staging"
+    folder.mkdir()
+    np.save(folder / "points.npy", np.array([[1., 2., 3.]]))
+    mapped = np.load(folder / "points.npy", mmap_mode="r", allow_pickle=False)
+    cloud = CloudData(mapped)  # Cloud validation wraps memmap in ndarray views.
+    projects.close_cloud(cloud)
+    assert mapped._mmap.closed
+    folder.rename(tmp_path / "published")
+    np.testing.assert_array_equal(np.load(tmp_path / "published" / "points.npy"), [[1., 2., 3.]])
