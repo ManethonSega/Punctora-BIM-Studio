@@ -22,7 +22,12 @@
       "adapted_files": [
         "src/punctora_core/cloud2bim_geometry.py",
         "src/punctora_core/ifc_geometry.py"
-      ]
+      ],
+      "attribution": "Václav Nežerka, Copyright (c) 2025.",
+      "notice_files": [
+        "third_party/licenses/Cloud2BIM-MIT.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#cloud2bim"
     },
     {
       "id": "avalonia",
@@ -38,7 +43,12 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Pin and review the exact component and its dependencies before incorporation.",
+      "attribution": "AvaloniaUI OÜ, copyright as retained in its MIT licence.",
+      "notice_files": [
+        "third_party/references/Avalonia-MIT.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#avalonia"
     },
     {
       "id": "dotnet",
@@ -56,7 +66,12 @@
       "incorporated": false,
       "redistributed": false,
       "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
-      "license_scope_notes": "Root runtime code licence; bundled third-party components retain their terms."
+      "license_scope_notes": "Root runtime code licence; bundled third-party components retain their terms.",
+      "attribution": ".NET Foundation and Contributors, copyright as retained in its MIT licence.",
+      "notice_files": [
+        "third_party/references/DotNet-MIT.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#dotnet"
     },
     {
       "id": "python",
@@ -74,7 +89,12 @@
       "incorporated": false,
       "redistributed": false,
       "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
-      "license_scope_notes": "Open source is a category, not a licence name. Python documentation examples also have BSD-0-Clause terms from Python 3.8.6 onward."
+      "license_scope_notes": "Open source is a category, not a licence name. Python documentation examples also have BSD-0-Clause terms from Python 3.8.6 onward.",
+      "attribution": "Python Software Foundation and the contributors and historical licensors identified in CPython LICENSE.",
+      "notice_files": [
+        "third_party/references/CPython-PSF.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#python"
     },
     {
       "id": "pye57",
@@ -90,7 +110,12 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Pin and review the exact component and its dependencies before incorporation.",
+      "attribution": "David Caron, Copyright 2018.",
+      "notice_files": [
+        "third_party/references/pye57-MIT.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#pye57"
     },
     {
       "id": "libe57format",
@@ -108,7 +133,12 @@
       "incorporated": false,
       "redistributed": false,
       "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
-      "license_scope_notes": "Applies to libE57Format, not automatically all native E57 dependencies."
+      "license_scope_notes": "Applies to libE57Format, not automatically all native E57 dependencies.",
+      "attribution": "libE57Format contributors; authors and notices supplied with the selected source files.",
+      "notice_files": [
+        "third_party/references/libE57Format-BSL-1.0.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#libe57format"
     },
     {
       "id": "open3d",
@@ -124,7 +154,12 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Pin and review the exact component and its dependencies before incorporation.",
+      "attribution": "www.open3d.org, Copyright (c) 2018-2026.",
+      "notice_files": [
+        "third_party/references/Open3D-MIT.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#open3d"
     },
     {
       "id": "ifcopenshell",
@@ -136,14 +171,19 @@
       "evidence": [
         "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/src/ifcopenshell-python/ifcopenshell/__init__.py",
         "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/COPYING.LESSER",
-        "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/README.md",
-        "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.3/src/ifcopenshell-python/ifcopenshell/__init__.py"
+        "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/README.md"
       ],
       "reviewed_revision": null,
       "selected_version": "0.8.3",
       "incorporated": true,
       "redistributed": false,
-      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging."
+      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.",
+      "attribution": "IfcOpenShell contributors. Retained Python module header: Copyright (C) 2021 Thomas Krijnen <thomas@aecgeeks.com>. Other files retain their respective authors.",
+      "notice_files": [
+        "third_party/licenses/IfcOpenShell-LGPL-3.0.txt",
+        "third_party/licenses/IfcOpenShell-GPL-3.0.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#ifcopenshell"
     },
     {
       "id": "pdal",
@@ -160,7 +200,12 @@
       "incorporated": false,
       "redistributed": false,
       "action_required": "Pin and review the exact component and its dependencies before incorporation.",
-      "license_scope_notes": "Redistribution is permitted subject to the full licence conditions; retain bundled component notices."
+      "license_scope_notes": "Redistribution is permitted subject to the full licence conditions; retain bundled component notices.",
+      "attribution": "PDAL contributors and the component copyright holders identified in its licence file.",
+      "notice_files": [
+        "third_party/references/PDAL-licences.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#pdal"
     },
     {
       "id": "numpy",
@@ -178,7 +223,12 @@
       "selected_version": "2.3.5",
       "incorporated": true,
       "redistributed": false,
-      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging."
+      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.",
+      "attribution": "NumPy Developers and the bundled-library copyright holders identified in the retained wheel licence.",
+      "notice_files": [
+        "third_party/licenses/NumPy-2.3.5-wheel.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#numpy"
     },
     {
       "id": "scipy",
@@ -195,7 +245,12 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging."
+      "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
+      "attribution": "SciPy Developers and contributors identified in the source licence.",
+      "notice_files": [
+        "third_party/references/SciPy-BSD-3-Clause.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#scipy"
     },
     {
       "id": "shapely",
@@ -213,7 +268,13 @@
       "selected_version": "2.1.2",
       "incorporated": true,
       "redistributed": false,
-      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging."
+      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.",
+      "attribution": "Shapely contributors and GEOS contributors, as identified in the retained licence texts.",
+      "notice_files": [
+        "third_party/licenses/Shapely-2.1.2.txt",
+        "third_party/licenses/GEOS-Shapely-wheel.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#shapely"
     },
     {
       "id": "scikit-image",
@@ -231,7 +292,12 @@
       "incorporated": false,
       "redistributed": false,
       "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
-      "license_scope_notes": "The project licence lists additional file-specific terms; the supplied SciPy link is replaced by the scikit-image licence."
+      "license_scope_notes": "The project licence lists additional file-specific terms; the supplied SciPy link is replaced by the scikit-image licence.",
+      "attribution": "The scikit-image team and file-specific copyright holders identified in its licence file.",
+      "notice_files": [
+        "third_party/references/scikit-image-licences.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#scikit-image"
     },
     {
       "id": "opencv",
@@ -249,7 +315,13 @@
       "selected_version": "4.11.0.86 (opencv-python-headless)",
       "incorporated": true,
       "redistributed": false,
-      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging."
+      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.",
+      "attribution": "Olli-Pekka Heinisuo (Python packaging); OpenCV contributors and native third-party copyright holders in the retained notices.",
+      "notice_files": [
+        "third_party/licenses/OpenCV-python-4.11.0.86.txt",
+        "third_party/licenses/OpenCV-wheel-third-party.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#opencv"
     },
     {
       "id": "spatiallm-code",
@@ -299,7 +371,15 @@
           "license": "Apache-2.0",
           "scope": "SpatialLM README declaration; upstream Pointcept repository is separately MIT"
         }
-      ]
+      ],
+      "attribution": "Manycore Research. Yongsen Mao, Junhao Zhong, Chuan Fang, Jia Zheng, Rui Tang, Hao Zhu, Ping Tan and Zihan Zhou (SpatialLM, 2025).",
+      "notice_files": [
+        "third_party/references/SpatialLM-Llama-3.2.txt",
+        "third_party/references/Sonata-Apache-2.0.txt",
+        "third_party/references/TorchSparse-MIT.txt",
+        "third_party/references/CC-BY-NC-4.0.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#spatiallm-code"
     },
     {
       "id": "spatiallm-qwen",
@@ -315,7 +395,12 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "No bundling in initial app. Resolve intended-use and redistribution permission, encoder/base-model terms and hardware feasibility."
+      "action_required": "No bundling in initial app. Resolve intended-use and redistribution permission, encoder/base-model terms and hardware feasibility.",
+      "attribution": "Manycore Research / SpatialLM authors; Qwen team for the base model; Sonata authors for the point encoder.",
+      "notice_files": [
+        "third_party/references/CC-BY-NC-4.0.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#spatiallm-qwen"
     },
     {
       "id": "sonata",
@@ -331,7 +416,13 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Pin and review the exact component and its dependencies before incorporation.",
+      "attribution": "Xiaoyang Wu, Daniel DeTone, Duncan Frost, Tianwei Shen, Chris Xie, Nan Yang, Jakob Engel, Richard Newcombe, Hengshuang Zhao and Julian Straub (Sonata, CVPR 2025); Meta for released code.",
+      "notice_files": [
+        "third_party/references/CC-BY-NC-4.0.txt",
+        "third_party/references/Sonata-Apache-2.0.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#sonata"
     },
     {
       "id": "spatiallm-dataset",
@@ -347,7 +438,12 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Resolve permitted evaluation/training/distribution uses before acquisition or inclusion; real survey evaluation still required."
+      "action_required": "Resolve permitted evaluation/training/distribution uses before acquisition or inclusion; real survey evaluation still required.",
+      "attribution": "Manycore Research / SpatialLM authors credited by the dataset publisher.",
+      "notice_files": [
+        "third_party/references/CC-BY-NC-4.0.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#spatiallm-dataset"
     },
     {
       "id": "pointcept",
@@ -363,7 +459,12 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Review chosen files and checkpoint terms separately; not a licence clearance for Sonata or other weights."
+      "action_required": "Review chosen files and checkpoint terms separately; not a licence clearance for Sonata or other weights.",
+      "attribution": "Pointcept, Copyright (c) 2023.",
+      "notice_files": [
+        "third_party/references/Pointcept-MIT.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#pointcept"
     },
     {
       "id": "gpt4point",
@@ -381,7 +482,12 @@
       "incorporated": false,
       "redistributed": false,
       "action_required": "Retain MIT notice for covered code; clarify conflicting README scope before incorporating models/data or disputed files.",
-      "license_scope_notes": "The MIT LICENSE file is recorded as requested. README still declares CC-BY-NC-SA-4.0; scope of that declaration remains unresolved, particularly for models and data."
+      "license_scope_notes": "The MIT LICENSE file is recorded as requested. README still declares CC-BY-NC-SA-4.0; scope of that declaration remains unresolved, particularly for models and data.",
+      "attribution": "Zhangyang Qi, Ye Fang, Zeyi Sun, Xiaoyang Wu, Tong Wu, Jiaqi Wang, Dahua Lin and Hengshuang Zhao (GPT4Point, CVPR 2024). Repository MIT licence separately retains Copyright (c) 2023 Alex Severns.",
+      "notice_files": [
+        "third_party/references/GPT4Point-MIT.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#gpt4point"
     },
     {
       "id": "minigpt3d",
@@ -400,7 +506,10 @@
       "incorporated": false,
       "redistributed": false,
       "action_required": "Resolve intended-use and redistribution permission for noncommercial/share-alike components before incorporation.",
-      "license_scope_notes": "Project README declaration; base model and incorporated assets require separate checks."
+      "license_scope_notes": "Project README declaration; base model and incorporated assets require separate checks.",
+      "attribution": "Yuan Tang, Xu Han, Xianzhi Li, Qiao Yu, Yixue Hao, Long Hu and Min Chen (MiniGPT-3D, 2024).",
+      "notice_files": [],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#minigpt3d"
     },
     {
       "id": "enel",
@@ -419,26 +528,35 @@
       "incorporated": false,
       "redistributed": false,
       "action_required": "Cite the paper under its publication terms; separately establish implementation, base-model and weight permissions before incorporation.",
-      "license_scope_notes": "Verified publication licence. A paper licence does not by itself establish implementation or model licence."
+      "license_scope_notes": "Verified publication licence. A paper licence does not by itself establish implementation or model licence.",
+      "attribution": "Yiwen Tang, Zoey Guo, Zhuhao Wang, Ray Zhang, Qizhi Chen, Junli Liu, Delin Qu, Zhigang Wang, Dong Wang, Bin Zhao and Xuelong Li (ENEL).",
+      "notice_files": [],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#enel"
     },
     {
       "id": "pointllmr",
       "name": "PointLLM-R",
       "kind": "research",
       "role": "Object reasoning research reference",
-      "license": "CC-BY (ACM paper, user supplied); MIT (released model card), upstream terms retained",
+      "license": "Apache-2.0 (repository code); MIT (model card, upstream terms retained); CC-BY (ACM paper, user supplied)",
       "review_status": "mixed_publication_and_model_evidence",
       "evidence": [
         "https://dl.acm.org/doi/10.1145/3799902.3811081",
         "https://arxiv.org/html/2605.22013v1",
-        "https://huggingface.co/QileXu/PointLLM-R-7B"
+        "https://huggingface.co/QileXu/PointLLM-R-7B",
+        "https://github.com/Xqle/PointLLM-R/blob/main/LICENSE"
       ],
       "reviewed_revision": null,
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
       "action_required": "Keep paper and model licences separate; check retained base-model and data terms before use or redistribution.",
-      "license_scope_notes": "The user-supplied CC-BY label concerns the ACM paper; exact CC-BY version not established here. The released model card states MIT while retaining base-model and Objaverse-derived data licences. The arXiv copy uses its own non-exclusive distribution licence."
+      "license_scope_notes": "The user-supplied CC-BY label concerns the ACM paper; exact CC-BY version not established here. The released model card states MIT while retaining base-model and Objaverse-derived data licences. The arXiv copy uses its own non-exclusive distribution licence.",
+      "attribution": "Chaoqi Chen, Qile Xu, Wenjun Zhou and Hui Huang (PointLLM-R, SIGGRAPH 2026).",
+      "notice_files": [
+        "third_party/references/PointLLM-R-code-Apache-2.0.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#pointllmr"
     },
     {
       "id": "pts3d",
@@ -455,7 +573,10 @@
       "incorporated": false,
       "redistributed": false,
       "action_required": "Verify exact publication licence/version and independently establish code/weight availability and terms before incorporation.",
-      "license_scope_notes": "The CC-BY label and unspecified version are recorded from the supplied list for the publication, not as permission for implementation code or model weights."
+      "license_scope_notes": "The CC-BY label and unspecified version are recorded from the supplied list for the publication, not as permission for implementation code or model weights.",
+      "attribution": "Hugues Thomas, Chen Chen and Jian Zhang (Pts3D-LLM, 2025).",
+      "notice_files": [],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#pts3d"
     },
     {
       "id": "isprs",
@@ -471,7 +592,10 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Cite research. Benchmark an independently implemented method; review separately any external code, models or data. No paper performance guarantee adopted."
+      "action_required": "Cite research. Benchmark an independently implemented method; review separately any external code, models or data. No paper performance guarantee adopted.",
+      "attribution": "Authors credited in the linked LLM-Supervised Point Cloud Processing publication, DOI 10.5194/isprs-archives-XLIX-B2-2026-1311-2026; research reference only.",
+      "notice_files": [],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#isprs"
     }
   ]
 }

@@ -4,7 +4,14 @@ Copyright 2026 Punctora BIM Studio contributors
 Original project material is licensed under the Apache License, Version 2.0.
 Third-party material retains its own copyright and licence terms.
 See THIRD_PARTY_NOTICES.md and docs/DEPENDENCIES.md.
+Component credits, licence notices, source links, usage scopes and modification
+records are in ATTRIBUTIONS.md and third_party/NOTICE_REGISTER.json.
 
 Selected Cloud2BIM geometry routines are adapted from code by Václav Nežerka,
 Copyright (c) 2025, under the MIT licence. See THIRD_PARTY_NOTICES.md and
 third_party/licenses/Cloud2BIM-MIT.txt. No model weights are included.
+
+External runtime libraries remain under their respective licences. Their
+copyright, permission and warranty notices are retained in third_party/licenses.
+Candidate licence references are in third_party/references and do not indicate
+that those components or model assets are incorporated or redistributed.

@@ -1,6 +1,6 @@
 # Dependency and research inventory
 
-Reviewed on 2026-10-08. This register distinguishes selected M1 dependencies from future candidates. Cloud2BIM geometry helpers are included as source; NumPy, Shapely, OpenCV headless and IfcOpenShell are external Python dependencies. Exact direct versions are pinned in pyproject.toml; requirements-core.txt records the tested runtime dependencies. No native binaries or model weights are bundled. Installed Linux licence texts are retained as references, not a Windows binary audit. The machine-readable source is [dependency-inventory.json](../dependency-inventory.json).
+Reviewed on 2026-10-08. This register distinguishes selected M1 dependencies from future candidates. Cloud2BIM geometry helpers are included as source; NumPy, Shapely, OpenCV headless and IfcOpenShell are external Python dependencies. Exact direct versions are pinned in pyproject.toml; requirements-core.txt records the tested runtime dependencies. No native binaries or model weights are bundled. Installed Linux licence texts are retained as references, not a Windows binary audit. The machine-readable source is [dependency-inventory.json](../dependency-inventory.json). Component credits and notices are in [ATTRIBUTIONS.md](../ATTRIBUTIONS.md).
 
 Top-level review identifies published licence evidence, not all-file/transitive clearance. `pending` means the component's terms still need inspection; it is not approved for inclusion. Source links with a commit identify the inspected upstream revision. All chosen package versions must be pinned during implementation.
 
@@ -28,7 +28,7 @@ Top-level review identifies published licence evidence, not all-file/transitive 
 | [GPT4Point](https://github.com/Pointcept/GPT4Point/blob/main/LICENSE) | research: Object-language research reference | MIT (repository LICENSE) | license_file_reviewed_with_conflicting_readme | Future candidate |
 | [MiniGPT-3D](https://github.com/TangYuan96/MiniGPT-3D/blob/main/README.md) | research: Object recognition research reference | CC-BY-NC-SA-4.0 | restricted | Future candidate |
 | [ENEL](https://arxiv.org/abs/2502.09620) | research: Encoder-free 3D-language architecture reference | CC-BY-NC-SA-4.0 (paper); code/weights unverified | publication_reviewed | Future candidate |
-| [PointLLM-R](https://dl.acm.org/doi/10.1145/3799902.3811081) | research: Object reasoning research reference | CC-BY (ACM paper, user supplied); MIT (released model card), upstream terms retained | mixed_publication_and_model_evidence | Future candidate |
+| [PointLLM-R](https://dl.acm.org/doi/10.1145/3799902.3811081) | research: Object reasoning research reference | Apache-2.0 (repository code); MIT (model card, upstream terms retained); CC-BY (ACM paper, user supplied) | mixed_publication_and_model_evidence | Future candidate |
 | [Pts3D-LLM](https://machinelearning.apple.com/research/pts3d-llm) | research: Scene understanding reference | CC-BY (paper, user supplied); code/weights unverified | publication_user_reported | Future candidate |
 | [LLM-Supervised Point Cloud Processing paper](https://doi.org/10.5194/isprs-archives-XLIX-B2-2026-1311-2026) | research: Region-growing and scene-relationship design reference | CC-BY-4.0 (paper only) | publication_reviewed | Future candidate |
 
@@ -56,7 +56,7 @@ The released SpatialLM1.1-Qwen-0.5B checkpoint remains CC-BY-NC-4.0 according to
 - **GPT4Point:** The MIT LICENSE file is recorded as requested. README still declares CC-BY-NC-SA-4.0; scope of that declaration remains unresolved, particularly for models and data.
 - **MiniGPT-3D:** Project README declaration; base model and incorporated assets require separate checks.
 - **ENEL:** Verified publication licence. A paper licence does not by itself establish implementation or model licence.
-- **PointLLM-R:** The user-supplied CC-BY label concerns the ACM paper; exact CC-BY version not established here. The released model card states MIT while retaining base-model and Objaverse-derived data licences. The arXiv copy uses its own non-exclusive distribution licence.
+- **PointLLM-R:** The user-supplied CC-BY label concerns the ACM paper; exact CC-BY version not established here. The repository code licence is Apache-2.0. The released model card states MIT while retaining base-model and Objaverse-derived data licences. The arXiv copy uses its own non-exclusive distribution licence.
 - **Pts3D-LLM:** The CC-BY label and unspecified version are recorded from the supplied list for the publication, not as permission for implementation code or model weights.
 
 ## Incorporation decisions

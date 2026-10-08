@@ -9,7 +9,7 @@ description = "Punctora BIM Studio experimental reconstruction and IFC core"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = "Apache-2.0 AND MIT"
-license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "third_party/licenses/*.txt"]
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "ATTRIBUTIONS.md", "third_party/NOTICE_REGISTER.json", "third_party/LICENCE_SOURCES.json", "third_party/licenses/*.txt", "third_party/references/*.txt"]
 dependencies = [
   "numpy==2.3.5",
   "opencv-python-headless==4.11.0.86",

@@ -50,6 +50,7 @@ Doors, windows and spaces follow once the basic pipeline passes its checks. AI r
 | [Dependency inventory](docs/DEPENDENCIES.md) | Candidate components and licence evidence |
 | [Licence policy](docs/LICENSE_POLICY.md) | Rules for importing code, packaging libraries and models |
 | [Third-party notices](THIRD_PARTY_NOTICES.md) | Attribution status and retained licence references |
+| [Attributions](ATTRIBUTIONS.md) | Creator credits and licence notices mapped to code, runtime, models and research |
 
 ## Licence
 
