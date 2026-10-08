@@ -30,7 +30,9 @@ python -m pytest -q
 python -m punctora_core demo --two-storeys --output-dir outputs/demo
 ```
 
-An automated workflow is added for Windows and Linux, Python 3.11, 3.12 and 3.13. Its presence is not a claim that all CI jobs have passed; inspect the actual workflow results.
+The [initial GitHub workflow](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/runs/37782717967) passed installation, all tests and the two-storey demo on Windows and Linux with Python 3.11 and 3.12. Both Python 3.13 jobs failed during dependency installation because pinned IfcOpenShell 0.8.3 declares `Requires-Python >=3.9,<3.13`; reconstruction tests never ran in those jobs.
+
+The original Python 3.13 support declaration was incorrect. Package metadata and the workflow now require Python 3.11 or 3.12. Supporting 3.13 later requires selecting and validating an appropriate newer IfcOpenShell version. The conversion algorithms and dependency versions are unchanged by this compatibility correction.
 
 ## Evidence limits
 

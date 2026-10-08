@@ -4,7 +4,7 @@ This milestone adapts Cloud2BIM's raster-contour and parallel-face approach into
 
 ## Installation and commands
 
-Create and activate a virtual environment with Python 3.11 to 3.13, then install from the repository:
+Create and activate a virtual environment with Python 3.11 or 3.12, then install from the repository. IfcOpenShell 0.8.3 requires Python below 3.13:
 
 ```sh
 python -m pip install -e ".[test]"

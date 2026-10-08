@@ -14,7 +14,7 @@ The first usable milestone targets Windows x64 and one representative building f
 
 ## Run the experimental core
 
-Use Python 3.11 to 3.13 in a virtual environment. From this repository:
+Use Python 3.11 or 3.12 in a virtual environment. The pinned IfcOpenShell 0.8.3 dependency does not support Python 3.13. From this repository:
 
 ```sh
 python -m pip install -e ".[test]"

@@ -7,7 +7,7 @@ name = "punctora-core"
 version = "0.1.0a1"
 description = "Punctora BIM Studio experimental reconstruction and IFC core"
 readme = "README.md"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11,<3.13"
 license = "Apache-2.0 AND MIT"
 license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "third_party/licenses/*.txt"]
 dependencies = [
