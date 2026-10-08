@@ -1,0 +1,49 @@
+# Generated data and project caches
+data/
+datasets/
+models/
+outputs/
+artifacts/
+*.e57
+*.las
+*.laz
+*.pts
+*.rcp
+*.rcs
+*.ifc
+*.ifczip
+*.rrd
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.gguf
+
+# Local credentials and environment
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# .NET and editors
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db

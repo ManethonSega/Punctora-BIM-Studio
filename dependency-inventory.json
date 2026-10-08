@@ -1,0 +1,415 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-10-08",
+  "phase": "M0 repository foundation",
+  "inventory_type": "candidate register, not an installed SBOM or version lock",
+  "entries": [
+    {
+      "id": "cloud2bim",
+      "name": "Cloud2BIM",
+      "kind": "code",
+      "role": "Selected reconstruction algorithms",
+      "license": "MIT",
+      "review_status": "top_level_reviewed",
+      "evidence": [
+        "https://github.com/VaclavNezerka/Cloud2BIM/blob/cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e/LICENSE"
+      ],
+      "reviewed_revision": "cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e",
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Retain MIT copyright/permission notice; record adapted files and changes; check each ported file and transitive dependency. Supplied release README has a conflicting GPL label."
+    },
+    {
+      "id": "avalonia",
+      "name": "Avalonia",
+      "kind": "code",
+      "role": "Desktop UI",
+      "license": "MIT",
+      "review_status": "top_level_reviewed",
+      "evidence": [
+        "https://github.com/AvaloniaUI/Avalonia/blob/main/licence.md"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "dotnet",
+      "name": ".NET runtime",
+      "kind": "runtime",
+      "role": "Desktop runtime",
+      "license": "unverified",
+      "review_status": "pending",
+      "evidence": [
+        "https://github.com/dotnet/runtime"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "python",
+      "name": "CPython",
+      "kind": "runtime",
+      "role": "Bundled geometry worker",
+      "license": "unverified",
+      "review_status": "pending",
+      "evidence": [
+        "https://github.com/python/cpython"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "pye57",
+      "name": "pye57",
+      "kind": "code",
+      "role": "E57 reader candidate",
+      "license": "MIT",
+      "review_status": "top_level_reviewed",
+      "evidence": [
+        "https://github.com/davidcaron/pye57/blob/master/LICENSE"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "libe57format",
+      "name": "libE57Format and native E57 dependencies",
+      "kind": "code",
+      "role": "Native E57 reader dependencies",
+      "license": "unverified",
+      "review_status": "pending",
+      "evidence": [
+        "https://github.com/asmaloney/libE57Format"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "open3d",
+      "name": "Open3D",
+      "kind": "code",
+      "role": "Surface fitting and cloud processing",
+      "license": "MIT",
+      "review_status": "top_level_reviewed",
+      "evidence": [
+        "https://github.com/isl-org/Open3D/blob/main/LICENSE"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "ifcopenshell",
+      "name": "IfcOpenShell library",
+      "kind": "code",
+      "role": "IFC4 authoring and validation",
+      "license": "LGPL-3.0-or-later",
+      "review_status": "component_reviewed",
+      "evidence": [
+        "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/src/ifcopenshell-python/ifcopenshell/__init__.py",
+        "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/COPYING.LESSER",
+        "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/README.md"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin library build; retain LGPL/GPL texts and applicable source/replacement information; audit native dependencies. Do not copy GPL Bonsai application code as if it were LGPL."
+    },
+    {
+      "id": "pdal",
+      "name": "PDAL",
+      "kind": "code",
+      "role": "Optional additional formats and chunk processing",
+      "license": "BSD-3-Clause (overall); bundled terms vary",
+      "review_status": "top_level_reviewed",
+      "evidence": [
+        "https://github.com/PDAL/PDAL/blob/master/LICENSE.txt"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "numpy",
+      "name": "numpy",
+      "kind": "code",
+      "role": "Numerical arrays",
+      "license": "unverified",
+      "review_status": "pending",
+      "evidence": [
+        "https://github.com/numpy/numpy"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "scipy",
+      "name": "scipy",
+      "kind": "code",
+      "role": "Numerical fitting",
+      "license": "unverified",
+      "review_status": "pending",
+      "evidence": [
+        "https://github.com/scipy/scipy"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "shapely",
+      "name": "shapely",
+      "kind": "code",
+      "role": "Planar geometry",
+      "license": "unverified",
+      "review_status": "pending",
+      "evidence": [
+        "https://github.com/shapely/shapely"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "scikit-image",
+      "name": "scikit-image",
+      "kind": "code",
+      "role": "Image-based reconstruction where retained",
+      "license": "unverified",
+      "review_status": "pending",
+      "evidence": [
+        "https://github.com/scikit-image/scikit-image"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "opencv",
+      "name": "opencv",
+      "kind": "code",
+      "role": "Image processing where retained",
+      "license": "unverified",
+      "review_status": "pending",
+      "evidence": [
+        "https://github.com/opencv/opencv"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "spatiallm-code",
+      "name": "SpatialLM repository code",
+      "kind": "code",
+      "role": "Future structured layout proposal adapter",
+      "license": "Llama-3.2 community terms in repository LICENSE.txt; scope requires clarification",
+      "review_status": "clarification_required",
+      "evidence": [
+        "https://github.com/manycore-research/SpatialLM/blob/8913c44d84a450c53e9340b13317f8cf7144a738/LICENSE.txt",
+        "https://github.com/manycore-research/SpatialLM/blob/8913c44d84a450c53e9340b13317f8cf7144a738/README.md"
+      ],
+      "reviewed_revision": "8913c44d84a450c53e9340b13317f8cf7144a738",
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Independently author Punctora's contract now. Clarify file-specific code terms before importing upstream implementation."
+    },
+    {
+      "id": "spatiallm-qwen",
+      "name": "SpatialLM1.1-Qwen-0.5B weights",
+      "kind": "model",
+      "role": "Optional layout proposals",
+      "license": "CC-BY-NC-4.0",
+      "review_status": "restricted",
+      "evidence": [
+        "https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "No bundling in initial app. Resolve intended-use and redistribution permission, encoder/base-model terms and hardware feasibility."
+    },
+    {
+      "id": "sonata",
+      "name": "Sonata encoder weights",
+      "kind": "model",
+      "role": "SpatialLM1.1 point encoder",
+      "license": "CC-BY-NC-4.0 as stated in SpatialLM README",
+      "review_status": "restricted",
+      "evidence": [
+        "https://github.com/manycore-research/SpatialLM/blob/8913c44d84a450c53e9340b13317f8cf7144a738/README.md"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "spatiallm-dataset",
+      "name": "SpatialLM Dataset",
+      "kind": "dataset",
+      "role": "Possible additional evaluation and training",
+      "license": "CC-BY-NC-4.0",
+      "review_status": "restricted",
+      "evidence": [
+        "https://huggingface.co/datasets/manycore-research/SpatialLM-Dataset"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Resolve permitted evaluation/training/distribution uses before acquisition or inclusion; real survey evaluation still required."
+    },
+    {
+      "id": "pointcept",
+      "name": "Pointcept repository code",
+      "kind": "code",
+      "role": "Future point-label proposal provider",
+      "license": "MIT (reviewed root file)",
+      "review_status": "top_level_reviewed",
+      "evidence": [
+        "https://github.com/Pointcept/Pointcept/blob/1342eda30e96cbb5fadf5374ff8eb18f6de15c71/LICENSE"
+      ],
+      "reviewed_revision": "1342eda30e96cbb5fadf5374ff8eb18f6de15c71",
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Review chosen files and checkpoint terms separately; not a licence clearance for Sonata or other weights."
+    },
+    {
+      "id": "gpt4point",
+      "name": "GPT4Point",
+      "kind": "research",
+      "role": "Object-language research reference",
+      "license": "MIT root file versus CC-BY-NC-SA-4.0 README",
+      "review_status": "clarification_required",
+      "evidence": [
+        "https://github.com/Pointcept/GPT4Point/blob/main/LICENSE",
+        "https://github.com/Pointcept/GPT4Point#-license"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "minigpt3d",
+      "name": "MiniGPT-3D",
+      "kind": "research",
+      "role": "Object recognition research reference",
+      "license": "unverified",
+      "review_status": "pending",
+      "evidence": [
+        "https://huggingface.co/papers/2405.01413",
+        "https://github.com/TangYuan96/MiniGPT-3D"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "enel",
+      "name": "ENEL",
+      "kind": "research",
+      "role": "Encoder-free 3D-language architecture reference",
+      "license": "unverified",
+      "review_status": "pending",
+      "evidence": [
+        "https://arxiv.org/html/2502.09620v1"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "pointllmr",
+      "name": "PointLLM-R",
+      "kind": "research",
+      "role": "Object reasoning research reference",
+      "license": "unverified; separate base-model/data terms require review",
+      "review_status": "pending",
+      "evidence": [
+        "https://dl.acm.org/doi/10.1145/3799902.3811081",
+        "https://arxiv.org/html/2605.22013v1",
+        "https://huggingface.co/QileXu/PointLLM-R-7B"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "pts3d",
+      "name": "Pts3D-LLM",
+      "kind": "research",
+      "role": "Scene understanding reference",
+      "license": "unverified",
+      "review_status": "pending",
+      "evidence": [
+        "https://machinelearning.apple.com/research/pts3d-llm"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+    },
+    {
+      "id": "isprs",
+      "name": "LLM-Supervised Point Cloud Processing paper",
+      "kind": "research",
+      "role": "Region-growing and scene-relationship design reference",
+      "license": "CC-BY-4.0 (paper only)",
+      "review_status": "publication_reviewed",
+      "evidence": [
+        "https://doi.org/10.5194/isprs-archives-XLIX-B2-2026-1311-2026"
+      ],
+      "reviewed_revision": null,
+      "selected_version": null,
+      "incorporated": false,
+      "redistributed": false,
+      "action_required": "Cite research. Benchmark an independently implemented method; review separately any external code, models or data. No paper performance guarantee adopted."
+    }
+  ]
+}
