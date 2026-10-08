@@ -46,6 +46,9 @@ class Wall:
     evidence_count: int = 0
     fit_rmse_m: float | None = None
     review_state: str = "unreviewed"
+    observed_faces: list[dict] = field(default_factory=list)
+    evidence: dict = field(default_factory=dict)
+    detection_method: str = "contour"
 
 
 @dataclass
@@ -57,6 +60,7 @@ class Slab:
     thickness: float
     kind: str = "FLOOR"
     provenance: dict[str, str] = field(default_factory=dict)
+    review_state: str = "unreviewed"
 
 
 @dataclass
@@ -117,6 +121,16 @@ class BuildingModel:
                 positive(dist(obj.start, obj.end), "Wall length")
                 positive(obj.thickness, "Wall thickness")
                 positive(obj.height, "Wall height")
+                if not isinstance(obj.evidence_count, int) or obj.evidence_count < 0:
+                    raise ValueError("Wall evidence count must be nonnegative")
+                if obj.fit_rmse_m is not None and (not isfinite(obj.fit_rmse_m) or obj.fit_rmse_m < 0):
+                    raise ValueError("Wall fit RMSE must be finite and nonnegative")
+                for face in obj.observed_faces:
+                    if (not all(key in face for key in ["start", "end", "z_min", "z_max"])
+                            or len(face["start"]) != 2 or len(face["end"]) != 2
+                            or not all(isfinite(x) for x in [*face["start"], *face["end"], face["z_min"], face["z_max"]])
+                            or dist(face["start"], face["end"]) <= 0 or face["z_min"] > face["z_max"]):
+                        raise ValueError("Observed wall faces require finite nondegenerate geometry")
             else:
                 polygon_check(obj.footprint)
                 positive(obj.thickness if isinstance(obj, Slab) else obj.height, "Extrusion depth")
@@ -136,4 +150,4 @@ class BuildingModel:
 
     def to_dict(self) -> dict:
         self.validate()
-        return {"schema_version": 1, "units": "metres", **asdict(self)}
+        return {"schema_version": 2, "units": "metres", **asdict(self)}

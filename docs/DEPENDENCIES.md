@@ -1,6 +1,6 @@
 # Dependency and research inventory
 
-Reviewed on 2026-10-08. This register distinguishes selected M2 dependencies from future candidates. Cloud2BIM geometry helpers are included as source; NumPy, Shapely, OpenCV headless, IfcOpenShell, pye57 and pyquaternion are external Python dependencies. pye57 compiles libE57Format and links or bundles Xerces-C++; libE57Format vendors CRC++. Exact direct versions are pinned in pyproject.toml; requirements-core.txt records the tested runtime dependencies. No model weights are bundled. Installed Linux licence texts are retained as references, not a complete Windows installer audit. The machine-readable source is [dependency-inventory.json](../dependency-inventory.json). Component credits and notices are in [ATTRIBUTIONS.md](../ATTRIBUTIONS.md).
+Reviewed on 2026-10-08. This register distinguishes selected M2 dependencies from future candidates. Cloud2BIM geometry helpers are included as source; NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57 and pyquaternion are external Python dependencies. pye57 compiles libE57Format and links or bundles Xerces-C++; libE57Format vendors CRC++. Exact direct versions are pinned in pyproject.toml; requirements-core.txt records the tested runtime dependencies. No model weights are bundled. Installed Linux licence texts are retained as references, not a complete Windows installer audit. The machine-readable source is [dependency-inventory.json](../dependency-inventory.json). Component credits and notices are in [ATTRIBUTIONS.md](../ATTRIBUTIONS.md).
 
 Top-level review identifies published licence evidence, not all-file/transitive clearance. `pending` means the component's terms still need inspection; it is not approved for inclusion. Source links with a commit identify the inspected upstream revision. All chosen package versions must be pinned during implementation.
 
@@ -19,7 +19,7 @@ Top-level review identifies published licence evidence, not all-file/transitive 
 | [IfcOpenShell library](https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/src/ifcopenshell-python/ifcopenshell/__init__.py) | code: IFC4 authoring and validation | LGPL-3.0-or-later | installed_source_header_reviewed | 0.8.3 |
 | [PDAL](https://github.com/PDAL/PDAL/blob/master/LICENSE.txt) | code: Optional additional formats and chunk processing | BSD-3-Clause; bundled components have additional terms | top_level_reviewed | Future candidate |
 | [numpy](https://github.com/numpy/numpy/blob/main/LICENSE.txt) | code: Numerical arrays | BSD-3-Clause; wheel contains additional terms | installed_license_reviewed | 2.3.5 |
-| [scipy](https://github.com/scipy/scipy/blob/main/LICENSE.txt) | code: Numerical fitting | BSD-3-Clause; bundled components have additional terms | top_level_reviewed | Future candidate |
+| [scipy](https://github.com/scipy/scipy/blob/main/LICENSE.txt) | code: CPU surface neighbourhoods | BSD-3-Clause; bundled components have additional terms | runtime_distribution_notices_retained | 1.17.0 |
 | [shapely](https://github.com/shapely/shapely) | code: Planar geometry | BSD-3-Clause; GEOS LGPL-2.1-or-later | installed_license_reviewed | 2.1.2 |
 | [scikit-image](https://github.com/scikit-image/scikit-image/blob/main/LICENSE.txt) | code: Image-based reconstruction where retained | BSD-3-Clause overall; file-specific terms vary | top_level_reviewed | Future candidate |
 | [opencv](https://github.com/opencv/opencv) | code: Image processing where retained | Apache-2.0 (OpenCV), MIT (Python packaging); native wheel terms vary | installed_license_reviewed | 4.11.0.86 (opencv-python-headless) |
@@ -64,7 +64,7 @@ The released SpatialLM1.1-Qwen-0.5B checkpoint remains CC-BY-NC-4.0 according to
 
 ## Incorporation decisions
 
-Cloud2BIM, NumPy, Shapely, OpenCV headless, IfcOpenShell, pye57, pyquaternion, libE57Format, Xerces-C++ and CRC++ are selected for the current core. Open3D and Avalonia remain candidates for later milestones. PDAL is optional and is not part of direct E57 import.
+Cloud2BIM, NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57, pyquaternion, libE57Format, Xerces-C++ and CRC++ are selected for the current core. Open3D and Avalonia remain candidates for later milestones. PDAL is optional and is not part of direct E57 import.
 
 SpatialLM can inform an independently written element/proposal contract now, but its source-code terms are not assumed permissive. Pointcept's reviewed MIT root licence does not cover every associated pretrained asset. Model weights and datasets remain separate inventory entries.
 

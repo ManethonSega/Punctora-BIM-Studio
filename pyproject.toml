@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "punctora-core"
-version = "0.2.0a1"
+version = "0.2.0a2"
 description = "Punctora BIM Studio experimental E57 reconstruction and IFC core"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -12,6 +12,7 @@ license = "Apache-2.0 AND MIT"
 license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "ATTRIBUTIONS.md", "third_party/NOTICE_REGISTER.json", "third_party/LICENCE_SOURCES.json", "third_party/licenses/*.txt", "third_party/references/*.txt"]
 dependencies = [
   "numpy==2.3.5",
+  "scipy==1.17.0",
   "opencv-python-headless==4.11.0.86",
   "shapely==2.1.2",
   "ifcopenshell==0.8.3",

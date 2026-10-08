@@ -120,8 +120,9 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         solid(entity, rectangle(length, wall.thickness), wall.height, frame)
         provenance(entity, wall.id, wall.provenance,
                    {"EvidencePointCount": wall.evidence_count, "Classification": wall.classification,
-                    "SectionFitRMSE_m": wall.fit_rmse_m, "ReviewState": wall.review_state,
-                    "FitScope": "wall-section support points only"})
+                    "ObservedFaceFitRMSE_m": wall.fit_rmse_m, "ReviewState": wall.review_state,
+                    "DetectionMethod": wall.detection_method,
+                    "FitScope": wall.evidence.get("scope", "caller-supplied evidence scope unspecified")})
         wall_entities[wall.id], wall_frames[wall.id] = entity, frame
 
     for slab in model.slabs:

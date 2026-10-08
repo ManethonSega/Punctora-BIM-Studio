@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "review_date": "2026-10-08",
-  "phase": "M2 direct E57 import and coordinate handling",
+  "phase": "M2 direct E57, bounded fitting and generated provider benchmarks; M3 next",
   "inventory_type": "selected source/runtime dependencies plus future candidates; not a binary SBOM",
   "entries": [
     {
@@ -299,21 +299,24 @@
       "id": "scipy",
       "name": "scipy",
       "kind": "code",
-      "role": "Numerical fitting",
+      "role": "Bounded CPU nearest-neighbour queries for surface patches",
       "license": "BSD-3-Clause; bundled components have additional terms",
-      "review_status": "top_level_reviewed",
+      "review_status": "runtime_distribution_notices_retained",
       "evidence": [
         "https://github.com/scipy/scipy/blob/main/LICENSE.txt",
         "https://github.com/scipy/scipy"
       ],
       "reviewed_revision": null,
-      "selected_version": null,
-      "incorporated": false,
+      "selected_version": "1.17.0",
+      "incorporated": true,
       "redistributed": false,
-      "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
+      "action_required": "Pinned external runtime; retain installed-distribution notices. Recheck platform-specific wheels for the Windows installer.",
       "attribution": "SciPy Developers and contributors identified in the source licence.",
       "notice_files": [
-        "third_party/references/SciPy-BSD-3-Clause.txt"
+        "third_party/licenses/SciPy-1.17.0-wheel.txt",
+        "third_party/licenses/SciPy-1.17.0-uarray.txt",
+        "third_party/licenses/SciPy-1.17.0-pocketfft.txt",
+        "third_party/licenses/SciPy-1.17.0-DOP.txt"
       ],
       "attribution_register": "third_party/NOTICE_REGISTER.json#scipy"
     },
@@ -658,7 +661,7 @@
       "incorporated": false,
       "redistributed": false,
       "action_required": "Cite research. Benchmark an independently implemented method; review separately any external code, models or data. No paper performance guarantee adopted.",
-      "attribution": "Authors credited in the linked LLM-Supervised Point Cloud Processing publication, DOI 10.5194/isprs-archives-XLIX-B2-2026-1311-2026; research reference only.",
+      "attribution": "Florent Poux and Alex Key (2026), LLM-Supervised Point Cloud Processing, DOI 10.5194/isprs-archives-XLIX-B2-2026-1311-2026. Independently authored geometric experiment; no upstream implementation or paper text copied.",
       "notice_files": [],
       "attribution_register": "third_party/NOTICE_REGISTER.json#isprs"
     }

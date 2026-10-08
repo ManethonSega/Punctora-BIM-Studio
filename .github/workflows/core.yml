@@ -22,3 +22,10 @@ jobs:
       - run: python -m pip install -e ".[test]"
       - run: python -m pytest -q
       - run: python -m punctora_core demo --two-storeys --output-dir outputs/demo
+      - run: python -m punctora_core demo --settings docs/region-growing-settings.json --output-dir outputs/region-demo
+      - run: python -m punctora_core.benchmark --cases clean rotated thin_partition --check --output-dir outputs/benchmarks
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m2-benchmark-${{ matrix.os }}-py${{ matrix.python }}
+          path: outputs/benchmarks/benchmark.json

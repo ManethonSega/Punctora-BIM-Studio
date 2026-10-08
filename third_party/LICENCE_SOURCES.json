@@ -154,6 +154,34 @@
       "source_url": "https://github.com/asmaloney/libE57Format/blob/1914b8ea972251d3bb49a33828497dde683205d9/extern/CRCpp/LICENSE",
       "source_blob_sha": "106f0bc5284039adb245a1b825a288cbb206aa3a",
       "retained_sha256": "954e7c6730168114b296fbcc60532fa7ce64236e1adf17c147878bb7949be09e"
+    },
+    {
+      "key": "scipy_1_17_0_SciPy-1.17.0-wheel.txt",
+      "path": "third_party/licenses/SciPy-1.17.0-wheel.txt",
+      "source_url": "https://pypi.org/project/scipy/1.17.0/",
+      "installed_distribution": "scipy==1.17.0 (Linux wheel)",
+      "retained_sha256": "4daf14e37432e7026165979ecb7a39930707a3e89bef4876cfaf9dad36ed364a"
+    },
+    {
+      "key": "scipy_1_17_0_SciPy-1.17.0-uarray.txt",
+      "path": "third_party/licenses/SciPy-1.17.0-uarray.txt",
+      "source_url": "https://pypi.org/project/scipy/1.17.0/",
+      "installed_distribution": "scipy==1.17.0 (Linux wheel)",
+      "retained_sha256": "c80c39b5fce06ba4897e14e0b0a88b54458334d951eb1361402ffad2cfb863b4"
+    },
+    {
+      "key": "scipy_1_17_0_SciPy-1.17.0-pocketfft.txt",
+      "path": "third_party/licenses/SciPy-1.17.0-pocketfft.txt",
+      "source_url": "https://pypi.org/project/scipy/1.17.0/",
+      "installed_distribution": "scipy==1.17.0 (Linux wheel)",
+      "retained_sha256": "c254b2b5fd30ae3c89d36ba061730563b9760fca04f1b746a1b2c3157da2c789"
+    },
+    {
+      "key": "scipy_1_17_0_SciPy-1.17.0-DOP.txt",
+      "path": "third_party/licenses/SciPy-1.17.0-DOP.txt",
+      "source_url": "https://pypi.org/project/scipy/1.17.0/",
+      "installed_distribution": "scipy==1.17.0 (Linux wheel)",
+      "retained_sha256": "ed9bf58c6d74d3fad9d92d1d67d9bff8141d8ab60de784516b0711364fd43357"
     }
   ],
   "external_licence_urls": [

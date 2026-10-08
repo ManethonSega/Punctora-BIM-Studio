@@ -4,6 +4,8 @@ import hashlib
 import json
 import os
 import tempfile
+import uuid
+import shutil
 from pathlib import Path
 
 from . import __version__
@@ -12,6 +14,7 @@ from .e57_io import read_e57
 from .fixtures import demo_cloud
 from .ifc_export import write_ifc
 from .reconstruction import ReconstructionSettings, reconstruct
+from .evidence import write_wall_evidence
 
 
 def _json_write(path, data):
@@ -34,6 +37,7 @@ def main(argv=None):
     demo = commands.add_parser("demo", help="Generate and reconstruct a synthetic floor example")
     demo.add_argument("--two-storeys", action="store_true")
     demo.add_argument("--output-dir", type=Path, required=True)
+    demo.add_argument("--settings", type=Path, help="JSON object containing ReconstructionSettings fields")
     convert = commands.add_parser("convert-xyz", help="Reconstruct local, registered XYZ data with declared units and Z up")
     convert.add_argument("input", type=Path)
     convert.add_argument("--units", choices=["m", "mm"], required=True)
@@ -91,6 +95,14 @@ def main(argv=None):
         destinations = [args.output_dir/name for name in ["model.ifc", "elements.json", "validation.json", "source.xyz"]]
         if args.command == "convert-xyz" and any(p.resolve() == args.input.resolve() for p in destinations[:3]):
             raise ValueError("Output path overlaps the source input")
+        evidence_directory = args.output_dir/"evidence"/uuid.uuid4().hex
+        evidence_directory.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            write_wall_evidence(cloud, model.walls, evidence_directory, settings.processing_chunk_points,
+                                model.metadata.get("surface_proposals"))
+        except Exception:
+            shutil.rmtree(evidence_directory, ignore_errors=True)
+            raise
         report = write_ifc(model, args.output_dir/"model.ifc")
         _json_write(args.output_dir/"elements.json", model.to_dict())
         _json_write(args.output_dir/"validation.json", report)

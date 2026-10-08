@@ -9,7 +9,7 @@ Status: M2 import and reconstruction core implemented; desktop remains a design 
 | Desktop | Project setup, jobs, 3D review, corrections and export | .NET 10 and Avalonia; renderer selection pending prototype |
 | Import worker | Read E57 scans, poses and available metadata, reject invalid coordinates | Python and pye57 0.4.19; bounded-memory decoding implemented and tested with generated fixtures |
 | Cloud store | Preserve the source, index working points and serve reduced preview data | Disk-backed working arrays implemented; preview/index formats remain for M3 benchmarking |
-| Reconstruction | Detect floors and surfaces, fit walls/slabs and retain scan evidence | Selected corrected Cloud2BIM algorithms; Open3D candidate |
+| Reconstruction | Detect floors and surfaces, fit walls/slabs and retain scan evidence | Contour baseline plus CPU region-growing experiment; capped voxel proposals, batched SciPy neighbourhoods and original-record wall fitting implemented |
 | Element model | Stable IDs, geometric parameters, host/storey relationships and provenance | Punctora-owned versioned JSON representation |
 | IFC service | IFC4 geometry, decomposition, containment, openings and georeferencing | IfcOpenShell library; local placement plus E57-source `IfcMapConversion` implemented |
 | Quality service | IFC rules, geometric checks and surface-deviation measurements | Deterministic calculations with explicit coverage and sampling |
@@ -41,6 +41,8 @@ Each job has an ID, input fingerprints, parameters, engine versions and output p
 ## Internal element contract
 
 An element carries its stable ID, class, storey ID, geometry parameters, source scan/point references, detection method, parameter provenance, user review state and measured quality results. Openings carry a host-wall ID. Spaces have spatial decomposition relationships distinct from physical-element containment.
+
+Element JSON schema 2 records wall observed faces, deterministic evidence selectors, per-scan counts and bounded record examples. CLI exports full N x 3 int64 wall references (working-cloud row, scan index, original scan record) and region-patch representative IDs to generation-specific NPY files. Paths are relative to the output/project directory. An identifier absent from the source is -1, never a fabricated scan record. Surface proposals remain separate from IFC elements. Slab footprints and unseen thicknesses remain inferred; wall reference files do not validate those properties.
 
 Use explicit parameter states: `measured`, `inferred`, `user_supplied`, `unknown`. A fitted wall surface does not establish its hidden thickness, material or load-bearing status. Unknown values remain unknown unless an export representation requires an assumption; that assumption is shown and recorded. Do not assign an uncalibrated number as a probability of correctness.
 

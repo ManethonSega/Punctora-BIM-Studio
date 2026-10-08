@@ -1,6 +1,6 @@
 # M2 direct E57 import verification
 
-Status: implemented and checked with generated fixtures on 2026-10-08. This completes the direct-import and coordinate-handling part of M2. It does not complete the surface-detection benchmark or establish performance on a real survey.
+Status: implemented and checked with generated fixtures on 2026-10-08. Direct import, coordinate handling and the generated surface-method benchmark are implemented. See [M2 fitting verification](M2_FITTING_VERIFICATION.md). No performance or compatibility claim for a real survey is established yet.
 
 ## Implemented behaviour
 
@@ -27,11 +27,13 @@ python -m pip install -e ".[test]"
 python -m pytest -q
 ```
 
-Current result: 51 tests pass on the local Python 3.12 environment. GitHub Actions provides the authoritative Windows/Linux and Python 3.11/3.12 matrix result for the published commit.
+Current result: 74 tests pass on the local Python 3.12 environment, including complete wall source references after scan poses and invalid-record filtering. GitHub Actions provides the authoritative Windows/Linux and Python 3.11/3.12 matrix result for the published commit.
 
 ## Remaining M2 work
 
-- Benchmark the current contour baseline against normal-based region-growing on the same generated and real scan subsets.
-- Measure peak memory and runtime on a representative building E57. Cache creation is chunked, but current reconstruction still processes the combined working point array.
+- Repeat the implemented contour/fixed-region/adaptive-region comparison on annotated real scan subsets.
+- Measure peak memory and runtime on a representative building E57. Generated size measurements exist, but repeated synthetic records do not establish building-scale geometric diversity. Detection samples and original-record fitting temporaries are bounded; mapped pages, XYZ loading and output size still contribute memory/storage costs.
 - Test vendor-specific E57 extensions and channels from real scanners; generated validity-field tests do not establish vendor compatibility.
 - Confirm CRS and vertical datum with the user or project documentation before treating source coordinates as georeferenced map coordinates.
+
+These field checks remain visible while M3 desktop development proceeds. They are required before real-survey acceptance, not a reason to claim generated results are real-survey validation.

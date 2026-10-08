@@ -240,19 +240,22 @@
     {
       "id": "scipy",
       "name": "scipy",
-      "usage": "candidate or research reference, not incorporated",
-      "scope": "Numerical fitting",
+      "usage": "external runtime dependency",
+      "scope": "Bounded CPU nearest-neighbour queries for surface patches",
       "license": "BSD-3-Clause; bundled components have additional terms",
-      "attribution": "SciPy Developers and contributors identified in the source licence.",
+      "attribution": "SciPy Developers and the bundled component authors identified in the retained installed-distribution licence texts.",
       "source_urls": [
         "https://github.com/scipy/scipy/blob/main/LICENSE.txt",
         "https://github.com/scipy/scipy"
       ],
       "licence_files": [
-        "third_party/references/SciPy-BSD-3-Clause.txt"
+        "third_party/licenses/SciPy-1.17.0-wheel.txt",
+        "third_party/licenses/SciPy-1.17.0-uarray.txt",
+        "third_party/licenses/SciPy-1.17.0-pocketfft.txt",
+        "third_party/licenses/SciPy-1.17.0-DOP.txt"
       ],
-      "changes": "No upstream code, weights, data or paper content incorporated. Licence reference retained for planned use.",
-      "version": null,
+      "changes": "None; external unmodified dependency.",
+      "version": "1.17.0",
       "reviewed_revision": null
     },
     {
@@ -562,7 +565,7 @@
       "usage": "candidate or research reference, not incorporated",
       "scope": "Region-growing and scene-relationship design reference",
       "license": "CC-BY-4.0 (paper only)",
-      "attribution": "Authors credited in the linked LLM-Supervised Point Cloud Processing publication, DOI 10.5194/isprs-archives-XLIX-B2-2026-1311-2026; research reference only.",
+      "attribution": "Florent Poux and Alex Key (2026), LLM-Supervised Point Cloud Processing, DOI 10.5194/isprs-archives-XLIX-B2-2026-1311-2026. Independently authored geometric experiment; no upstream implementation or paper text copied.",
       "source_urls": [
         "https://doi.org/10.5194/isprs-archives-XLIX-B2-2026-1311-2026"
       ],

@@ -11,6 +11,32 @@ from punctora_core.e57_io import read_e57
 from punctora_core.fixtures import demo_cloud
 
 
+def test_region_e57_export_retains_source_records_after_pose_and_invalid_filtering(tmp_path):
+    source = tmp_path/"building.e57"
+    _write_building_e57(source)
+    original = source.read_bytes()
+    settings = tmp_path/"region.json"
+    settings.write_text(json.dumps({"surface_method": "region_growing"}))
+    output = tmp_path/"result"
+    assert main(["convert-e57", str(source), "--settings", str(settings), "--chunk-points", "1000",
+                 "--output-dir", str(output)]) == 0
+    model = json.loads((output/"elements.json").read_text())
+    manifest = json.loads((output/"import-manifest.json").read_text())
+    files = manifest["cache"]["files"]
+    scans = np.fromfile(output/"working-cache"/files["scan_index"]["path"], dtype=files["scan_index"]["dtype"])
+    records = np.fromfile(output/"working-cache"/files["source_record_index"]["path"], dtype=files["source_record_index"]["dtype"])
+    assert len(model["walls"]) == 5
+    for wall in model["walls"]:
+        refs = np.load(output/wall["evidence"]["records"]["path"])
+        np.testing.assert_array_equal(refs[:, 1], scans[refs[:, 0]])
+        np.testing.assert_array_equal(refs[:, 2], records[refs[:, 0]])
+    for patch in model["metadata"]["surface_proposals"]:
+        assert "representative_cloud_indices" not in patch
+        assert len(np.load(output/patch["representative_cloud_records"]["path"])) == patch["sample_count"]
+    assert json.loads((output/"validation.json").read_text())["valid"]
+    assert source.read_bytes() == original
+
+
 def _write_small_e57(path):
     expected = np.array([
         [4_000_000.0, 5_000_000.0, 100.0],

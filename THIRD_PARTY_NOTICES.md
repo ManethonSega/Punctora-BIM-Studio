@@ -24,6 +24,7 @@ The adapted routines cover distances, collinearity, merging, parallel overlap, i
 | Dependency | Version | Retained licence reference |
 | --- | --- | --- |
 | NumPy | 2.3.5 | [Wheel licence and bundled notices](third_party/licenses/NumPy-2.3.5-wheel.txt), NumPy BSD-3-Clause and additional native terms |
+| SciPy | 1.17.0 | BSD-3-Clause with bundled component terms; [SciPy-1.17.0-wheel.txt](third_party/licenses/SciPy-1.17.0-wheel.txt), [SciPy-1.17.0-uarray.txt](third_party/licenses/SciPy-1.17.0-uarray.txt), [SciPy-1.17.0-pocketfft.txt](third_party/licenses/SciPy-1.17.0-pocketfft.txt), [SciPy-1.17.0-DOP.txt](third_party/licenses/SciPy-1.17.0-DOP.txt) |
 | Shapely | 2.1.2 | [BSD-3-Clause](third_party/licenses/Shapely-2.1.2.txt), [GEOS notice](third_party/licenses/GEOS-Shapely-wheel.txt) |
 | opencv-python-headless | 4.11.0.86 | [Python packaging MIT](third_party/licenses/OpenCV-python-4.11.0.86.txt), [native notices including OpenCV Apache-2.0](third_party/licenses/OpenCV-wheel-third-party.txt) |
 | IfcOpenShell library | 0.8.3 | Installed source headers specify LGPL-3.0-or-later; [source](https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/src/ifcopenshell-python/ifcopenshell/__init__.py), [LGPL text](third_party/licenses/IfcOpenShell-LGPL-3.0.txt), [GPL text referenced by LGPL](third_party/licenses/IfcOpenShell-GPL-3.0.txt) |

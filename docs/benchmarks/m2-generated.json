@@ -1,0 +1,2707 @@
+{
+  "schema_version": 1,
+  "punctora_version": "0.2.0a2",
+  "environment": {
+    "os": "Linux-6.18.44-x86_64-with-glibc2.39",
+    "python": "3.12.14",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 9,
+    "numerical_threads": 1
+  },
+  "scope": "generated geometry and process-size experiments; no survey accuracy claim",
+  "peak_memory_scope": "whole isolated worker, including interpreter, libraries, input creation/import and mapped pages",
+  "results": [
+    {
+      "case": "clean",
+      "provider": "contour",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "clean",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 0.11471475000143982,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 97140736,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "contour",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 7254,
+          "source_point_count": 7280,
+          "voxel_size_m": 0.02
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20280,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "clean",
+      "provider": "region_fixed",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "clean",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 0.7256325380003545,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 99799040,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 20280,
+          "voxel_size_m": 0.08,
+          "source_point_count": 52804,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 15.0,
+          "adaptive": false,
+          "patches": 8,
+          "unassigned_points": 47
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20280,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "clean",
+      "provider": "region_adaptive",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "clean",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 0.835454056999879,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 99479552,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": true
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 20280,
+          "voxel_size_m": 0.08,
+          "source_point_count": 52804,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 5.0,
+          "adaptive": true,
+          "patches": 8,
+          "unassigned_points": 437
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20280,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "rotated",
+      "provider": "contour",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "rotated",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 0.1635674100016331,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 95657984,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "contour",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 7254,
+          "source_point_count": 7280,
+          "voxel_size_m": 0.02
+        }
+      ],
+      "level_detection": {
+        "sample_points": 21524,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 0.9999999999999999,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 8.087524039819316e-15,
+        "footprint_area_error_m2": 0.0012499999999739941,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.19999999999999912
+      ],
+      "warnings": [
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "rotated",
+      "provider": "region_fixed",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "rotated",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 0.994394788000136,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 99876864,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 21524,
+          "voxel_size_m": 0.08,
+          "source_point_count": 52804,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 15.0,
+          "adaptive": false,
+          "patches": 8,
+          "unassigned_points": 46
+        }
+      ],
+      "level_detection": {
+        "sample_points": 21524,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 0.9999999999999999,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 1.6290985347095884e-14,
+        "footprint_area_error_m2": 0.0012499999999739941,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.19999999999999693
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "rotated",
+      "provider": "region_adaptive",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "rotated",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 1.036237529000573,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 99205120,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": true
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 21524,
+          "voxel_size_m": 0.08,
+          "source_point_count": 52804,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 5.0,
+          "adaptive": true,
+          "patches": 8,
+          "unassigned_points": 562
+        }
+      ],
+      "level_detection": {
+        "sample_points": 21524,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 0.9999999999999999,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 1.6290985347095884e-14,
+        "footprint_area_error_m2": 0.0012499999999739941,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.19999999999999693
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "noisy",
+      "provider": "contour",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "noisy",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 0.13291795300028753,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 97165312,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "contour",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 6709,
+          "source_point_count": 6727,
+          "voxel_size_m": 0.02
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20290,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.00039067186048002966,
+        "footprint_area_error_m2": 0.1015921550764709,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20023714001608828
+      ],
+      "warnings": [
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "noisy",
+      "provider": "region_fixed",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "noisy",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 1.4445332000013877,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 104361984,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 42801,
+          "voxel_size_m": 0.02,
+          "source_point_count": 42907,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.1,
+          "normal_angle_deg": 15.0,
+          "adaptive": false,
+          "patches": 8,
+          "unassigned_points": 225
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20290,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.00013016045947633614,
+        "footprint_area_error_m2": 0.1015921550764709,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20009325936456338
+      ],
+      "warnings": [
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "noisy",
+      "provider": "region_adaptive",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "noisy",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 1.6577020500008075,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 103669760,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": true
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 42801,
+          "voxel_size_m": 0.02,
+          "source_point_count": 42907,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.1,
+          "normal_angle_deg": 6.035423091367813,
+          "adaptive": true,
+          "patches": 8,
+          "unassigned_points": 403
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20290,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.00013016045947633614,
+        "footprint_area_error_m2": 0.1015921550764709,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20009325936456338
+      ],
+      "warnings": [
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "sparse",
+      "provider": "contour",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "sparse",
+        "seed": 20261008
+      },
+      "source_points": 21035,
+      "reconstruction_seconds": 0.06786472599924309,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 95453184,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "contour",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 2876,
+          "source_point_count": 2880,
+          "voxel_size_m": 0.02
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20984,
+        "voxel_size_m": 0.02
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.017499999999998295,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "sparse",
+      "provider": "region_fixed",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "sparse",
+        "seed": 20261008
+      },
+      "source_points": 21035,
+      "reconstruction_seconds": 0.7441222790002939,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 100380672,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 20984,
+          "voxel_size_m": 0.02,
+          "source_point_count": 21035,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.1,
+          "normal_angle_deg": 15.0,
+          "adaptive": false,
+          "patches": 8,
+          "unassigned_points": 188
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20984,
+        "voxel_size_m": 0.02
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.017499999999998295,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "sparse",
+      "provider": "region_adaptive",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "sparse",
+        "seed": 20261008
+      },
+      "source_points": 21035,
+      "reconstruction_seconds": 0.7366915260008682,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 101285888,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": true
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 20984,
+          "voxel_size_m": 0.02,
+          "source_point_count": 21035,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.1,
+          "normal_angle_deg": 5.0,
+          "adaptive": true,
+          "patches": 8,
+          "unassigned_points": 195
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20984,
+        "voxel_size_m": 0.02
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.017499999999998295,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "low_clutter",
+      "provider": "contour",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "low_clutter",
+        "seed": 20261008
+      },
+      "source_points": 55336,
+      "reconstruction_seconds": 0.12208857399855333,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 100085760,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "contour",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 7254,
+          "source_point_count": 7280,
+          "voxel_size_m": 0.02
+        }
+      ],
+      "level_detection": {
+        "sample_points": 21156,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "low_clutter",
+      "provider": "region_fixed",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "low_clutter",
+        "seed": 20261008
+      },
+      "source_points": 55336,
+      "reconstruction_seconds": 0.7131154670005344,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 100081664,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 21156,
+          "voxel_size_m": 0.08,
+          "source_point_count": 55336,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 15.0,
+          "adaptive": false,
+          "patches": 13,
+          "unassigned_points": 49
+        }
+      ],
+      "level_detection": {
+        "sample_points": 21156,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "low_clutter",
+      "provider": "region_adaptive",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "low_clutter",
+        "seed": 20261008
+      },
+      "source_points": 55336,
+      "reconstruction_seconds": 0.6640563529999781,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 98787328,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": true
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 21156,
+          "voxel_size_m": 0.08,
+          "source_point_count": 55336,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 5.0,
+          "adaptive": true,
+          "patches": 13,
+          "unassigned_points": 497
+        }
+      ],
+      "level_detection": {
+        "sample_points": 21156,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "thin_partition",
+      "provider": "contour",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "thin_partition",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 0.10781046299962327,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 94785536,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "contour",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 7254,
+          "source_point_count": 7280,
+          "voxel_size_m": 0.02
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20280,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.1200000000000001
+      ],
+      "warnings": [
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "thin_partition",
+      "provider": "region_fixed",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "thin_partition",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 0.7603564549990551,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 99725312,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 20280,
+          "voxel_size_m": 0.08,
+          "source_point_count": 52804,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 15.0,
+          "adaptive": false,
+          "patches": 8,
+          "unassigned_points": 21
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20280,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.1200000000000001
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "thin_partition",
+      "provider": "region_adaptive",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "thin_partition",
+        "seed": 20261008
+      },
+      "source_points": 52804,
+      "reconstruction_seconds": 0.7693953060006606,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 100360192,
+      "walls": 5,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": true
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 20280,
+          "voxel_size_m": 0.08,
+          "source_point_count": 52804,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 5.0,
+          "adaptive": true,
+          "patches": 8,
+          "unassigned_points": 365
+        }
+      ],
+      "level_detection": {
+        "sample_points": 20280,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.1200000000000001
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "two_storeys",
+      "provider": "contour",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "two_storeys",
+        "seed": 20261008
+      },
+      "source_points": 79206,
+      "reconstruction_seconds": 0.24714223900082288,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 101154816,
+      "walls": 9,
+      "storeys": 2,
+      "slabs": 3,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "contour",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 7254,
+          "source_point_count": 7280,
+          "voxel_size_m": 0.02
+        },
+        {
+          "storey_id": "storey-2",
+          "sample_points": 3640,
+          "source_point_count": 3640,
+          "voxel_size_m": 0.02
+        }
+      ],
+      "level_detection": {
+        "sample_points": 30420,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 10,
+        "detected_reference_faces": 10,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "two_storeys",
+      "provider": "region_fixed",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "two_storeys",
+        "seed": 20261008
+      },
+      "source_points": 79206,
+      "reconstruction_seconds": 1.548850344001039,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 104624128,
+      "walls": 9,
+      "storeys": 2,
+      "slabs": 3,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 20280,
+          "voxel_size_m": 0.08,
+          "source_point_count": 52804,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 15.0,
+          "adaptive": false,
+          "patches": 8,
+          "unassigned_points": 47
+        },
+        {
+          "storey_id": "storey-2",
+          "sample_points": 26402,
+          "voxel_size_m": 0.02,
+          "source_point_count": 26402,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.1,
+          "normal_angle_deg": 15.0,
+          "adaptive": false,
+          "patches": 6,
+          "unassigned_points": 0
+        }
+      ],
+      "level_detection": {
+        "sample_points": 30420,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 10,
+        "detected_reference_faces": 10,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "two_storeys",
+      "provider": "region_adaptive",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "two_storeys",
+        "seed": 20261008
+      },
+      "source_points": 79206,
+      "reconstruction_seconds": 1.4705747660009365,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 104570880,
+      "walls": 9,
+      "storeys": 2,
+      "slabs": 3,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": true
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 20280,
+          "voxel_size_m": 0.08,
+          "source_point_count": 52804,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 5.0,
+          "adaptive": true,
+          "patches": 8,
+          "unassigned_points": 437
+        },
+        {
+          "storey_id": "storey-2",
+          "sample_points": 26402,
+          "voxel_size_m": 0.02,
+          "source_point_count": 26402,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.1,
+          "normal_angle_deg": 5.0,
+          "adaptive": true,
+          "patches": 6,
+          "unassigned_points": 0
+        }
+      ],
+      "level_detection": {
+        "sample_points": 30420,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 10,
+        "detected_reference_faces": 10,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "concave",
+      "provider": "contour",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "concave",
+        "seed": 20261008
+      },
+      "source_points": 38726,
+      "reconstruction_seconds": 0.08082720899983542,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 97861632,
+      "walls": 6,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "contour",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 5200,
+          "source_point_count": 5200,
+          "voxel_size_m": 0.02
+        }
+      ],
+      "level_detection": {
+        "sample_points": 38402,
+        "voxel_size_m": 0.02
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 3.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [],
+      "warnings": [
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "concave",
+      "provider": "region_fixed",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "concave",
+        "seed": 20261008
+      },
+      "source_points": 38726,
+      "reconstruction_seconds": 1.2343506019988126,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 103981056,
+      "walls": 6,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 38402,
+          "voxel_size_m": 0.02,
+          "source_point_count": 38726,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.1,
+          "normal_angle_deg": 15.0,
+          "adaptive": false,
+          "patches": 8,
+          "unassigned_points": 0
+        }
+      ],
+      "level_detection": {
+        "sample_points": 38402,
+        "voxel_size_m": 0.02
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 3.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [],
+      "warnings": [
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "concave",
+      "provider": "region_adaptive",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "concave",
+        "seed": 20261008
+      },
+      "source_points": 38726,
+      "reconstruction_seconds": 1.278804071000195,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 103858176,
+      "walls": 6,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": true
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 38402,
+          "voxel_size_m": 0.02,
+          "source_point_count": 38726,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.1,
+          "normal_angle_deg": 5.0,
+          "adaptive": true,
+          "patches": 8,
+          "unassigned_points": 0
+        }
+      ],
+      "level_detection": {
+        "sample_points": 38402,
+        "voxel_size_m": 0.02
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 6,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 3.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [],
+      "warnings": [
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "void",
+      "provider": "contour",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "void",
+        "seed": 20261008
+      },
+      "source_points": 50050,
+      "reconstruction_seconds": 0.11195511899859412,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 99221504,
+      "walls": 8,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "contour",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 7280,
+          "source_point_count": 7280,
+          "voxel_size_m": 0.02
+        }
+      ],
+      "level_detection": {
+        "sample_points": 49600,
+        "voxel_size_m": 0.02
+      },
+      "accuracy": {
+        "reference_faces": 8,
+        "detected_reference_faces": 8,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 4.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [],
+      "warnings": [
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "void",
+      "provider": "region_fixed",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "void",
+        "seed": 20261008
+      },
+      "source_points": 50050,
+      "reconstruction_seconds": 1.688158327000565,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 106819584,
+      "walls": 8,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 49600,
+          "voxel_size_m": 0.02,
+          "source_point_count": 50050,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.1,
+          "normal_angle_deg": 15.0,
+          "adaptive": false,
+          "patches": 10,
+          "unassigned_points": 2
+        }
+      ],
+      "level_detection": {
+        "sample_points": 49600,
+        "voxel_size_m": 0.02
+      },
+      "accuracy": {
+        "reference_faces": 8,
+        "detected_reference_faces": 8,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 4.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [],
+      "warnings": [
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "void",
+      "provider": "region_adaptive",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "void",
+        "seed": 20261008
+      },
+      "source_points": 50050,
+      "reconstruction_seconds": 1.7800725209999655,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 107847680,
+      "walls": 8,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": true
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 49600,
+          "voxel_size_m": 0.02,
+          "source_point_count": 50050,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.1,
+          "normal_angle_deg": 5.0,
+          "adaptive": true,
+          "patches": 10,
+          "unassigned_points": 6
+        }
+      ],
+      "level_detection": {
+        "sample_points": 49600,
+        "voxel_size_m": 0.02
+      },
+      "accuracy": {
+        "reference_faces": 8,
+        "detected_reference_faces": 8,
+        "face_recall": 1.0,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 1.0,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 4.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [],
+      "warnings": [
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "wall_gap",
+      "provider": "contour",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "wall_gap",
+        "seed": 20261008
+      },
+      "source_points": 51624,
+      "reconstruction_seconds": 0.11959277000096336,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 97251328,
+      "walls": 6,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "contour",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 7007,
+          "source_point_count": 7020,
+          "voxel_size_m": 0.02
+        }
+      ],
+      "level_detection": {
+        "sample_points": 19956,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 5,
+        "face_recall": 0.8333333333333334,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 0.9680555555555556,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "wall_gap",
+      "provider": "region_fixed",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "wall_gap",
+        "seed": 20261008
+      },
+      "source_points": 51624,
+      "reconstruction_seconds": 0.7228605740001512,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 99246080,
+      "walls": 6,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": false
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 19956,
+          "voxel_size_m": 0.08,
+          "source_point_count": 51624,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 15.0,
+          "adaptive": false,
+          "patches": 9,
+          "unassigned_points": 46
+        }
+      ],
+      "level_detection": {
+        "sample_points": 19956,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 5,
+        "face_recall": 0.8333333333333334,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 0.9680555555555556,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    },
+    {
+      "case": "wall_gap",
+      "provider": "region_adaptive",
+      "source": {
+        "kind": "generated_fixture",
+        "case": "wall_gap",
+        "seed": 20261008
+      },
+      "source_points": 51624,
+      "reconstruction_seconds": 0.737419070001124,
+      "import_seconds": null,
+      "process_peak_memory_bytes": 100225024,
+      "walls": 6,
+      "storeys": 1,
+      "slabs": 2,
+      "settings": {
+        "grid_size_m": 0.02,
+        "contour_tolerance_m": 0.04,
+        "minimum_wall_length_m": 0.5,
+        "minimum_wall_thickness_m": 0.08,
+        "maximum_wall_thickness_m": 0.6,
+        "assumed_wall_thickness_m": 0.2,
+        "exterior_wall_thickness_m": 0.3,
+        "assumed_slab_thickness_m": 0.2,
+        "level_bin_size_m": 0.05,
+        "level_density_fraction": 0.35,
+        "minimum_storey_height_m": 2.0,
+        "minimum_footprint_area_m2": 1.0,
+        "minimum_space_area_m2": 1.0,
+        "maximum_grid_cells": 20000000,
+        "surface_method": "region_growing",
+        "detection_voxel_size_m": 0.02,
+        "maximum_detection_points": 50000,
+        "processing_chunk_points": 100000,
+        "region_neighbours": 24,
+        "region_neighbour_radius_m": 0.2,
+        "region_normal_radius_m": 0.1,
+        "region_minimum_points": 30,
+        "region_normal_angle_deg": 15.0,
+        "region_plane_tolerance_m": 0.025,
+        "region_maximum_curvature": 0.04,
+        "region_vertical_tolerance_deg": 3.0,
+        "region_minimum_wall_height_fraction": 0.6,
+        "region_adaptive": true
+      },
+      "detection": [
+        {
+          "storey_id": "storey-1",
+          "sample_points": 19956,
+          "voxel_size_m": 0.08,
+          "source_point_count": 51624,
+          "neighbour_radius_m": 0.2,
+          "normal_radius_m": 0.11599999999999999,
+          "normal_angle_deg": 5.0,
+          "adaptive": true,
+          "patches": 9,
+          "unassigned_points": 436
+        }
+      ],
+      "level_detection": {
+        "sample_points": 19956,
+        "voxel_size_m": 0.08
+      },
+      "accuracy": {
+        "reference_faces": 6,
+        "detected_reference_faces": 5,
+        "face_recall": 0.8333333333333334,
+        "unmatched_proposed_faces": 0,
+        "mean_reference_coverage": 0.9680555555555556,
+        "overlapping_proposal_length_m": 0.0,
+        "maximum_matched_plane_error_m": 0.0,
+        "footprint_area_error_m2": 0.0,
+        "storey_count_error": 0,
+        "matching": {
+          "plane_tolerance_m": 0.03,
+          "angle_tolerance_deg": 3.0,
+          "minimum_reference_coverage": 0.95
+        }
+      },
+      "measured_thicknesses_m": [
+        0.20000000000000018
+      ],
+      "warnings": [
+        "storey-1: detection voxels enlarged to 0.08 m to respect the point budget; small features may be missed",
+        "Level detection voxels enlarged to 0.08 m; horizontal levels and footprints need review",
+        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
+        "No desktop review or whole-cloud deviation report is implemented yet."
+      ]
+    }
+  ]
+}

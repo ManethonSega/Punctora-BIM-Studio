@@ -1,0 +1,6 @@
+{
+  "surface_method": "region_growing",
+  "region_adaptive": false,
+  "maximum_detection_points": 50000,
+  "processing_chunk_points": 100000
+}

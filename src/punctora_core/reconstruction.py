@@ -17,6 +17,8 @@ from .cloud2bim_geometry import (
     distance_points_to_line_np, merge_collinear_segments, segments_angle,
 )
 from .model import BuildingModel, Slab, Space, Storey, Wall
+from .sampling import voxel_sample
+from .surfaces import region_growing
 
 
 @dataclass(frozen=True)
@@ -35,11 +37,44 @@ class ReconstructionSettings:
     minimum_footprint_area_m2: float = 1.0
     minimum_space_area_m2: float = 1.0
     maximum_grid_cells: int = 20_000_000
+    surface_method: str = "contour"
+    detection_voxel_size_m: float = 0.02
+    maximum_detection_points: int = 50_000
+    processing_chunk_points: int = 100_000
+    region_neighbours: int = 24
+    region_neighbour_radius_m: float = 0.2
+    region_normal_radius_m: float = 0.1
+    region_minimum_points: int = 30
+    region_normal_angle_deg: float = 15.0
+    region_plane_tolerance_m: float = 0.025
+    region_maximum_curvature: float = 0.04
+    region_vertical_tolerance_deg: float = 3.0
+    region_minimum_wall_height_fraction: float = 0.6
+    region_adaptive: bool = False
 
     def validate(self):
         for name, value in asdict(self).items():
+            if name in {"surface_method", "region_adaptive"}:
+                continue
             if not isfinite(value) or value <= 0:
                 raise ValueError(f"{name} must be finite and positive")
+        if self.surface_method not in {"contour", "region_growing"}:
+            raise ValueError("surface_method must be contour or region_growing")
+        if not isinstance(self.region_adaptive, bool):
+            raise ValueError("region_adaptive must be a boolean")
+        for name in ["maximum_detection_points", "processing_chunk_points", "region_neighbours", "region_minimum_points"]:
+            if not isinstance(getattr(self, name), int) or isinstance(getattr(self, name), bool):
+                raise ValueError(f"{name} must be an integer")
+        if self.maximum_detection_points < 30 or not 6 <= self.region_neighbours <= 128:
+            raise ValueError("Detection budget must be >=30 and region_neighbours between 6 and 128")
+        if self.region_minimum_points < 6 or self.region_minimum_points > self.maximum_detection_points:
+            raise ValueError("region_minimum_points exceeds the detection budget or is below 6")
+        if not 0 < self.region_minimum_wall_height_fraction <= 1:
+            raise ValueError("region_minimum_wall_height_fraction must be <=1")
+        if not 0 < self.region_normal_angle_deg < 90 or not 0 < self.region_vertical_tolerance_deg < 45:
+            raise ValueError("Invalid region-growing angle tolerance")
+        if self.region_maximum_curvature >= 1/3:
+            raise ValueError("region_maximum_curvature must be below 1/3")
         if not isinstance(self.maximum_grid_cells, int) or isinstance(self.maximum_grid_cells, bool):
             raise ValueError("maximum_grid_cells must be an integer")
         if self.level_density_fraction > 1:
@@ -118,7 +153,10 @@ def _segments(points: np.ndarray, settings: ReconstructionSettings) -> list:
 
 def _fit_face(segment, points, radius):
     start, end = np.asarray(segment, dtype=float)
-    near = points[distance_points_to_line_np(points[:, :2], start, end) <= radius]
+    direction = (end-start) / np.linalg.norm(end-start)
+    projected = (points[:, :2]-start) @ direction
+    near = points[(distance_points_to_line_np(points[:, :2], start, end) <= radius)
+                  & (projected >= -radius) & (projected <= np.linalg.norm(end-start)+radius)]
     if len(near) < 6:
         return None
     xy = near[:, :2]
@@ -220,6 +258,12 @@ def detect_walls(points, storey: Storey, settings: ReconstructionSettings) -> li
             continue
         faces.append((face, count, rmse))
     faces = _coalesce_faces(faces, section, settings)
+    return _walls_from_faces(faces, storey, settings,
+                             (storey.elevation+0.7*height, storey.elevation+0.9*height))
+
+
+def _walls_from_faces(faces, storey, settings, z_bounds):
+    height = storey.ceiling-storey.elevation
     faces.sort(key=lambda f: tuple(np.round(np.mean(f[0], axis=0), 6)))
     used, walls = set(), []
     footprint = Polygon(storey.footprint)
@@ -229,6 +273,7 @@ def detect_walls(points, storey: Storey, settings: ReconstructionSettings) -> li
             continue
         used.add(i)
         axis, thickness, provenance, label = face, None, "inferred", "unclassified"
+        observed = [face]
         for j, (other, other_count, other_rmse) in enumerate(faces):
             if j in used or not segments_angle(face, other):
                 continue
@@ -238,6 +283,7 @@ def detect_walls(points, storey: Storey, settings: ReconstructionSettings) -> li
                 axis, thickness, provenance = candidate, separation, "measured"
                 label, count, rmse = "paired_faces", count+other_count, max(rmse, other_rmse)
                 used.add(j)
+                observed.append(other)
                 break
         if thickness is None:
             midpoint = np.mean(face, axis=0)
@@ -257,15 +303,52 @@ def detect_walls(points, storey: Storey, settings: ReconstructionSettings) -> li
                           height, float(thickness), label,
                           {"axis": "inferred" if provenance == "inferred" else "measured",
                            "thickness": provenance,
-                           "height": "measured" if storey.provenance.get("ceiling") == "measured" else "user_supplied",
+                           "height": "inferred" if storey.provenance.get("ceiling") == "measured" else "user_supplied",
                            "material": "unknown",
-                           "load_bearing": "unknown"}, count, rmse))
+                           "load_bearing": "unknown"}, count, rmse,
+                          observed_faces=[{"start": np.asarray(f[0]).tolist(), "end": np.asarray(f[1]).tolist(),
+                                           "z_min": float(z_bounds[0]), "z_max": float(z_bounds[1])} for f in observed],
+                          detection_method=settings.surface_method))
+    _snap_walls(walls, settings)
+    return walls
+
+
+def _snap_walls(walls, settings):
     axes = adjust_intersections([[list(w.start), list(w.end)] for w in walls], settings.maximum_wall_thickness_m)
     for wall, axis in zip(walls, axes):
         if not np.allclose(axis, [wall.start, wall.end], atol=1e-9):
             wall.provenance["axis"] = "inferred"  # Snapped junction, not an observed endpoint.
         wall.start, wall.end = tuple(axis[0]), tuple(axis[1])
-    return walls
+
+
+def _region_walls(cloud, storey, settings):
+    sample = voxel_sample(cloud.points, settings.detection_voxel_size_m,
+                          settings.maximum_detection_points, settings.processing_chunk_points,
+                          (storey.elevation, storey.ceiling))
+    patches, statistics = region_growing(sample, settings)
+    height = storey.ceiling-storey.elevation
+    faces = []
+    for patch in patches:
+        if patch.orientation != "vertical" or patch.bounds[1][2]-patch.bounds[0][2] < height*settings.region_minimum_wall_height_fraction:
+            continue
+        points = cloud.points[np.asarray(patch.representative_cloud_indices, dtype=np.int64)]
+        normal = np.asarray(patch.normal[:2])
+        direction = np.array([-normal[1], normal[0]]) / np.linalg.norm(normal)
+        centre = np.asarray(patch.centroid[:2])
+        extent = (points[:, :2]-centre) @ direction
+        segment = [centre+extent.min()*direction, centre+extent.max()*direction]
+        fit = _fit_face(segment, points, settings.region_plane_tolerance_m)
+        if fit and distance_between_points(*fit[0]) >= settings.minimum_wall_length_m:
+            faces.append(fit)
+    faces = _coalesce_faces(faces, sample.points, settings)
+    # Exclude floor/ceiling strips from original wall-face fitting. Merely being
+    # near a vertical plane does not make a horizontal surface wall evidence.
+    walls = _walls_from_faces(faces, storey, settings,
+                             (storey.elevation+settings.region_plane_tolerance_m,
+                              storey.ceiling-settings.region_plane_tolerance_m))
+    # Surface proposals remain separate from IFC elements and preserve sampled
+    # working-cloud IDs for later provider comparisons and desktop inspection.
+    return walls, [patch.to_dict() for patch in patches], statistics
 
 
 def spaces_for_storey(storey: Storey, walls: list[Wall], minimum_area: float = 1.0) -> list[Space]:
@@ -296,15 +379,47 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                 storeys: list[Storey] | None = None, name: str = "Punctora reconstruction") -> BuildingModel:
     settings = settings or ReconstructionSettings()
     settings.validate()
-    levels = storeys if storeys is not None else detect_storeys(cloud.points, settings)
+    level_sample = None
+    if storeys is None:
+        level_sample = voxel_sample(cloud.points, settings.detection_voxel_size_m,
+                                    settings.maximum_detection_points, settings.processing_chunk_points)
+        levels = detect_storeys(level_sample.points, settings)
+    else:
+        levels = storeys
     model = BuildingModel(name, list(levels))
     model.validate()
     sorted_levels = sorted(levels, key=lambda s: s.elevation)
     if any(a.ceiling > b.elevation + 1e-8 for a, b in zip(sorted_levels, sorted_levels[1:])):
         raise ValueError("Storey clear-height intervals overlap")
+    detection, proposals = [], []
     for index, level in enumerate(sorted_levels):
-        local_points = cloud.points[(cloud.points[:, 2] >= level.elevation) & (cloud.points[:, 2] <= level.ceiling)]
-        local_walls = detect_walls(local_points, level, settings)
+        if settings.surface_method == "region_growing":
+            local_walls, patches, statistics = _region_walls(cloud, level, settings)
+            proposals.extend({**p, "id": f"{level.id}-{p['id']}", "storey_id": level.id,
+                              "provider": "region_growing"} for p in patches)
+        else:
+            height = level.ceiling-level.elevation
+            sample = voxel_sample(cloud.points, settings.detection_voxel_size_m,
+                                  settings.maximum_detection_points, settings.processing_chunk_points,
+                                  (level.elevation+0.7*height, level.elevation+0.9*height))
+            local_walls = detect_walls(sample.points, level, settings)
+            statistics = {"sample_points": len(sample.points), "source_point_count": sample.source_point_count,
+                          "voxel_size_m": sample.voxel_size_m}
+        detection.append({"storey_id": level.id, **statistics})
+        if statistics.get("voxel_size_m", settings.detection_voxel_size_m) > settings.detection_voxel_size_m:
+            model.warnings.append(f"{level.id}: detection voxels enlarged to {statistics['voxel_size_m']:.6g} m to respect the point budget; small features may be missed")
+        from .evidence import attach_evidence
+        attach_evidence(cloud, local_walls, settings.processing_chunk_points,
+                        # Raster fitting can trim a junction zone. Search up to
+                        # half the configured maximum thickness beyond each
+                        # endpoint, retaining a finite, recorded support window.
+                        endpoint_margin=max(settings.maximum_wall_thickness_m/2, 4*settings.grid_size_m,
+                                            2*statistics.get("voxel_size_m", settings.detection_voxel_size_m)),
+                        radius=settings.region_plane_tolerance_m if settings.surface_method == "region_growing" else settings.grid_size_m/2)
+        _snap_walls(local_walls, settings)
+        for wall in local_walls:
+            if wall.evidence_count < 6:
+                model.warnings.append(f"{wall.id}: fewer than six supporting source records; geometric review required")
         model.walls.extend(local_walls)
         model.spaces.extend(spaces_for_storey(level, local_walls, settings.minimum_space_area_m2))
         if not local_walls:
@@ -317,6 +432,8 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
         model.slabs.append(Slab(f"{level.id}-floor", level.id, level.footprint, base, thickness,
                                 "FLOOR", {"thickness": state, "footprint": "inferred", "material": "unknown"}))
     last = sorted_levels[-1]
+    if level_sample is not None and level_sample.voxel_size_m > settings.detection_voxel_size_m:
+        model.warnings.append(f"Level detection voxels enlarged to {level_sample.voxel_size_m:.6g} m; horizontal levels and footprints need review")
     model.slabs.append(Slab("top-slab", last.id, last.footprint, last.ceiling,
                             settings.assumed_slab_thickness_m, "NOTDEFINED",
                             {"thickness": "inferred", "footprint": "inferred", "material": "unknown"}))
@@ -327,9 +444,13 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
         "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
         "No desktop review or whole-cloud deviation report is implemented yet.",
     ])
-    model.metadata = {"engine": "Cloud2BIM contour adaptation", "settings": asdict(settings),
+    model.metadata = {"engine": settings.surface_method, "settings": asdict(settings),
                       "source_points": len(cloud.points),
                       "coordinate_frame": cloud.metadata.get("coordinate_frame", "caller-supplied metres, Z up"),
-                      "fit_rmse_scope": "support points in wall section, not whole-cloud deviation"}
+                      "fit_rmse_scope": "original points selected near observed wall faces, not whole-cloud deviation",
+                      "detection": detection, "surface_proposals": proposals,
+                      "level_detection": None if level_sample is None else {
+                          "sample_points": len(level_sample.points), "voxel_size_m": level_sample.voxel_size_m},
+                      "element_schema_version": 2}
     model.validate()
     return model
