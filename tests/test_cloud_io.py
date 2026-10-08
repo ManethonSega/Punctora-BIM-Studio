@@ -63,3 +63,11 @@ def test_invalid_skipped_row_is_not_hidden_by_subsampling(tmp_path):
     path.write_text("0 0 0\n1 nan 2\n3 4 5\n")
     with pytest.raises(ValueError, match="Nonfinite"):
         read_xyz(path, stride=2)
+
+
+def test_optional_validity_masks_and_scan_membership_are_checked():
+    points = np.array([[0, 0, 0], [1, 1, 1]], dtype=float)
+    cloud = CloudData(points, colors=np.zeros((2, 3)), color_valid=[True, False], scan_index=[0, 1])
+    np.testing.assert_array_equal(cloud.color_valid, [True, False])
+    with pytest.raises(ValueError, match="scan_index"):
+        CloudData(points, scan_index=[0])

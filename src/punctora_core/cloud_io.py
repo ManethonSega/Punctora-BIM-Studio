@@ -1,13 +1,15 @@
-"""Atomic replacement and lossless numeric handling for the upstream XYZ stage.
-
-Replaces Cloud2BIM e57_data_to_xyz/load_xyz_file behaviour. This module accepts
-already decoded arrays; it does not yet read an E57 file or apply its scan poses.
-"""
+"""Atomic replacement and lossless numeric handling for point-cloud data."""
 import os
 import tempfile
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import numpy as np
+
+
+def _all_finite(values: np.ndarray) -> bool:
+    """Validate mapped arrays without allocating a cloud-sized boolean array."""
+    return all(np.isfinite(values[begin:begin + 100_000]).all()
+               for begin in range(0, len(values), 100_000))
 
 
 @dataclass
@@ -15,21 +17,47 @@ class CloudData:
     points: np.ndarray
     colors: np.ndarray | None = None
     intensity: np.ndarray | None = None
+    color_valid: np.ndarray | None = None
+    intensity_valid: np.ndarray | None = None
+    scan_index: np.ndarray | None = None
+    metadata: dict = field(default_factory=dict)
+    source_record_index: np.ndarray | None = None
 
     def __post_init__(self):
         self.points = np.asarray(self.points, dtype=np.float64)
         if self.points.ndim != 2 or self.points.shape[1] != 3 or len(self.points) == 0:
             raise ValueError("Cloud points must be a nonempty N x 3 array")
-        if not np.isfinite(self.points).all():
+        if not _all_finite(self.points):
             raise ValueError("Cloud contains invalid/nonfinite coordinates")
         if self.colors is not None:
             self.colors = np.asarray(self.colors, dtype=np.float64)
-            if self.colors.shape != self.points.shape or not np.isfinite(self.colors).all():
+            if self.colors.shape != self.points.shape or not _all_finite(self.colors):
                 raise ValueError("Colors must be a finite N x 3 array")
         if self.intensity is not None:
             self.intensity = np.asarray(self.intensity, dtype=np.float64).reshape(-1, 1)
-            if len(self.intensity) != len(self.points) or not np.isfinite(self.intensity).all():
+            if len(self.intensity) != len(self.points) or not _all_finite(self.intensity):
                 raise ValueError("Intensity must have one finite value per point")
+        for name, channel in [("color_valid", self.color_valid), ("intensity_valid", self.intensity_valid)]:
+            if channel is not None:
+                values = np.asarray(channel, dtype=bool).reshape(-1)
+                if len(values) != len(self.points):
+                    raise ValueError(f"{name} must have one value per point")
+                setattr(self, name, values)
+        if self.color_valid is not None and self.colors is None:
+            raise ValueError("color_valid requires colors")
+        if self.intensity_valid is not None and self.intensity is None:
+            raise ValueError("intensity_valid requires intensity")
+        if self.scan_index is not None:
+            self.scan_index = np.asarray(self.scan_index)
+            if self.scan_index.shape != (len(self.points),) or self.scan_index.dtype.kind not in "iu":
+                raise ValueError("scan_index must contain one integer per point")
+        if self.source_record_index is not None:
+            self.source_record_index = np.asarray(self.source_record_index)
+            if (self.source_record_index.shape != (len(self.points),)
+                    or self.source_record_index.dtype.kind not in "iu"):
+                raise ValueError("source_record_index must contain one integer per point")
+        if not isinstance(self.metadata, dict):
+            raise ValueError("metadata must be a dictionary")
 
 
 def write_xyz(cloud: CloudData, path: str | Path, chunk_size: int = 10000) -> None:

@@ -79,38 +79,89 @@
     {
       "id": "pye57",
       "name": "pye57",
-      "usage": "candidate or research reference, not incorporated",
-      "scope": "E57 reader candidate",
+      "usage": "runtime dependency",
+      "scope": "Direct E57 import and bounded-memory scan decoding",
       "license": "MIT",
       "attribution": "David Caron, Copyright 2018.",
       "source_urls": [
-        "https://github.com/davidcaron/pye57/blob/master/LICENSE"
+        "https://github.com/davidcaron/pye57/tree/v0.4.19"
       ],
       "licence_files": [
-        "third_party/references/pye57-MIT.txt"
+        "third_party/licenses/pye57-0.4.19-MIT.txt"
       ],
-      "changes": "No upstream code, weights, data or paper content incorporated. Licence reference retained for planned use.",
-      "version": null,
-      "reviewed_revision": null
+      "changes": "None to the external package. Punctora calls its public and low-level reader interfaces from independently written import code.",
+      "version": "0.4.19",
+      "reviewed_revision": "v0.4.19"
     },
     {
       "id": "libe57format",
       "name": "libE57Format",
-      "usage": "candidate or research reference, not incorporated",
-      "scope": "Native E57 reader dependencies",
+      "usage": "runtime native dependency compiled into pye57",
+      "scope": "E57 decoding",
       "license": "BSL-1.0 (Boost Software License 1.0)",
       "attribution": "libE57Format contributors; authors and notices supplied with the selected source files.",
       "source_urls": [
-        "https://github.com/asmaloney/libE57Format/blob/master/LICENSE.md",
-        "https://github.com/asmaloney/libE57Format"
+        "https://github.com/asmaloney/libE57Format/tree/1914b8ea972251d3bb49a33828497dde683205d9"
       ],
       "licence_files": [
-        "third_party/references/libE57Format-BSL-1.0.txt"
+        "third_party/licenses/libE57Format-BSL-1.0.txt"
       ],
-      "changes": "No upstream code, weights, data or paper content incorporated. Licence reference retained for planned use.",
-      "scope_note": "Applies to libE57Format, not automatically all native E57 dependencies.",
-      "version": null,
-      "reviewed_revision": null
+      "changes": "None by Punctora; upstream source is compiled into the pye57 native extension.",
+      "scope_note": "Selected pye57 0.4.19 submodule revision; the licence applies to libE57Format, while Xerces-C++ and CRC++ retain separate terms.",
+      "version": "3.1.1",
+      "reviewed_revision": "1914b8ea972251d3bb49a33828497dde683205d9"
+    },
+    {
+      "id": "pyquaternion",
+      "name": "pyquaternion",
+      "usage": "runtime dependency",
+      "scope": "Quaternion handling used by pye57",
+      "license": "MIT",
+      "attribution": "Kieran Wynn, Copyright (c) 2015.",
+      "source_urls": [
+        "https://github.com/KieranWynn/pyquaternion/tree/v0.9.9"
+      ],
+      "licence_files": [
+        "third_party/licenses/pyquaternion-0.9.9-MIT.txt"
+      ],
+      "changes": "None; external unmodified package.",
+      "version": "0.9.9",
+      "reviewed_revision": "v0.9.9"
+    },
+    {
+      "id": "xerces-c",
+      "name": "Apache Xerces-C++",
+      "usage": "runtime native dependency of pye57/libE57Format",
+      "scope": "E57 XML parsing",
+      "license": "Apache-2.0",
+      "attribution": "Apache Software Foundation; portions originally Copyright (c) 1999 IBM Corporation.",
+      "source_urls": [
+        "https://github.com/apache/xerces-c/tree/v3.2.3"
+      ],
+      "licence_files": [
+        "third_party/licenses/Xerces-C-Apache-2.0.txt",
+        "third_party/licenses/Xerces-C-NOTICE.txt"
+      ],
+      "changes": "None by Punctora; platform pye57 wheels link or bundle the native library.",
+      "version": "3.2.3",
+      "reviewed_revision": "v3.2.3"
+    },
+    {
+      "id": "crcpp",
+      "name": "CRC++",
+      "usage": "runtime native code compiled into libE57Format",
+      "scope": "E57 checksums",
+      "license": "BSD-3-Clause",
+      "attribution": "CRC++, Copyright (c) 2022 Daniel Bahr. All rights reserved.",
+      "source_urls": [
+        "https://github.com/asmaloney/libE57Format/tree/1914b8ea972251d3bb49a33828497dde683205d9/extern/CRCpp"
+      ],
+      "licence_files": [
+        "third_party/licenses/CRCpp-BSD-3-Clause.txt"
+      ],
+      "changes": "None by Punctora; vendored upstream code is compiled into the pye57 native extension.",
+      "version": "vendored with libE57Format 3.1.1",
+      "reviewed_revision": "1914b8ea972251d3bb49a33828497dde683205d9"
     },
     {
       "id": "open3d",

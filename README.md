@@ -6,9 +6,9 @@ Punctora BIM Studio is a planned standalone desktop application for importing re
 
 ## Current status
 
-**Step 2 / M1: experimental reconstruction and IFC core.** A developer command-line tool reconstructs storeys, walls, candidate slabs and spaces from local XYZ coordinates, and writes validated IFC4. Selected Cloud2BIM geometry routines are adapted with attribution, while orchestration and IFC relationships are rebuilt.
+**Step 3 / M2 in progress: direct E57 import and coordinate handling.** A developer command-line tool now reads registered E57 scans in bounded-memory chunks, applies each scan pose once, filters invalid coordinates, creates a disk-backed local working cloud and writes validated IFC4 with a reversible mapping to source coordinates. It also continues to support local XYZ input. The source CRS and vertical datum still require confirmation.
 
-There is no desktop interface, direct E57 file reader, georeferencing, AI integration or installer yet. No real building scan has been processed. Automatic door/window detection is not enabled; explicitly supplied openings are supported by the exporter.
+There is no desktop interface, AI integration or installer yet. No real building scan has been processed. Automatic door/window detection is not enabled; explicitly supplied openings are supported by the exporter. M2 surface-method benchmarking remains open.
 
 The first usable milestone targets Windows x64 and one representative building floor. It must run locally without Revit, an AI model or an NVIDIA GPU.
 
@@ -19,8 +19,11 @@ Use Python 3.11 or 3.12 in a virtual environment. The pinned IfcOpenShell 0.8.3 
 ```sh
 python -m pip install -e ".[test]"
 python -m punctora_core demo --two-storeys --output-dir outputs/demo
+python -m punctora_core convert-e57 building.e57 --output-dir outputs/building
 python -m pytest -q
 ```
+
+Use `import-e57` instead of `convert-e57` to create the working cloud and import manifest without reconstructing building elements.
 
 The demo writes `model.ifc`, `elements.json`, `validation.json` and a generated `source.xyz`. To process already registered local XYZ coordinates with declared units and Z pointing up:
 
@@ -28,7 +31,7 @@ The demo writes `model.ifc`, `elements.json`, `validation.json` and a generated 
 python -m punctora_core convert-xyz floor.xyz --units m --output-dir outputs/floor
 ```
 
-This is a baseline contour engine for simple vertical-wall interiors. Level detection, convex floor envelopes, missing wall faces and slab thickness assumptions require review. Successful IFC validation establishes schema and tessellation checks, not scan accuracy. See [core usage and limitations](docs/CORE.md) and [M1 verification](docs/M1_VERIFICATION.md).
+This is a baseline contour engine for simple vertical-wall interiors. Level detection, convex floor envelopes, missing wall faces and slab thickness assumptions require review. Successful IFC validation establishes schema and tessellation checks, not scan accuracy. See [core usage and limitations](docs/CORE.md), [M1 verification](docs/M1_VERIFICATION.md) and [M2 E57 verification](docs/M2_E57_VERIFICATION.md).
 
 ## First usable version
 
@@ -46,6 +49,7 @@ Doors, windows and spaces follow once the basic pipeline passes its checks. AI r
 | --- | --- |
 | [Development plan](docs/DEVELOPMENT_PLAN.md) | Milestones and acceptance criteria |
 | [Architecture](docs/ARCHITECTURE.md) | Desktop, worker, geometry, quality and AI boundaries |
+| [M2 E57 verification](docs/M2_E57_VERIFICATION.md) | Direct-import behaviour, automated evidence and remaining M2 work |
 | [Project requirements](docs/PROJECT_REQUIREMENTS.md) | Units, coordinates, evidence and quality requirements |
 | [Dependency inventory](docs/DEPENDENCIES.md) | Candidate components and licence evidence |
 | [Licence policy](docs/LICENSE_POLICY.md) | Rules for importing code, packaging libraries and models |
@@ -54,7 +58,7 @@ Doors, windows and spaces follow once the basic pipeline passes its checks. AI r
 
 ## Licence
 
-Original Punctora source and documentation are licensed under [Apache License 2.0](LICENSE). Adapted Cloud2BIM routines remain MIT. Third-party components retain their own licences. The dependency inventory distinguishes selected core dependencies from future candidates; no native dependency binaries or model weights are bundled here.
+Original Punctora source and documentation are licensed under [Apache License 2.0](LICENSE). Adapted Cloud2BIM routines remain MIT. Third-party components retain their own licences. The dependency inventory distinguishes selected core dependencies from future candidates; no model weights are bundled here.
 
 ## Contributing
 

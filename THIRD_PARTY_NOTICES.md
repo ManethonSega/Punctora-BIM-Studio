@@ -1,10 +1,10 @@
 # Third-party notices
 
-## M1 status
+## M2 status
 
 See [ATTRIBUTIONS.md](ATTRIBUTIONS.md) for per-component credits and licence notices, and [NOTICE_REGISTER.json](third_party/NOTICE_REGISTER.json) for their machine-readable code/runtime/model/publication scopes. Exact supplied licence texts and disclaimers are retained in `third_party/licenses`; future-candidate references are retained separately in `third_party/references`.
 
-Selected Cloud2BIM geometry routines are incorporated as MIT source. Apache 2.0 applies to original Punctora material. External runtime libraries are installed through pip and are not embedded in this repository or Punctora's wheel. No datasets or model weights are included.
+Selected Cloud2BIM geometry routines are incorporated as MIT source. Apache 2.0 applies to original Punctora material. External runtime libraries are installed through pip and are not embedded in this repository or Punctora's wheel. Direct E57 import uses pye57 and its native/runtime stack. No datasets or model weights are included.
 
 The Python package declares Apache-2.0 AND MIT to reflect its original modules and adapted routines.
 
@@ -27,6 +27,11 @@ The adapted routines cover distances, collinearity, merging, parallel overlap, i
 | Shapely | 2.1.2 | [BSD-3-Clause](third_party/licenses/Shapely-2.1.2.txt), [GEOS notice](third_party/licenses/GEOS-Shapely-wheel.txt) |
 | opencv-python-headless | 4.11.0.86 | [Python packaging MIT](third_party/licenses/OpenCV-python-4.11.0.86.txt), [native notices including OpenCV Apache-2.0](third_party/licenses/OpenCV-wheel-third-party.txt) |
 | IfcOpenShell library | 0.8.3 | Installed source headers specify LGPL-3.0-or-later; [source](https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/src/ifcopenshell-python/ifcopenshell/__init__.py), [LGPL text](third_party/licenses/IfcOpenShell-LGPL-3.0.txt), [GPL text referenced by LGPL](third_party/licenses/IfcOpenShell-GPL-3.0.txt) |
+| pye57 | 0.4.19 | [MIT](third_party/licenses/pye57-0.4.19-MIT.txt) |
+| pyquaternion | 0.9.9 | [MIT](third_party/licenses/pyquaternion-0.9.9-MIT.txt) |
+| libE57Format | 3.1.1 at `1914b8e` | [BSL-1.0](third_party/licenses/libE57Format-BSL-1.0.txt) |
+| Apache Xerces-C++ | 3.2.3 in pye57 build scripts | [Apache-2.0](third_party/licenses/Xerces-C-Apache-2.0.txt), [NOTICE](third_party/licenses/Xerces-C-NOTICE.txt) |
+| CRC++ | vendored by libE57Format | [BSD-3-Clause](third_party/licenses/CRCpp-BSD-3-Clause.txt) |
 
 These are references from the tested Linux dependencies, not a completed Windows binary audit. `requirements-core.txt` records runtime versions including transitive Python dependencies. pytest is a test dependency. Platform-specific bundled/native terms and source/replacement information must be checked before distributing the standalone application.
 

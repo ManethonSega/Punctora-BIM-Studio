@@ -38,11 +38,36 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
     context = api("context.add_context", context_type="Model")
     body_context = api("context.add_context", context_type="Model", context_identifier="Body",
                        target_view="MODEL_VIEW", parent=context)
+    coordinate_mapping = model.metadata.get("coordinate_mapping")
+    if coordinate_mapping:
+        origin = coordinate_mapping.get("working_to_source_translation_m")
+        if not (isinstance(origin, list) and len(origin) == 3 and np.isfinite(origin).all()):
+            raise ValueError("coordinate_mapping requires a finite three-value source translation")
+        e57_metadata = model.metadata.get("e57", {}).get("coordinate_metadata")
+        target = file.create_entity(
+            "IfcProjectedCRS",
+            Name="E57 source coordinate frame" if e57_metadata else "E57 source frame (CRS unspecified)",
+            Description=e57_metadata or "No E57 coordinateMetadata was supplied; CRS and vertical datum require confirmation.",
+            MapUnit=metre,
+        )
+        file.create_entity(
+            "IfcMapConversion", SourceCRS=context, TargetCRS=target,
+            Eastings=float(origin[0]), Northings=float(origin[1]), OrthogonalHeight=float(origin[2]),
+            XAxisAbscissa=1.0, XAxisOrdinate=0.0, Scale=1.0,
+        )
     site, building = root("IfcSite", "site"), root("IfcBuilding", "building", model.name)
     api("aggregate.assign_object", products=[site], relating_object=project)
     api("aggregate.assign_object", products=[building], relating_object=site)
     api("geometry.edit_object_placement", product=site, matrix=np.eye(4))
     api("geometry.edit_object_placement", product=building, matrix=np.eye(4))
+    if coordinate_mapping:
+        coordinate_pset = api("pset.add_pset", product=site, name="Punctora_CoordinateMapping")
+        api("pset.edit_pset", pset=coordinate_pset, properties={
+            "Mapping": "source_xyz_m = working_xyz_m + origin_m",
+            "SourceOriginX_m": float(origin[0]), "SourceOriginY_m": float(origin[1]),
+            "SourceOriginZ_m": float(origin[2]),
+            "CRSStatus": model.metadata.get("e57", {}).get("coordinate_metadata_status", "unknown"),
+        })
     storeys = {}
     for level in model.storeys:
         entity = root("IfcBuildingStorey", level.id, level.name)

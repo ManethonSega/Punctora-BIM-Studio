@@ -325,10 +325,11 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
         "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
         "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
         "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
-        "No E57 file decoding, georeferencing, desktop review or whole-cloud deviation report is implemented yet.",
+        "No desktop review or whole-cloud deviation report is implemented yet.",
     ])
     model.metadata = {"engine": "Cloud2BIM contour adaptation", "settings": asdict(settings),
-                      "source_points": len(cloud.points), "coordinate_frame": "caller-supplied metres, Z up",
+                      "source_points": len(cloud.points),
+                      "coordinate_frame": cloud.metadata.get("coordinate_frame", "caller-supplied metres, Z up"),
                       "fit_rmse_scope": "support points in wall section, not whole-cloud deviation"}
     model.validate()
     return model

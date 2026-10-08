@@ -1,17 +1,17 @@
 # Architecture
 
-Status: design, not implemented. Target: a Windows-first standalone desktop application.
+Status: M2 import and reconstruction core implemented; desktop remains a design target.
 
 ## Components
 
 | Component | Responsibility | Planned implementation |
 | --- | --- | --- |
 | Desktop | Project setup, jobs, 3D review, corrections and export | .NET 10 and Avalonia; renderer selection pending prototype |
-| Import worker | Read E57 scans, poses and available metadata, reject invalid coordinates | Python; pye57 candidate; native reader and memory behaviour require testing |
-| Cloud store | Preserve the source, index working points and serve reduced preview data | Disk-backed chunks and separate preview cache, implementation to benchmark |
+| Import worker | Read E57 scans, poses and available metadata, reject invalid coordinates | Python and pye57 0.4.19; bounded-memory decoding implemented and tested with generated fixtures |
+| Cloud store | Preserve the source, index working points and serve reduced preview data | Disk-backed working arrays implemented; preview/index formats remain for M3 benchmarking |
 | Reconstruction | Detect floors and surfaces, fit walls/slabs and retain scan evidence | Selected corrected Cloud2BIM algorithms; Open3D candidate |
 | Element model | Stable IDs, geometric parameters, host/storey relationships and provenance | Punctora-owned versioned JSON representation |
-| IFC service | IFC4 geometry, decomposition, containment, openings and georeferencing | IfcOpenShell library through Python worker |
+| IFC service | IFC4 geometry, decomposition, containment, openings and georeferencing | IfcOpenShell library; local placement plus E57-source `IfcMapConversion` implemented |
 | Quality service | IFC rules, geometric checks and surface-deviation measurements | Deterministic calculations with explicit coverage and sampling |
 | Optional proposal provider | Suggest classes and element geometry | Classical providers first; replaceable SpatialLM/Pointcept adapters later |
 

@@ -15,3 +15,7 @@ External runtime libraries remain under their respective licences. Their
 copyright, permission and warranty notices are retained in third_party/licenses.
 Candidate licence references are in third_party/references and do not indicate
 that those components or model assets are incorporated or redistributed.
+
+Direct E57 import uses pye57, pyquaternion, libE57Format, Apache Xerces-C++
+and CRC++. Their retained licence and attribution notices are listed in
+ATTRIBUTIONS.md and third_party/licenses.
