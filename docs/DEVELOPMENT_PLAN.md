@@ -7,12 +7,14 @@ The immediate goal is a runnable Windows application that accepts a registered E
 | M0: Repository foundation | Preserve Apache 2.0; add notices, candidate inventory, architecture and requirements | Licence preserved, inventory readable, documentation links valid; no claim of a working converter |
 | M1: Reconstruction and IFC core | Port selected Cloud2BIM code with attribution; fix repeated-import duplication, first-point loss, mixed-floor rooms, fixed thickness and IFC relationship/type defects | Small generated one-floor and two-floor examples; repeated import stable; valid IFC4 for supported entities; inferred parameters labelled |
 | M2: development implemented; field verification pending | E57/coordinates, capped contour/region-growing proposals, original-record fitting, full wall source references and provider/resource comparison | 74 regression tests; generated geometry comparison and one-million-record stress run; full-record import integrity for two supplied E57 examples (1.21M/4.07M points). Independent scanner checks, annotated real reconstruction, building-scale diversity and project CRS/datum remain open |
-| M3: Desktop review and export | Import, progress/cancellation, point/model overlay, supported parameter correction, project save/reopen and export | End-to-end fixture walkthrough; edits survive reopening; UI remains responsive; broken jobs do not destroy saved work |
+| M3: Desktop review and export | Import, progress/cancellation, GPU cloud/model viewport with software fallback, supported parameter correction, project save/reopen and export | End-to-end fixture walkthrough; actual viewport GPU/backend reported; hardware/fallback checks; edits survive reopening; UI remains responsive; broken jobs do not destroy saved work |
 | M4: Quality and packaging | Surface checks, deviation report, IFC schema/rule checks, runtime notices and Windows packaging | Reopen exported IFC in an independent viewer; distinguish schema errors from geometric errors; installer runs on a clean Windows environment without developer tools |
 | M5: User scan trial | User imports an actual E57 floor and reviews output against reference information | Record detected/missed elements, deviations, assumptions, correction effort, runtime/memory and export issues; repair findings before widening scope |
 | M6: Expanded architecture and optional AI | Improve openings/spaces; benchmark replaceable licensed proposal providers | Compare against the same baseline scans, including end-to-end accuracy and correction time; licence and hardware decisions recorded |
 
 IFC validation starts in M1 and evolves throughout; M4 makes it user-facing and packages it. Quality metrics do not wait until after the first real scan trial. Additional formats and complex building systems follow only when justified by measured results.
+
+The [M3 implementation plan](M3_IMPLEMENTATION_PLAN.md) records the desktop sequence and the user's automatic-GPU requirement. Viewport rendering and reconstruction computation are separate backends; M2 processing is currently CPU-only.
 
 ## First usable release acceptance
 

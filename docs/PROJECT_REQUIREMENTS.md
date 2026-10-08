@@ -18,6 +18,7 @@ The guidelines explicitly separate point-cloud creation from BIM model creation.
 | R10 | Produce editable IFC elements with validated relationships | Application goal, extending beyond source documents | IFC rules, geometric checks and independent viewer inspection |
 | R11 | Keep model validity separate from survey and contractual acceptance | Guidelines: separate modelling scope; checklist: acceptance | Distinct schema/geometry/deviation/survey-quality findings |
 | R12 | Process scans locally by default | Application design decision | No scan upload or network dependency in the initial conversion workflow |
+| R13 | Accelerate point-cloud-to-IFC conversion using multiple CPU cores and an available compatible GPU where measured beneficial, retaining CPU fallback | User clarification, 2026-10-08 | Stage timings and complete-job CPU/multicore/GPU comparisons; bounded RAM/VRAM; agreed numerical equivalence, stable evidence/identity and valid IFC; target AMD hardware verified separately |
 
 ## Unknowns requiring project input
 

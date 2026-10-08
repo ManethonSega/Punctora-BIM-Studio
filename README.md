@@ -51,6 +51,7 @@ Doors, windows and spaces follow once the basic pipeline passes its checks. AI r
 | --- | --- |
 | [Development plan](docs/DEVELOPMENT_PLAN.md) | Milestones and acceptance criteria |
 | [Architecture](docs/ARCHITECTURE.md) | Desktop, worker, geometry, quality and AI boundaries |
+| [M3 implementation plan](docs/M3_IMPLEMENTATION_PLAN.md) | Desktop work sequence, automatic GPU viewport use and completion checks |
 | [M2 E57 verification](docs/M2_E57_VERIFICATION.md) | Direct-import behaviour, automated evidence and remaining M2 work |
 | [Supplied E57 verification](docs/M2_SUPPLIED_E57_VERIFICATION.md) | Full-record checks of the two supplied examples, resource measurements and coordinate warnings |
 | [M2 fitting verification](docs/M2_FITTING_VERIFICATION.md) | Provider comparison, measured resource use and M3 handoff |
