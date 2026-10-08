@@ -48,7 +48,7 @@ Use explicit parameter states: `measured`, `inferred`, `user_supplied`, `unknown
 
 ## Research resources in the foundation
 
-- SpatialLM informs a structured layout and proposal contract, not the authority for final dimensions. Independently author Punctora's representation; copying its implementation needs a separate licence review.
+- SpatialLM informs a structured layout and proposal contract, not the authority for final dimensions. Independently author Punctora's representation; copying its implementation needs a separate licence review. The [versioned paper assessment](research/SPATIALLM.md) records 2.5 cm proposal quantization, inferred completion, explicit opening hosts and an M6 evaluation plan. M3 review should distinguish proposals from scan-supported geometry; no AI adapter is integrated yet.
 - The ISPRS paper informs experiments with normal-based region growing and spatial relationships. Test the methods against a Cloud2BIM baseline before adoption; the paper is not a ready IFC engine.
 - Pointcept may later provide point labels. Labels still require geometric fitting and IFC authoring.
 - Keep the same downstream contract for classical and AI proposals so a later model integration does not replace import, review or IFC validation.

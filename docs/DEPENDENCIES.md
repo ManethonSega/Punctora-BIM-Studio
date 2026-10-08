@@ -24,6 +24,7 @@ Top-level review identifies published licence evidence, not all-file/transitive 
 | [scikit-image](https://github.com/scikit-image/scikit-image/blob/main/LICENSE.txt) | code: Image-based reconstruction where retained | BSD-3-Clause overall; file-specific terms vary | top_level_reviewed | Future candidate |
 | [opencv](https://github.com/opencv/opencv) | code: Image processing where retained | Apache-2.0 (OpenCV), MIT (Python packaging); native wheel terms vary | installed_license_reviewed | 4.11.0.86 (opencv-python-headless) |
 | [SpatialLM repository code](https://github.com/manycore-research/SpatialLM/blob/8913c44d84a450c53e9340b13317f8cf7144a738/LICENSE.txt) | code: Future structured layout proposal adapter | Component-specific: Llama-3.2, Apache-2.0, MIT and CC-BY-NC-4.0 | component_declarations_reviewed | Future candidate |
+| [SpatialLM paper, arXiv v2](https://arxiv.org/abs/2506.07491v2) | research: Structured wall/opening proposals; [detailed assessment](research/SPATIALLM.md) | CC-BY-4.0 (publication only) | publication_reviewed | 5 November 2025 revision |
 | [SpatialLM1.1-Qwen-0.5B weights](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B) | model: Optional layout proposals | CC-BY-NC-4.0 | restricted | Future candidate |
 | [Sonata encoder weights](https://github.com/manycore-research/SpatialLM/blob/8913c44d84a450c53e9340b13317f8cf7144a738/README.md) | model: SpatialLM1.1 point encoder | CC-BY-NC-4.0 as stated in SpatialLM README | restricted | Future candidate |
 | [SpatialLM Dataset](https://huggingface.co/datasets/manycore-research/SpatialLM-Dataset) | dataset: Possible additional evaluation and training | CC-BY-NC-4.0 | restricted | Future candidate |
@@ -36,6 +37,8 @@ Top-level review identifies published licence evidence, not all-file/transitive 
 | [LLM-Supervised Point Cloud Processing paper](https://doi.org/10.5194/isprs-archives-XLIX-B2-2026-1311-2026) | research: Region-growing and scene-relationship design reference | CC-BY-4.0 (paper only) | publication_reviewed | Future candidate |
 
 ### SpatialLM component licences
+
+The [research assessment register](research/index.json) records the supplied paper version, fingerprint, practical findings and future experiment. Publication review is distinct from implementing an adapter or bundling assets.
 
 | Component | Licence | Scope |
 | --- | --- | --- |

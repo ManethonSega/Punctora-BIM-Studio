@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "scope": "Detailed paper assessments added to the existing dependency and research inventory; not a complete bibliography",
+  "entries": [
+    {
+      "id": "spatiallm-2506.07491v2",
+      "title": "SpatialLM: Training Large Language Models for Structured Indoor Modeling",
+      "authors": ["Yongsen Mao", "Junhao Zhong", "Chuan Fang", "Jia Zheng", "Rui Tang", "Hao Zhu", "Ping Tan", "Zihan Zhou"],
+      "publication": "NeurIPS 2025",
+      "arxiv_version": "2506.07491v2",
+      "revision_date": "2025-11-05",
+      "review_date": "2026-10-08",
+      "paper_url": "https://arxiv.org/abs/2506.07491v2",
+      "publication_license": "CC-BY-4.0",
+      "publication_license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "supplied_pdf_sha256": "3d6f8ebb92f96c62442275afbd71fb204e253796d0085378f5ec8f36bc8be4e9",
+      "assessment": "SPATIALLM.md",
+      "upstream_revision": "8913c44d84a450c53e9340b13317f8cf7144a738",
+      "status": "reviewed_research_optional_provider_not_integrated",
+      "project_use": ["structured architectural proposals", "opening host relationships", "M3 review design", "M6 optional provider comparison"],
+      "key_limits": ["2.5 cm proposal quantization", "domain-specific fine-tuning for strongest results", "inferred completion is not measured evidence", "no detector confidence scores", "XYZRGB and axis-alignment assumptions", "not a complete IFC or BIM authoring engine"],
+      "implementation_license_register": "../DEPENDENCIES.md#spatiallm-component-licences"
+    }
+  ]
+}
