@@ -8,29 +8,56 @@ Top-level review identifies published licence evidence, not all-file/transitive 
 | --- | --- | --- | --- | --- |
 | [Cloud2BIM](https://github.com/VaclavNezerka/Cloud2BIM/blob/cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e/LICENSE) | code: Selected reconstruction algorithms | MIT | source_port_reviewed | cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e |
 | [Avalonia](https://github.com/AvaloniaUI/Avalonia/blob/main/licence.md) | code: Desktop UI | MIT | top_level_reviewed | Future candidate |
-| [.NET runtime](https://github.com/dotnet/runtime) | runtime: Desktop runtime | unverified | pending | Future candidate |
-| [CPython](https://github.com/python/cpython) | runtime: Bundled geometry worker | unverified | pending | Future candidate |
+| [.NET runtime](https://github.com/dotnet/runtime/blob/main/LICENSE.TXT) | runtime: Desktop runtime | MIT | top_level_reviewed | Future candidate |
+| [CPython](https://github.com/python/cpython/blob/main/LICENSE) | runtime: Bundled geometry worker | PSF-2.0; incorporated components have additional terms | top_level_reviewed | Future candidate |
 | [pye57](https://github.com/davidcaron/pye57/blob/master/LICENSE) | code: E57 reader candidate | MIT | top_level_reviewed | Future candidate |
-| [libE57Format and native E57 dependencies](https://github.com/asmaloney/libE57Format) | code: Native E57 reader dependencies | unverified | pending | Future candidate |
+| [libE57Format](https://github.com/asmaloney/libE57Format/blob/master/LICENSE.md) | code: Native E57 reader dependencies | BSL-1.0 (Boost Software License 1.0) | top_level_reviewed | Future candidate |
 | [Open3D](https://github.com/isl-org/Open3D/blob/main/LICENSE) | code: Surface fitting and cloud processing | MIT | top_level_reviewed | Future candidate |
 | [IfcOpenShell library](https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/src/ifcopenshell-python/ifcopenshell/__init__.py) | code: IFC4 authoring and validation | LGPL-3.0-or-later | installed_source_header_reviewed | 0.8.3 |
-| [PDAL](https://github.com/PDAL/PDAL/blob/master/LICENSE.txt) | code: Optional additional formats and chunk processing | BSD-3-Clause (overall); bundled terms vary | top_level_reviewed | Future candidate |
-| [numpy](https://github.com/numpy/numpy) | code: Numerical arrays | BSD-3-Clause; wheel contains additional terms | installed_license_reviewed | 2.3.5 |
-| [scipy](https://github.com/scipy/scipy) | code: Numerical fitting | unverified | pending | Future candidate |
+| [PDAL](https://github.com/PDAL/PDAL/blob/master/LICENSE.txt) | code: Optional additional formats and chunk processing | BSD-3-Clause; bundled components have additional terms | top_level_reviewed | Future candidate |
+| [numpy](https://github.com/numpy/numpy/blob/main/LICENSE.txt) | code: Numerical arrays | BSD-3-Clause; wheel contains additional terms | installed_license_reviewed | 2.3.5 |
+| [scipy](https://github.com/scipy/scipy/blob/main/LICENSE.txt) | code: Numerical fitting | BSD-3-Clause; bundled components have additional terms | top_level_reviewed | Future candidate |
 | [shapely](https://github.com/shapely/shapely) | code: Planar geometry | BSD-3-Clause; GEOS LGPL-2.1-or-later | installed_license_reviewed | 2.1.2 |
-| [scikit-image](https://github.com/scikit-image/scikit-image) | code: Image-based reconstruction where retained | unverified | pending | Future candidate |
+| [scikit-image](https://github.com/scikit-image/scikit-image/blob/main/LICENSE.txt) | code: Image-based reconstruction where retained | BSD-3-Clause overall; file-specific terms vary | top_level_reviewed | Future candidate |
 | [opencv](https://github.com/opencv/opencv) | code: Image processing where retained | Apache-2.0 (OpenCV), MIT (Python packaging); native wheel terms vary | installed_license_reviewed | 4.11.0.86 (opencv-python-headless) |
-| [SpatialLM repository code](https://github.com/manycore-research/SpatialLM/blob/8913c44d84a450c53e9340b13317f8cf7144a738/LICENSE.txt) | code: Future structured layout proposal adapter | Llama-3.2 community terms in repository LICENSE.txt; scope requires clarification | clarification_required | Future candidate |
+| [SpatialLM repository code](https://github.com/manycore-research/SpatialLM/blob/8913c44d84a450c53e9340b13317f8cf7144a738/LICENSE.txt) | code: Future structured layout proposal adapter | Component-specific: Llama-3.2, Apache-2.0, MIT and CC-BY-NC-4.0 | component_declarations_reviewed | Future candidate |
 | [SpatialLM1.1-Qwen-0.5B weights](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B) | model: Optional layout proposals | CC-BY-NC-4.0 | restricted | Future candidate |
 | [Sonata encoder weights](https://github.com/manycore-research/SpatialLM/blob/8913c44d84a450c53e9340b13317f8cf7144a738/README.md) | model: SpatialLM1.1 point encoder | CC-BY-NC-4.0 as stated in SpatialLM README | restricted | Future candidate |
 | [SpatialLM Dataset](https://huggingface.co/datasets/manycore-research/SpatialLM-Dataset) | dataset: Possible additional evaluation and training | CC-BY-NC-4.0 | restricted | Future candidate |
-| [Pointcept repository code](https://github.com/Pointcept/Pointcept/blob/1342eda30e96cbb5fadf5374ff8eb18f6de15c71/LICENSE) | code: Future point-label proposal provider | MIT (reviewed root file) | top_level_reviewed | Future candidate |
-| [GPT4Point](https://github.com/Pointcept/GPT4Point/blob/main/LICENSE) | research: Object-language research reference | MIT root file versus CC-BY-NC-SA-4.0 README | clarification_required | Future candidate |
-| [MiniGPT-3D](https://huggingface.co/papers/2405.01413) | research: Object recognition research reference | unverified | pending | Future candidate |
-| [ENEL](https://arxiv.org/html/2502.09620v1) | research: Encoder-free 3D-language architecture reference | unverified | pending | Future candidate |
-| [PointLLM-R](https://dl.acm.org/doi/10.1145/3799902.3811081) | research: Object reasoning research reference | unverified; separate base-model/data terms require review | pending | Future candidate |
-| [Pts3D-LLM](https://machinelearning.apple.com/research/pts3d-llm) | research: Scene understanding reference | unverified | pending | Future candidate |
+| [Pointcept repository code](https://github.com/Pointcept/Pointcept/blob/1342eda30e96cbb5fadf5374ff8eb18f6de15c71/LICENSE) | code: Future point-label proposal provider | MIT | top_level_reviewed | Future candidate |
+| [GPT4Point](https://github.com/Pointcept/GPT4Point/blob/main/LICENSE) | research: Object-language research reference | MIT (repository LICENSE) | license_file_reviewed_with_conflicting_readme | Future candidate |
+| [MiniGPT-3D](https://github.com/TangYuan96/MiniGPT-3D/blob/main/README.md) | research: Object recognition research reference | CC-BY-NC-SA-4.0 | restricted | Future candidate |
+| [ENEL](https://arxiv.org/abs/2502.09620) | research: Encoder-free 3D-language architecture reference | CC-BY-NC-SA-4.0 (paper); code/weights unverified | publication_reviewed | Future candidate |
+| [PointLLM-R](https://dl.acm.org/doi/10.1145/3799902.3811081) | research: Object reasoning research reference | CC-BY (ACM paper, user supplied); MIT (released model card), upstream terms retained | mixed_publication_and_model_evidence | Future candidate |
+| [Pts3D-LLM](https://machinelearning.apple.com/research/pts3d-llm) | research: Scene understanding reference | CC-BY (paper, user supplied); code/weights unverified | publication_user_reported | Future candidate |
 | [LLM-Supervised Point Cloud Processing paper](https://doi.org/10.5194/isprs-archives-XLIX-B2-2026-1311-2026) | research: Region-growing and scene-relationship design reference | CC-BY-4.0 (paper only) | publication_reviewed | Future candidate |
+
+### SpatialLM component licences
+
+| Component | Licence | Scope |
+| --- | --- | --- |
+| SpatialLM-Llama-1B backbone (Llama3.2-1B-Instruct) | Llama-3.2 Community License | base model |
+| SpatialLM-Qwen-0.5B backbone (Qwen-2.5) | Apache-2.0 | original base model, not blanket clearance for SpatialLM weights |
+| SpatialLM1.0 SceneScript point-cloud encoder | CC-BY-NC-4.0 | encoder declaration in SpatialLM README |
+| TorchSparse | MIT | code declaration in SpatialLM README |
+| SpatialLM1.1 Sonata encoder weights | CC-BY-NC-4.0 | model weights |
+| SpatialLM1.1 code built on Pointcept | Apache-2.0 | SpatialLM README declaration; upstream Pointcept repository is separately MIT |
+
+The released SpatialLM1.1-Qwen-0.5B checkpoint remains CC-BY-NC-4.0 according to its model card. Apache-2.0 for the original Qwen backbone does not change that checkpoint declaration.
+
+### Licence scope notes
+
+- **.NET runtime:** Root runtime code licence; bundled third-party components retain their terms.
+- **CPython:** Open source is a category, not a licence name. Python documentation examples also have BSD-0-Clause terms from Python 3.8.6 onward.
+- **libE57Format:** Applies to libE57Format, not automatically all native E57 dependencies.
+- **PDAL:** Redistribution is permitted subject to the full licence conditions; retain bundled component notices.
+- **scikit-image:** The project licence lists additional file-specific terms; the supplied SciPy link is replaced by the scikit-image licence.
+- **SpatialLM repository code:** README identifies component terms; root LICENSE.txt contains Llama-3.2 terms. No blanket licence is inferred for all repository files. The Qwen backbone licence is distinct from the released SpatialLM checkpoint licence.
+- **GPT4Point:** The MIT LICENSE file is recorded as requested. README still declares CC-BY-NC-SA-4.0; scope of that declaration remains unresolved, particularly for models and data.
+- **MiniGPT-3D:** Project README declaration; base model and incorporated assets require separate checks.
+- **ENEL:** Verified publication licence. A paper licence does not by itself establish implementation or model licence.
+- **PointLLM-R:** The user-supplied CC-BY label concerns the ACM paper; exact CC-BY version not established here. The released model card states MIT while retaining base-model and Objaverse-derived data licences. The arXiv copy uses its own non-exclusive distribution licence.
+- **Pts3D-LLM:** The CC-BY label and unspecified version are recorded from the supplied list for the publication, not as permission for implementation code or model weights.
 
 ## Incorporation decisions
 
@@ -44,26 +71,26 @@ The ACM and May 2026 arXiv references are recorded together as PointLLM-R, not c
 
 - **Cloud2BIM:** MIT notice retained; selected geometry helpers adapted. No upstream AI assets or full application copied.
 - **Avalonia:** Pin and review the exact component and its dependencies before incorporation.
-- **.NET runtime:** Pin and review the exact component and its dependencies before incorporation.
-- **CPython:** Pin and review the exact component and its dependencies before incorporation.
+- **.NET runtime:** Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.
+- **CPython:** Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.
 - **pye57:** Pin and review the exact component and its dependencies before incorporation.
-- **libE57Format and native E57 dependencies:** Pin and review the exact component and its dependencies before incorporation.
+- **libE57Format:** Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.
 - **Open3D:** Pin and review the exact component and its dependencies before incorporation.
 - **IfcOpenShell library:** Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.
 - **PDAL:** Pin and review the exact component and its dependencies before incorporation.
 - **numpy:** Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.
-- **scipy:** Pin and review the exact component and its dependencies before incorporation.
+- **scipy:** Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.
 - **shapely:** Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.
-- **scikit-image:** Pin and review the exact component and its dependencies before incorporation.
+- **scikit-image:** Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.
 - **opencv:** Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.
-- **SpatialLM repository code:** Independently author Punctora's contract now. Clarify file-specific code terms before importing upstream implementation.
+- **SpatialLM repository code:** Select files and exact model variant; preserve component-specific licences. Clarify general repository-code scope and obtain any required permission for noncommercial weights/data.
 - **SpatialLM1.1-Qwen-0.5B weights:** No bundling in initial app. Resolve intended-use and redistribution permission, encoder/base-model terms and hardware feasibility.
 - **Sonata encoder weights:** Pin and review the exact component and its dependencies before incorporation.
 - **SpatialLM Dataset:** Resolve permitted evaluation/training/distribution uses before acquisition or inclusion; real survey evaluation still required.
 - **Pointcept repository code:** Review chosen files and checkpoint terms separately; not a licence clearance for Sonata or other weights.
-- **GPT4Point:** Pin and review the exact component and its dependencies before incorporation.
-- **MiniGPT-3D:** Pin and review the exact component and its dependencies before incorporation.
-- **ENEL:** Pin and review the exact component and its dependencies before incorporation.
-- **PointLLM-R:** Pin and review the exact component and its dependencies before incorporation.
-- **Pts3D-LLM:** Pin and review the exact component and its dependencies before incorporation.
+- **GPT4Point:** Retain MIT notice for covered code; clarify conflicting README scope before incorporating models/data or disputed files.
+- **MiniGPT-3D:** Resolve intended-use and redistribution permission for noncommercial/share-alike components before incorporation.
+- **ENEL:** Cite the paper under its publication terms; separately establish implementation, base-model and weight permissions before incorporation.
+- **PointLLM-R:** Keep paper and model licences separate; check retained base-model and data terms before use or redistribution.
+- **Pts3D-LLM:** Verify exact publication licence/version and independently establish code/weight availability and terms before incorporation.
 - **LLM-Supervised Point Cloud Processing paper:** Cite research. Benchmark an independently implemented method; review separately any external code, models or data. No paper performance guarantee adopted.

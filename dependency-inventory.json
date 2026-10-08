@@ -45,32 +45,36 @@
       "name": ".NET runtime",
       "kind": "runtime",
       "role": "Desktop runtime",
-      "license": "unverified",
-      "review_status": "pending",
+      "license": "MIT",
+      "review_status": "top_level_reviewed",
       "evidence": [
+        "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT",
         "https://github.com/dotnet/runtime"
       ],
       "reviewed_revision": null,
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
+      "license_scope_notes": "Root runtime code licence; bundled third-party components retain their terms."
     },
     {
       "id": "python",
       "name": "CPython",
       "kind": "runtime",
       "role": "Bundled geometry worker",
-      "license": "unverified",
-      "review_status": "pending",
+      "license": "PSF-2.0; incorporated components have additional terms",
+      "review_status": "top_level_reviewed",
       "evidence": [
+        "https://github.com/python/cpython/blob/main/LICENSE",
         "https://github.com/python/cpython"
       ],
       "reviewed_revision": null,
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
+      "license_scope_notes": "Open source is a category, not a licence name. Python documentation examples also have BSD-0-Clause terms from Python 3.8.6 onward."
     },
     {
       "id": "pye57",
@@ -90,19 +94,21 @@
     },
     {
       "id": "libe57format",
-      "name": "libE57Format and native E57 dependencies",
+      "name": "libE57Format",
       "kind": "code",
       "role": "Native E57 reader dependencies",
-      "license": "unverified",
-      "review_status": "pending",
+      "license": "BSL-1.0 (Boost Software License 1.0)",
+      "review_status": "top_level_reviewed",
       "evidence": [
+        "https://github.com/asmaloney/libE57Format/blob/master/LICENSE.md",
         "https://github.com/asmaloney/libE57Format"
       ],
       "reviewed_revision": null,
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
+      "license_scope_notes": "Applies to libE57Format, not automatically all native E57 dependencies."
     },
     {
       "id": "open3d",
@@ -144,7 +150,7 @@
       "name": "PDAL",
       "kind": "code",
       "role": "Optional additional formats and chunk processing",
-      "license": "BSD-3-Clause (overall); bundled terms vary",
+      "license": "BSD-3-Clause; bundled components have additional terms",
       "review_status": "top_level_reviewed",
       "evidence": [
         "https://github.com/PDAL/PDAL/blob/master/LICENSE.txt"
@@ -153,7 +159,8 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Pin and review the exact component and its dependencies before incorporation.",
+      "license_scope_notes": "Redistribution is permitted subject to the full licence conditions; retain bundled component notices."
     },
     {
       "id": "numpy",
@@ -163,6 +170,7 @@
       "license": "BSD-3-Clause; wheel contains additional terms",
       "review_status": "installed_license_reviewed",
       "evidence": [
+        "https://github.com/numpy/numpy/blob/main/LICENSE.txt",
         "https://github.com/numpy/numpy",
         "third_party/licenses/NumPy-2.3.5-wheel.txt"
       ],
@@ -177,16 +185,17 @@
       "name": "scipy",
       "kind": "code",
       "role": "Numerical fitting",
-      "license": "unverified",
-      "review_status": "pending",
+      "license": "BSD-3-Clause; bundled components have additional terms",
+      "review_status": "top_level_reviewed",
       "evidence": [
+        "https://github.com/scipy/scipy/blob/main/LICENSE.txt",
         "https://github.com/scipy/scipy"
       ],
       "reviewed_revision": null,
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging."
     },
     {
       "id": "shapely",
@@ -211,16 +220,18 @@
       "name": "scikit-image",
       "kind": "code",
       "role": "Image-based reconstruction where retained",
-      "license": "unverified",
-      "review_status": "pending",
+      "license": "BSD-3-Clause overall; file-specific terms vary",
+      "review_status": "top_level_reviewed",
       "evidence": [
+        "https://github.com/scikit-image/scikit-image/blob/main/LICENSE.txt",
         "https://github.com/scikit-image/scikit-image"
       ],
       "reviewed_revision": null,
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
+      "license_scope_notes": "The project licence lists additional file-specific terms; the supplied SciPy link is replaced by the scikit-image licence."
     },
     {
       "id": "opencv",
@@ -245,8 +256,8 @@
       "name": "SpatialLM repository code",
       "kind": "code",
       "role": "Future structured layout proposal adapter",
-      "license": "Llama-3.2 community terms in repository LICENSE.txt; scope requires clarification",
-      "review_status": "clarification_required",
+      "license": "Component-specific: Llama-3.2, Apache-2.0, MIT and CC-BY-NC-4.0",
+      "review_status": "component_declarations_reviewed",
       "evidence": [
         "https://github.com/manycore-research/SpatialLM/blob/8913c44d84a450c53e9340b13317f8cf7144a738/LICENSE.txt",
         "https://github.com/manycore-research/SpatialLM/blob/8913c44d84a450c53e9340b13317f8cf7144a738/README.md"
@@ -255,7 +266,40 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Independently author Punctora's contract now. Clarify file-specific code terms before importing upstream implementation."
+      "action_required": "Select files and exact model variant; preserve component-specific licences. Clarify general repository-code scope and obtain any required permission for noncommercial weights/data.",
+      "license_scope_notes": "README identifies component terms; root LICENSE.txt contains Llama-3.2 terms. No blanket licence is inferred for all repository files. The Qwen backbone licence is distinct from the released SpatialLM checkpoint licence.",
+      "license_components": [
+        {
+          "component": "SpatialLM-Llama-1B backbone (Llama3.2-1B-Instruct)",
+          "license": "Llama-3.2 Community License",
+          "scope": "base model"
+        },
+        {
+          "component": "SpatialLM-Qwen-0.5B backbone (Qwen-2.5)",
+          "license": "Apache-2.0",
+          "scope": "original base model, not blanket clearance for SpatialLM weights"
+        },
+        {
+          "component": "SpatialLM1.0 SceneScript point-cloud encoder",
+          "license": "CC-BY-NC-4.0",
+          "scope": "encoder declaration in SpatialLM README"
+        },
+        {
+          "component": "TorchSparse",
+          "license": "MIT",
+          "scope": "code declaration in SpatialLM README"
+        },
+        {
+          "component": "SpatialLM1.1 Sonata encoder weights",
+          "license": "CC-BY-NC-4.0",
+          "scope": "model weights"
+        },
+        {
+          "component": "SpatialLM1.1 code built on Pointcept",
+          "license": "Apache-2.0",
+          "scope": "SpatialLM README declaration; upstream Pointcept repository is separately MIT"
+        }
+      ]
     },
     {
       "id": "spatiallm-qwen",
@@ -310,7 +354,7 @@
       "name": "Pointcept repository code",
       "kind": "code",
       "role": "Future point-label proposal provider",
-      "license": "MIT (reviewed root file)",
+      "license": "MIT",
       "review_status": "top_level_reviewed",
       "evidence": [
         "https://github.com/Pointcept/Pointcept/blob/1342eda30e96cbb5fadf5374ff8eb18f6de15c71/LICENSE"
@@ -326,8 +370,8 @@
       "name": "GPT4Point",
       "kind": "research",
       "role": "Object-language research reference",
-      "license": "MIT root file versus CC-BY-NC-SA-4.0 README",
-      "review_status": "clarification_required",
+      "license": "MIT (repository LICENSE)",
+      "review_status": "license_file_reviewed_with_conflicting_readme",
       "evidence": [
         "https://github.com/Pointcept/GPT4Point/blob/main/LICENSE",
         "https://github.com/Pointcept/GPT4Point#-license"
@@ -336,16 +380,18 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Retain MIT notice for covered code; clarify conflicting README scope before incorporating models/data or disputed files.",
+      "license_scope_notes": "The MIT LICENSE file is recorded as requested. README still declares CC-BY-NC-SA-4.0; scope of that declaration remains unresolved, particularly for models and data."
     },
     {
       "id": "minigpt3d",
       "name": "MiniGPT-3D",
       "kind": "research",
       "role": "Object recognition research reference",
-      "license": "unverified",
-      "review_status": "pending",
+      "license": "CC-BY-NC-SA-4.0",
+      "review_status": "restricted",
       "evidence": [
+        "https://github.com/TangYuan96/MiniGPT-3D/blob/main/README.md",
         "https://huggingface.co/papers/2405.01413",
         "https://github.com/TangYuan96/MiniGPT-3D"
       ],
@@ -353,31 +399,35 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Resolve intended-use and redistribution permission for noncommercial/share-alike components before incorporation.",
+      "license_scope_notes": "Project README declaration; base model and incorporated assets require separate checks."
     },
     {
       "id": "enel",
       "name": "ENEL",
       "kind": "research",
       "role": "Encoder-free 3D-language architecture reference",
-      "license": "unverified",
-      "review_status": "pending",
+      "license": "CC-BY-NC-SA-4.0 (paper); code/weights unverified",
+      "review_status": "publication_reviewed",
       "evidence": [
+        "https://arxiv.org/abs/2502.09620",
+        "https://github.com/Ivan-Tang-3D/ENEL",
         "https://arxiv.org/html/2502.09620v1"
       ],
       "reviewed_revision": null,
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Cite the paper under its publication terms; separately establish implementation, base-model and weight permissions before incorporation.",
+      "license_scope_notes": "Verified publication licence. A paper licence does not by itself establish implementation or model licence."
     },
     {
       "id": "pointllmr",
       "name": "PointLLM-R",
       "kind": "research",
       "role": "Object reasoning research reference",
-      "license": "unverified; separate base-model/data terms require review",
-      "review_status": "pending",
+      "license": "CC-BY (ACM paper, user supplied); MIT (released model card), upstream terms retained",
+      "review_status": "mixed_publication_and_model_evidence",
       "evidence": [
         "https://dl.acm.org/doi/10.1145/3799902.3811081",
         "https://arxiv.org/html/2605.22013v1",
@@ -387,15 +437,16 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Keep paper and model licences separate; check retained base-model and data terms before use or redistribution.",
+      "license_scope_notes": "The user-supplied CC-BY label concerns the ACM paper; exact CC-BY version not established here. The released model card states MIT while retaining base-model and Objaverse-derived data licences. The arXiv copy uses its own non-exclusive distribution licence."
     },
     {
       "id": "pts3d",
       "name": "Pts3D-LLM",
       "kind": "research",
       "role": "Scene understanding reference",
-      "license": "unverified",
-      "review_status": "pending",
+      "license": "CC-BY (paper, user supplied); code/weights unverified",
+      "review_status": "publication_user_reported",
       "evidence": [
         "https://machinelearning.apple.com/research/pts3d-llm"
       ],
@@ -403,7 +454,8 @@
       "selected_version": null,
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Verify exact publication licence/version and independently establish code/weight availability and terms before incorporation.",
+      "license_scope_notes": "The CC-BY label and unspecified version are recorded from the supplied list for the publication, not as permission for implementation code or model weights."
     },
     {
       "id": "isprs",
