@@ -1,6 +1,6 @@
 # M3 desktop verification
 
-Recorded 2026-10-08. Initial desktop implementation is ready for Windows preview testing. Linux review/export and renderer checks are verified; physical Windows/AMD acceptance remains pending. This is not a claim of survey accuracy or a completed installer.
+Recorded 2026-10-08. Initial desktop implementation is ready for Windows preview testing. Linux and Windows CI review/export checks are verified; testing on the user's physical Windows/AMD machine remains pending. This is not a claim of survey accuracy or a completed installer.
 
 ![M3 generated review example](images/m3-desktop.png)
 
@@ -16,6 +16,10 @@ Recorded 2026-10-08. Initial desktop implementation is ready for Windows preview
 - Windows preview packaging script, pinned NuGet graph, exact Windows wheel/archive hashes, retained Python/.NET/native notices and application-local C++ runtime. The bundled Python libraries remain replaceable.
 
 ## Automated evidence
+
+Verified code revision: [`4b9be0d`](https://github.com/ManethonSega/Punctora-BIM-Studio/commit/4b9be0ddbdf517de093cb59a5dfcc909ef55549d). The [core CI run](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/runs/37822331692) passed all **89 tests** in each of four jobs: Windows and Ubuntu, each with Python 3.11 and 3.12. The [desktop CI run](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/runs/37822331484) passed Release builds, Linux OpenGL/software walkthroughs, the Windows software walkthrough and bundled Windows worker checks.
+
+[Download the verified Windows preview](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/runs/37822331484/artifacts/11570745096). Extract the artifact, then extract its contained ZIP and run **Punctora.Desktop.exe** with all extracted files kept together. GitHub sign-in is required for artifact downloads; this artifact expires on 2027-01-06. Its archive SHA-256 is `a2fd646e240ddc8c45fe3d29749828126672f9b0614400309eabd10d486ed60f`. This is the corrected preview; use it in preference to the earlier `b62bbba` build.
 
 The test suite contains **89 tests**: 74 previous core regressions and 15 project/worker regressions. Project checks cover edit/save/reopen/copy/export, retained evidence, stable IFC IDs, rejected geometry, invalid/nonfinite edits, overlapping storeys, stale revisions, a simulated failed atomic replacement, path escape, real worker termination during reconstruction, lock release, cleanup, malformed protocol, resuming an interrupted copy, and releasing mapped ndarray views before Windows directory publication.
 
