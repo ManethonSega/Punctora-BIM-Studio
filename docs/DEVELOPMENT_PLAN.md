@@ -1,6 +1,6 @@
 # Development plan
 
-The immediate goal is a runnable Windows application that accepts a registered E57 floor scan and produces reviewable IFC4 plus quality results. Each milestone is verified before expansion. This foundation is M0 only.
+The immediate goal is a runnable Windows application that accepts a registered E57 floor scan and produces reviewable IFC4 plus quality results. M0 and the experimental M1 core are implemented. Direct E57 import is M2; the desktop application is M3. See [M1 verification](M1_VERIFICATION.md) for the checks and limits of the current baseline.
 
 | Milestone | Work | Acceptance evidence |
 | --- | --- | --- |

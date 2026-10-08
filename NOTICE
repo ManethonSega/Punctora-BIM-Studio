@@ -5,4 +5,6 @@ Original project material is licensed under the Apache License, Version 2.0.
 Third-party material retains its own copyright and licence terms.
 See THIRD_PARTY_NOTICES.md and docs/DEPENDENCIES.md.
 
-This foundation includes no upstream implementation code or model weights.
+Selected Cloud2BIM geometry routines are adapted from code by Václav Nežerka,
+Copyright (c) 2025, under the MIT licence. See THIRD_PARTY_NOTICES.md and
+third_party/licenses/Cloud2BIM-MIT.txt. No model weights are included.

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "punctora-core"
+version = "0.1.0a1"
+description = "Punctora BIM Studio experimental reconstruction and IFC core"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = "Apache-2.0 AND MIT"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "third_party/licenses/*.txt"]
+dependencies = [
+  "numpy==2.3.5",
+  "opencv-python-headless==4.11.0.86",
+  "shapely==2.1.2",
+  "ifcopenshell==0.8.3",
+]
+
+[project.optional-dependencies]
+test = ["pytest==8.4.2"]
+
+[project.scripts]
+punctora-core = "punctora_core.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

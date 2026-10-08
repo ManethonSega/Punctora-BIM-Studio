@@ -6,7 +6,7 @@ Original Punctora code and documentation use Apache-2.0. Preserve the existing r
 
 ## Candidate inventory
 
-`dependency-inventory.json` records candidate code, runtime, model, dataset and research components separately. It is not a lockfile or a release SBOM. No candidate is currently installed or shipped by this project. A reviewed top-level licence is not approval of every file or transitive dependency.
+`dependency-inventory.json` records selected dependencies and candidate code, runtime, model, dataset and research components separately. It is not a lockfile or a release SBOM. M1 includes selected MIT Cloud2BIM source and uses pinned external Python dependencies. No native binaries or model weights are bundled. A reviewed top-level licence is not approval of every file or transitive dependency.
 
 Before incorporation, record the exact version/commit, files used, applicable licence evidence, native/transitive dependencies and required notices. Before packaging, create an inventory of the actual installed distribution, retain its applicable licence texts and verify its source/replacement requirements. Unpinned candidates remain design choices.
 

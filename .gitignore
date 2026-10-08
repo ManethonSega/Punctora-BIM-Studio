@@ -31,6 +31,9 @@ artifacts/
 __pycache__/
 *.py[cod]
 .venv/
+.venv-*/
+build/
+dist/
 venv/
 .pytest_cache/
 .ruff_cache/

@@ -1,6 +1,6 @@
 # Contributing
 
-The current milestone is repository foundation. Follow the acceptance criteria in [the development plan](docs/DEVELOPMENT_PLAN.md).
+The current implementation is the experimental M1 reconstruction core. Follow the acceptance criteria in [the development plan](docs/DEVELOPMENT_PLAN.md), and run `python -m pytest -q` for core changes.
 
 - Keep contributions focused on the current milestone and explain the resulting behaviour and verification.
 - Add upstream dependencies to the inventory before incorporating them, and pin versions when used.
@@ -10,4 +10,4 @@ The current milestone is repository foundation. Follow the acceptance criteria i
 - Use targeted tests for geometry, transformations, floor isolation, persistence and IFC relationships.
 - Document limitations accurately. A generated file or attractive preview is not evidence of accurate BIM reconstruction.
 
-The planned source layout is described in the architecture; executable project scaffolding follows in the next milestone.
+The core lives in `src/punctora_core`, with targeted regression cases in `tests`. E57 import and desktop scaffolding follow in later milestones.

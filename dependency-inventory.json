@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "review_date": "2026-10-08",
-  "phase": "M0 repository foundation",
-  "inventory_type": "candidate register, not an installed SBOM or version lock",
+  "phase": "M1 reconstruction and IFC core",
+  "inventory_type": "selected source/runtime dependencies plus future candidates; not a binary SBOM",
   "entries": [
     {
       "id": "cloud2bim",
@@ -10,15 +10,19 @@
       "kind": "code",
       "role": "Selected reconstruction algorithms",
       "license": "MIT",
-      "review_status": "top_level_reviewed",
+      "review_status": "source_port_reviewed",
       "evidence": [
         "https://github.com/VaclavNezerka/Cloud2BIM/blob/cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e/LICENSE"
       ],
       "reviewed_revision": "cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e",
-      "selected_version": null,
-      "incorporated": false,
-      "redistributed": false,
-      "action_required": "Retain MIT copyright/permission notice; record adapted files and changes; check each ported file and transitive dependency. Supplied release README has a conflicting GPL label."
+      "selected_version": "cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "MIT notice retained; selected geometry helpers adapted. No upstream AI assets or full application copied.",
+      "adapted_files": [
+        "src/punctora_core/cloud2bim_geometry.py",
+        "src/punctora_core/ifc_geometry.py"
+      ]
     },
     {
       "id": "avalonia",
@@ -122,17 +126,18 @@
       "kind": "code",
       "role": "IFC4 authoring and validation",
       "license": "LGPL-3.0-or-later",
-      "review_status": "component_reviewed",
+      "review_status": "installed_source_header_reviewed",
       "evidence": [
         "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/src/ifcopenshell-python/ifcopenshell/__init__.py",
         "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/COPYING.LESSER",
-        "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/README.md"
+        "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/README.md",
+        "https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.3/src/ifcopenshell-python/ifcopenshell/__init__.py"
       ],
       "reviewed_revision": null,
-      "selected_version": null,
-      "incorporated": false,
+      "selected_version": "0.8.3",
+      "incorporated": true,
       "redistributed": false,
-      "action_required": "Pin library build; retain LGPL/GPL texts and applicable source/replacement information; audit native dependencies. Do not copy GPL Bonsai application code as if it were LGPL."
+      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging."
     },
     {
       "id": "pdal",
@@ -155,16 +160,17 @@
       "name": "numpy",
       "kind": "code",
       "role": "Numerical arrays",
-      "license": "unverified",
-      "review_status": "pending",
+      "license": "BSD-3-Clause; wheel contains additional terms",
+      "review_status": "installed_license_reviewed",
       "evidence": [
-        "https://github.com/numpy/numpy"
+        "https://github.com/numpy/numpy",
+        "third_party/licenses/NumPy-2.3.5-wheel.txt"
       ],
       "reviewed_revision": null,
-      "selected_version": null,
-      "incorporated": false,
+      "selected_version": "2.3.5",
+      "incorporated": true,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging."
     },
     {
       "id": "scipy",
@@ -187,16 +193,18 @@
       "name": "shapely",
       "kind": "code",
       "role": "Planar geometry",
-      "license": "unverified",
-      "review_status": "pending",
+      "license": "BSD-3-Clause; GEOS LGPL-2.1-or-later",
+      "review_status": "installed_license_reviewed",
       "evidence": [
-        "https://github.com/shapely/shapely"
+        "https://github.com/shapely/shapely",
+        "third_party/licenses/Shapely-2.1.2.txt",
+        "third_party/licenses/GEOS-Shapely-wheel.txt"
       ],
       "reviewed_revision": null,
-      "selected_version": null,
-      "incorporated": false,
+      "selected_version": "2.1.2",
+      "incorporated": true,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging."
     },
     {
       "id": "scikit-image",
@@ -219,16 +227,18 @@
       "name": "opencv",
       "kind": "code",
       "role": "Image processing where retained",
-      "license": "unverified",
-      "review_status": "pending",
+      "license": "Apache-2.0 (OpenCV), MIT (Python packaging); native wheel terms vary",
+      "review_status": "installed_license_reviewed",
       "evidence": [
-        "https://github.com/opencv/opencv"
+        "https://github.com/opencv/opencv",
+        "third_party/licenses/OpenCV-python-4.11.0.86.txt",
+        "third_party/licenses/OpenCV-wheel-third-party.txt"
       ],
       "reviewed_revision": null,
-      "selected_version": null,
-      "incorporated": false,
+      "selected_version": "4.11.0.86 (opencv-python-headless)",
+      "incorporated": true,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation."
+      "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging."
     },
     {
       "id": "spatiallm-code",
