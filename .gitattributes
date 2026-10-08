@@ -5,3 +5,7 @@
 *.cs text eol=lf
 *.axaml text eol=lf
 *.sln text eol=crlf
+
+# Retained upstream notices keep their exact bytes and recorded hashes.
+third_party/licenses/** -text
+third_party/references/** -text

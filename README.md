@@ -2,15 +2,20 @@
 
 **From point clouds to editable BIM.**
 
-Punctora BIM Studio is a planned standalone desktop application for importing registered E57 point clouds, reconstructing architectural elements, reviewing the results and exporting IFC4 with quality reports.
+Punctora BIM Studio is an experimental desktop application for importing registered E57 point clouds, reconstructing architectural elements, reviewing the results and exporting IFC4 with quality reports.
 
 ## Current status
 
-**M2 development implemented; M3 desktop review is next.** The developer core reads registered E57 scans in bounded-memory chunks, applies each scan pose once, filters invalid coordinates, creates a disk-backed local working cloud and writes validated IFC4 with a reversible mapping to source coordinates. Contour and CPU region-growing providers are compared on repeatable generated benchmarks. Detection uses capped voxel samples; wall faces are refitted to original records with traceable evidence files. Local XYZ input remains supported.
+**M3 desktop implementation is available; Windows hardware acceptance remains pending.** The .NET/Avalonia desktop imports registered E57 files, shows bounded cloud/model overlays, edits supported wall/slab/storey parameters, saves and reopens atomic projects, and exports reviewed IFC4. It automatically attempts an OpenGL/ANGLE viewport and provides software fallback. Conversion remains CPU-based; GPU compute and coordinated multicore reconstruction are not implemented.
 
-There is no desktop interface, AI integration or installer yet. Two supplied E57 examples, with 1.21 million and 4.07 million points, have passed full-record import-integrity and repeat-import checks. No annotated real building reconstruction has been accepted. Broader scanner compatibility, representative reconstruction performance and confirmed CRS/vertical datum remain field acceptance checks. See [supplied E57 verification](docs/M2_SUPPLIED_E57_VERIFICATION.md). Automatic door/window detection is not enabled; explicitly supplied openings are supported by the exporter.
+The core passes 88 automated tests. Linux desktop walkthroughs passed with both Mesa software OpenGL and forced software preview; both supplied E57 examples were imported and displayed with 100,000-point previews. Physical AMD GPU performance, clean Windows installation and annotated real-building accuracy remain acceptance checks. No AI weights or installer are included in the source. See [M3 verification](docs/M3_VERIFICATION.md) and [desktop usage](docs/DESKTOP.md).
 
+The M2 core retains bounded-memory E57 decoding, reversible coordinates, original-record wall fitting and evidence. Two supplied scans, with 1.21 million and 4.07 million points, passed full-record import integrity checks. Missing CRS/vertical datum and the pump's missing pose remain explicit warnings. Automatic door/window detection is not enabled.
 The first usable milestone targets Windows x64 and one representative building floor. It must run locally without Revit, an AI model or an NVIDIA GPU.
+
+## Try the desktop
+
+See [desktop launch and Windows preview instructions](docs/DESKTOP.md). Successful [M3 desktop CI runs](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/workflows/desktop.yml) produce a portable Windows x64 preview with bundled runtimes and notices. Choose **Example** for a scan-free review/edit/save/export walkthrough.
 
 ## Run the experimental core
 
@@ -51,6 +56,8 @@ Doors, windows and spaces follow once the basic pipeline passes its checks. AI r
 | --- | --- |
 | [Development plan](docs/DEVELOPMENT_PLAN.md) | Milestones and acceptance criteria |
 | [Architecture](docs/ARCHITECTURE.md) | Desktop, worker, geometry, quality and AI boundaries |
+| [Desktop usage](docs/DESKTOP.md) | Launch, project workflow and graphics limits |
+| [M3 verification](docs/M3_VERIFICATION.md) | Tests, sample previews and pending hardware acceptance |
 | [M3 implementation plan](docs/M3_IMPLEMENTATION_PLAN.md) | Desktop work sequence, automatic GPU viewport use and completion checks |
 | [M2 E57 verification](docs/M2_E57_VERIFICATION.md) | Direct-import behaviour, automated evidence and remaining M2 work |
 | [Supplied E57 verification](docs/M2_SUPPLIED_E57_VERIFICATION.md) | Full-record checks of the two supplied examples, resource measurements and coordinate warnings |

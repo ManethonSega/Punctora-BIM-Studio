@@ -1,10 +1,10 @@
 # Third-party notices
 
-## M2 status
+## M2/M3 status
 
 See [ATTRIBUTIONS.md](ATTRIBUTIONS.md) for per-component credits and licence notices, and [NOTICE_REGISTER.json](third_party/NOTICE_REGISTER.json) for their machine-readable code/runtime/model/publication scopes. Exact supplied licence texts and disclaimers are retained in `third_party/licenses`; future-candidate references are retained separately in `third_party/references`.
 
-Selected Cloud2BIM geometry routines are incorporated as MIT source. Apache 2.0 applies to original Punctora material. External runtime libraries are installed through pip and are not embedded in this repository or Punctora's wheel. Direct E57 import uses pye57 and its native/runtime stack. No datasets or model weights are included.
+Selected Cloud2BIM geometry routines are incorporated as MIT source. Apache 2.0 applies to original Punctora material. External runtime libraries are installed through pip and are not embedded in this source repository or Punctora's wheel. The M3 preview package bundles the pinned, unmodified worker libraries and desktop runtimes with retained notices. Direct E57 import uses pye57 and its native/runtime stack. No datasets or model weights are included.
 
 The Python package declares Apache-2.0 AND MIT to reflect its original modules and adapted routines.
 
@@ -43,3 +43,7 @@ Add an entry for every incorporated component with its exact version or commit, 
 For the IfcOpenShell library, include the applicable LGPL/GPL licence texts and required source and replacement information for the packaged build. Do not treat the licences of Bonsai or other applications in its repository as identical to the library's licence.
 
 Optional research components are credited with their own licence notices without including their code, weights or datasets. The intended use is noncommercial. Additional creator permission will be requested only for an actual use that the applicable licence does not cover. No special permission grant is recorded yet.
+
+## M3 desktop distribution
+
+See [Windows runtime notices](docs/WINDOWS_RUNTIME_NOTICES.md) for all pinned desktop dependencies, exact Python/.NET runtimes, native notices and LGPL replacement/source information. Exact Windows wheel licence snapshots supplement the prior Linux references. Licences remain in the installed package directories and are also copied with the preview. No licence reference grants rights to unrelated upstream assets.

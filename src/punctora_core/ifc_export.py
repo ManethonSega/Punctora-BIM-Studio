@@ -27,7 +27,7 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
 
     def root(ifc_class, identifier, name=None, predefined=None):
         entity = api("root.create_entity", ifc_class=ifc_class, name=name or identifier, predefined_type=predefined)
-        entity.GlobalId = _guid(model.name, f"{ifc_class}:{identifier}")
+        entity.GlobalId = _guid(model.metadata.get("project_id", model.name), f"{ifc_class}:{identifier}")
         return entity
 
     project = root("IfcProject", "project", model.name)
@@ -131,7 +131,7 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         matrix = np.eye(4)
         matrix[2, 3] = slab.base
         solid(entity, slab.footprint, slab.thickness, matrix)
-        provenance(entity, slab.id, slab.provenance)
+        provenance(entity, slab.id, slab.provenance, {"ReviewState": slab.review_state})
 
     for space in model.spaces:
         entity = root("IfcSpace", space.id, predefined="NOTDEFINED")

@@ -1,21 +1,21 @@
 # Architecture
 
-Status: M2 import and reconstruction core implemented; desktop remains a design target.
+Status: M3 desktop implementation and Linux preview walkthroughs verified; Windows hardware acceptance pending.
 
 ## Components
 
-| Component | Responsibility | Planned implementation |
+| Component | Responsibility | Implementation |
 | --- | --- | --- |
-| Desktop | Project setup, jobs, 3D review, corrections and export | .NET 10 and Avalonia; dedicated GPU point/mesh viewport required when available, renderer selection pending prototype |
+| Desktop | Project setup, jobs, 3D review, corrections and export | .NET 10.0.0 and Avalonia 12.1.3; batched OpenGL/ANGLE point/mesh viewport with software fallback |
 | Import worker | Read E57 scans, poses and available metadata, reject invalid coordinates | Python and pye57 0.4.19; bounded-memory decoding implemented and checked with generated fixtures and two supplied examples |
-| Cloud store | Preserve the source, index working points and serve reduced preview data | Disk-backed working arrays implemented; preview/index formats remain for M3 benchmarking |
+| Cloud store | Preserve the source, index working points and serve reduced preview data | Disk-backed working arrays plus immutable project generations and bounded xyzrgb-f32-le display samples; no streaming LOD yet |
 | Reconstruction | Detect floors and surfaces, fit walls/slabs and retain scan evidence | Contour baseline plus CPU region-growing experiment; capped voxel proposals, batched SciPy neighbourhoods and original-record wall fitting implemented |
 | Element model | Stable IDs, geometric parameters, host/storey relationships and provenance | Punctora-owned versioned JSON representation |
 | IFC service | IFC4 geometry, decomposition, containment, openings and georeferencing | IfcOpenShell library; local placement plus E57-source `IfcMapConversion` implemented |
 | Quality service | IFC rules, geometric checks and surface-deviation measurements | Deterministic calculations with explicit coverage and sampling |
 | Optional proposal provider | Suggest classes and element geometry | Classical providers first; replaceable SpatialLM/Pointcept adapters later |
 
-The Python worker is launched by the desktop app. The packaged product must include the permitted runtime and libraries so ordinary users do not install Python, .NET or Revit separately. Exact runtime and package versions will be pinned when implementation is tested.
+The Python worker is launched by the desktop app. The packaged product must include the permitted runtime and libraries so ordinary users do not install Python, .NET or Revit separately. NuGet dependencies are locked; Windows worker wheels and embedded Python archive have recorded hashes. Portable preview build tooling is implemented; final installer acceptance remains M4.
 
 ## GPU policy for M3
 
@@ -37,9 +37,9 @@ A failed validation leaves the findings visible and labels any exported diagnost
 
 ## Worker contract
 
-Use versioned JSON messages over standard input/output for commands, progress, warnings, cancellation acknowledgement and results. Diagnostic logging uses standard error. Bulk point/mesh data is passed through explicit project-local file references, not embedded in JSON messages.
+Use versioned JSON messages over standard input/output for commands, progress, warnings, results; cancellation acknowledgement comes from desktop termination/wait, followed by revision-aware recovery. Diagnostic logging uses standard error. Bulk point/mesh data is passed through explicit project-local file references, not embedded in JSON messages.
 
-Each job has an ID, input fingerprints, parameters, engine versions and output paths. Writes use temporary files and atomic replacement. Re-running an import replaces its derived cache rather than appending duplicate points. Long work stays outside the UI thread. Cancellation and failure preserve the previous saved project and clean incomplete outputs.
+Each job has an ID, input fingerprints, parameters, engine versions and output paths. Writes use temporary files and atomic replacement. Re-running an import replaces its derived cache rather than appending duplicate points. Long work stays outside the UI thread. Cancellation and failure preserve the previous saved project. Cleanup removes unused owned generations after cancellation/reconstruction; process death releases the OS lock.
 
 ## Coordinate contract
 
@@ -70,3 +70,7 @@ Use explicit parameter states: `measured`, `inferred`, `user_supplied`, `unknown
 Initial scope assumes already registered building scans. Registration optimisation, photogrammetry, roofs, stairs, MEP systems and city-scale processing are outside the first milestone. Model correction operates on derived elements and does not change the original scan.
 
 Processing is local by default. Future remote inference requires an explicit user choice identifying the recipient and transmitted data. No automatic model downloads or scan uploads are part of this design.
+
+## Desktop project lifecycle
+
+`.punctora` schema 1 stores the project identity, revision, relative asset references, import manifest, coordinate confirmation, warnings and schema-2 element model. Each job stages an immutable generation and publishes it before atomically replacing the project JSON. The last saved revision is protected by an OS lock and optimistic revision checks. Draft corrections preserve original faces/evidence and record user provenance. Save-copy carries only referenced generations and retains element/IFC identity. Rejected geometry is excluded from reviewed export; derived spaces are withheld after geometry edits.

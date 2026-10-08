@@ -1,0 +1,7 @@
+{
+  "source_points": 1213990,
+  "preview_points": 100000,
+  "import_preview_seconds": 0.8026726580001196,
+  "processing_backend": "CPU; no GPU compute backend implemented",
+  "test_environment": "Linux container, Xvfb TCP display, Mesa llvmpipe LLVM 20.1.2, 1440x920 window; no physical GPU"
+}

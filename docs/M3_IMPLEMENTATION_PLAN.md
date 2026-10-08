@@ -1,12 +1,12 @@
 # M3 desktop implementation plan
 
-Recorded 2026-10-08. Status: planned, not implemented. M2 supplies E57 import, CPU reconstruction, evidence and IFC export. M3 turns that core into an interactive desktop review workflow. The user clarified that automatic GPU use and multicore CPU acceleration primarily concern **point-cloud-to-IFC conversion**. GPU rendering is a separate M3 design choice, not a substitute for accelerating conversion.
+Recorded 2026-10-08. Status: initial desktop implementation and Linux walkthroughs verified; Windows hardware acceptance pending. M2 supplies E57 import, CPU reconstruction, evidence and IFC export. M3 turns that core into an interactive desktop review workflow. The user clarified that automatic GPU use and multicore CPU acceleration primarily concern **point-cloud-to-IFC conversion**. GPU rendering is a separate M3 design choice, not a substitute for accelerating conversion.
 
 ## Current GPU status
 
-The repository has no desktop viewport or GPU compute backend. pye57 import, NumPy/SciPy/OpenCV reconstruction, source-record fitting and IfcOpenShell export currently run on the CPU. Available graphics hardware does not automatically accelerate these Python algorithms.
+The repository now includes a batched OpenGL/ANGLE viewport with bounded software fallback. No GPU compute backend is implemented. pye57 import, NumPy/SciPy/OpenCV reconstruction, source-record fitting and IfcOpenShell export currently run on the CPU. Available graphics hardware does not automatically accelerate these Python algorithms.
 
-Avalonia's [Windows documentation](https://docs.avaloniaui.net/docs/platform-specific-guides/windows) describes GPU-backed UI rendering and software fallback. That does not supply the application's 3D cloud/model engine. A dedicated batched GPU viewport must be built and benchmarked. Avalonia exposes [OpenGlControlBase](https://api-docs.avaloniaui.net/docs/T_Avalonia_OpenGL_Controls_OpenGlControlBase) as one possible integration route. A native Direct3D viewport is another prototype option on Windows; Microsoft's [WARP guidance](https://learn.microsoft.com/en-us/windows/win32/direct3darticles/directx-warp) documents hardware/software rendering and the importance of efficient batching. Choose and pin the renderer after a small working prototype, rather than claiming a particular API is already integrated.
+Avalonia's [Windows documentation](https://docs.avaloniaui.net/docs/platform-specific-guides/windows) describes GPU-backed UI rendering and software fallback. That does not supply the application's 3D cloud/model engine. The dedicated batched viewport is implemented; physical hardware benchmarking remains pending. Avalonia exposes [OpenGlControlBase](https://api-docs.avaloniaui.net/docs/T_Avalonia_OpenGL_Controls_OpenGlControlBase) as one possible integration route. A native Direct3D viewport is another prototype option on Windows; Microsoft's [WARP guidance](https://learn.microsoft.com/en-us/windows/win32/direct3darticles/directx-warp) documents hardware/software rendering and the importance of efficient batching. M3 selected and pinned Avalonia 12.1.3 with OpenGlControlBase; Linux EGL/Mesa exercises the renderer and Windows uses Avalonia's ANGLE integration.
 
 The user's known desktop RX 7800 XT 16 GB is an intended test target, not tested hardware for Punctora. Use a vendor-neutral graphics path so AMD, NVIDIA and Intel adapters can be supported without requiring CUDA. Validate the actual device, driver and rendering capabilities. Graphics support, GPU compute support and AI checkpoint support are separate checks.
 
@@ -22,7 +22,7 @@ The user's known desktop RX 7800 XT 16 GB is an intended test target, not tested
 | 6. Reviewed IFC export | Export the edited model through the existing IFC service and show validation findings | Export reflects supported edits, retains mapping and identity, and distinguishes file validity from survey/model acceptance |
 | 7. End-to-end verification | Fixture import/reconstruct/review/edit/save/reopen/export; sample import/view walkthroughs; cancellation/failure tests; graphics measurements | Reproducible reports identify hardware, backend, settings and limits. Windows physical GPU testing is required before claiming the target card works |
 
-Steps 1 and 2 are the immediate implementation work. Establish the worker connection and a measurable GPU cloud viewport before building the full property editor. The first M3 review model can use generated fixtures; the unannotated E57 examples test import and viewing, not accepted architectural reconstruction.
+Steps 1 through 6 have an initial implementation, with step 7 covered by project regressions, fixture desktop walkthroughs and both supplied sample previews. Hardware acceptance remains pending. The first preview has a fixed 100,000-point cap (5,000 in software fallback), vertical section/storey filtering and no streaming LOD or arbitrary box crop. The first M3 review model can use generated fixtures; the unannotated E57 examples test import and viewing, not accepted architectural reconstruction.
 
 ## GPU rendering requirements
 
@@ -61,3 +61,7 @@ Measure import-to-first-view time, camera-interaction frame times, input respons
 Use the pump's five scans and Station018's 4.07 million points as view/import cases. Station018's approximately 711 m extent also exercises local-origin precision and preview/detail selection. Its full extent must not be silently converted into one accepted architectural floor. Retain the empty-CRS and missing-pose warnings from [sample verification](M2_SUPPLIED_E57_VERIFICATION.md).
 
 M3 is complete when the review workflow works, supported edits survive reopening, export reflects those edits, jobs remain responsive and failure-safe, and hardware/fallback viewport behaviour is verified with clearly identified test environments. Annotated real-building accuracy remains a field check. Quality reporting and clean Windows distribution/installer acceptance continue in M4; neither GPU rendering nor a valid IFC establishes survey acceptance.
+
+## Implemented evidence
+
+See [M3 verification](M3_VERIFICATION.md), [desktop usage](DESKTOP.md), `desktop/Punctora.Desktop`, `src/punctora_core/projects.py`, `src/punctora_core/worker.py`, and `tests/test_projects.py`. The M3 CI workflow builds Linux/Windows, exercises review/export and packages the replaceable Windows worker with exact runtime notices. Pending target GPU, clean-machine and real-building accuracy checks remain explicit.

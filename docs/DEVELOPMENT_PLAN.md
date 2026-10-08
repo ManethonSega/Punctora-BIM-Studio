@@ -1,6 +1,6 @@
 # Development plan
 
-The immediate goal is a runnable Windows application that accepts a registered E57 floor scan and produces reviewable IFC4 plus quality results. M0, the experimental M1 core and M2 development are implemented. M2 includes direct E57/coordinates, bounded detection, original-record wall fitting and generated provider/resource benchmarks. Real-file acceptance checks remain open and must not be confused with generated verification. M3 desktop development can start using the versioned core. See [M2 fitting verification](M2_FITTING_VERIFICATION.md) and [M2 E57 verification](M2_E57_VERIFICATION.md).
+The immediate goal is a runnable Windows application that accepts a registered E57 floor scan and produces reviewable IFC4 plus quality results. M0, the experimental M1 core and M2 development are implemented. M2 includes direct E57/coordinates, bounded detection, original-record wall fitting and generated provider/resource benchmarks. Real-file acceptance checks remain open and must not be confused with generated verification. M3 desktop implementation now provides the review/edit/save/export workflow, OpenGL/ANGLE rendering and fallback. Linux walkthroughs and project regressions are verified; physical Windows/AMD acceptance remains pending. See [M3 verification](M3_VERIFICATION.md). See [M2 fitting verification](M2_FITTING_VERIFICATION.md) and [M2 E57 verification](M2_E57_VERIFICATION.md).
 
 | Milestone | Work | Acceptance evidence |
 | --- | --- | --- |

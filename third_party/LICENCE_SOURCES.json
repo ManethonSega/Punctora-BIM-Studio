@@ -182,6 +182,348 @@
       "source_url": "https://pypi.org/project/scipy/1.17.0/",
       "installed_distribution": "scipy==1.17.0 (Linux wheel)",
       "retained_sha256": "ed9bf58c6d74d3fad9d92d1d67d9bff8141d8ab60de784516b0711364fd43357"
+    },
+    {
+      "key": "Avalonia-12.1.3-MIT",
+      "path": "third_party/licenses/Avalonia-12.1.3-MIT.txt",
+      "source_url": "https://raw.githubusercontent.com/AvaloniaUI/Avalonia/8eeda4f6f546165b3f72e63c9f42247abb306905/licence.md",
+      "source_blob_sha": null,
+      "retained_sha256": "213814d306090074d234d760239ff0f67eb9b8d20eefb4d5631bb39dbe0b769b"
+    },
+    {
+      "key": "MicroCom-0.11.6-MIT",
+      "path": "third_party/licenses/MicroCom-0.11.6-MIT.txt",
+      "source_url": "https://raw.githubusercontent.com/kekekeks/MicroCom/76785efcafd91b5902fd19dd11145f6dd655b7b4/LICENSE",
+      "source_blob_sha": null,
+      "retained_sha256": "6ee769c9ac4dac9abb16b98b1341e9528ff9f4ab685481410d3376d14148f3a9"
+    },
+    {
+      "key": "Avalonia-BuildServices-11.3.2-MIT",
+      "path": "third_party/licenses/Avalonia-BuildServices-11.3.2-MIT.txt",
+      "source_url": "https://raw.githubusercontent.com/AvaloniaUI/Avalonia.BuildServices/777f975b0a0cecf0311273711d56697212c558c0/LICENSE",
+      "source_blob_sha": null,
+      "retained_sha256": "94162c40c663bd96ec1b870e6aba6ef0a43f44c9eb500807e7965e7078f6dc47"
+    },
+    {
+      "key": "avalonia.angle.windows.natives-2.1.27548.20260419-license",
+      "path": "third_party/licenses/avalonia.angle.windows.natives-2.1.27548.20260419-license.txt",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/avalonia.angle.windows.natives/2.1.27548.20260419/avalonia.angle.windows.natives.2.1.27548.20260419.nupkg#LICENSE",
+      "source_blob_sha": null,
+      "retained_sha256": "54aff7276217df9f6b5181613999d208c9e40d2b1d51bf55217837e6871a4a63"
+    },
+    {
+      "key": "skiasharp.nativeassets.win32-3.119.4-license.txt",
+      "path": "third_party/licenses/skiasharp.nativeassets.win32-3.119.4-license.txt.txt",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/skiasharp.nativeassets.win32/3.119.4/skiasharp.nativeassets.win32.3.119.4.nupkg#LICENSE.txt",
+      "source_blob_sha": null,
+      "retained_sha256": "89101e35a8c66fd4d6dffc1763259161d35cb564c169714ec227a768c89f2938"
+    },
+    {
+      "key": "skiasharp.nativeassets.win32-3.119.4-third-party-notices.txt",
+      "path": "third_party/licenses/skiasharp.nativeassets.win32-3.119.4-third-party-notices.txt.txt",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/skiasharp.nativeassets.win32/3.119.4/skiasharp.nativeassets.win32.3.119.4.nupkg#THIRD-PARTY-NOTICES.txt",
+      "source_blob_sha": null,
+      "retained_sha256": "21504c46c4c58aa64c1055bd2dcbc5f9a136b4b8c412ed3cc6740e22c5b127f5"
+    },
+    {
+      "key": "harfbuzzsharp.nativeassets.win32-8.3.1.3-license.txt",
+      "path": "third_party/licenses/harfbuzzsharp.nativeassets.win32-8.3.1.3-license.txt.txt",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/harfbuzzsharp.nativeassets.win32/8.3.1.3/harfbuzzsharp.nativeassets.win32.8.3.1.3.nupkg#LICENSE.txt",
+      "source_blob_sha": null,
+      "retained_sha256": "89101e35a8c66fd4d6dffc1763259161d35cb564c169714ec227a768c89f2938"
+    },
+    {
+      "key": "harfbuzzsharp.nativeassets.win32-8.3.1.3-third-party-notices.txt",
+      "path": "third_party/licenses/harfbuzzsharp.nativeassets.win32-8.3.1.3-third-party-notices.txt.txt",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/harfbuzzsharp.nativeassets.win32/8.3.1.3/harfbuzzsharp.nativeassets.win32.8.3.1.3.nupkg#THIRD-PARTY-NOTICES.txt",
+      "source_blob_sha": null,
+      "retained_sha256": "21504c46c4c58aa64c1055bd2dcbc5f9a136b4b8c412ed3cc6740e22c5b127f5"
+    },
+    {
+      "key": "skiasharp.nativeassets.linux-3.119.4-license.txt",
+      "path": "third_party/licenses/skiasharp.nativeassets.linux-3.119.4-license.txt.txt",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/skiasharp.nativeassets.linux/3.119.4/skiasharp.nativeassets.linux.3.119.4.nupkg#LICENSE.txt",
+      "source_blob_sha": null,
+      "retained_sha256": "89101e35a8c66fd4d6dffc1763259161d35cb564c169714ec227a768c89f2938"
+    },
+    {
+      "key": "skiasharp.nativeassets.linux-3.119.4-third-party-notices.txt",
+      "path": "third_party/licenses/skiasharp.nativeassets.linux-3.119.4-third-party-notices.txt.txt",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/skiasharp.nativeassets.linux/3.119.4/skiasharp.nativeassets.linux.3.119.4.nupkg#THIRD-PARTY-NOTICES.txt",
+      "source_blob_sha": null,
+      "retained_sha256": "21504c46c4c58aa64c1055bd2dcbc5f9a136b4b8c412ed3cc6740e22c5b127f5"
+    },
+    {
+      "key": "harfbuzzsharp.nativeassets.linux-8.3.1.3-license.txt",
+      "path": "third_party/licenses/harfbuzzsharp.nativeassets.linux-8.3.1.3-license.txt.txt",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/harfbuzzsharp.nativeassets.linux/8.3.1.3/harfbuzzsharp.nativeassets.linux.8.3.1.3.nupkg#LICENSE.txt",
+      "source_blob_sha": null,
+      "retained_sha256": "89101e35a8c66fd4d6dffc1763259161d35cb564c169714ec227a768c89f2938"
+    },
+    {
+      "key": "harfbuzzsharp.nativeassets.linux-8.3.1.3-third-party-notices.txt",
+      "path": "third_party/licenses/harfbuzzsharp.nativeassets.linux-8.3.1.3-third-party-notices.txt.txt",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/harfbuzzsharp.nativeassets.linux/8.3.1.3/harfbuzzsharp.nativeassets.linux.8.3.1.3.nupkg#THIRD-PARTY-NOTICES.txt",
+      "source_blob_sha": null,
+      "retained_sha256": "21504c46c4c58aa64c1055bd2dcbc5f9a136b4b8c412ed3cc6740e22c5b127f5"
+    },
+    {
+      "key": "microsoft.netcore.app.runtime.win-x64-10.0.0-license.txt",
+      "path": "third_party/licenses/microsoft.netcore.app.runtime.win-x64-10.0.0-license.txt.txt",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.runtime.win-x64/10.0.0/microsoft.netcore.app.runtime.win-x64.10.0.0.nupkg#LICENSE.TXT",
+      "source_blob_sha": null,
+      "retained_sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+    },
+    {
+      "key": "microsoft.netcore.app.runtime.win-x64-10.0.0-third-party-notices.txt",
+      "path": "third_party/licenses/microsoft.netcore.app.runtime.win-x64-10.0.0-third-party-notices.txt.txt",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.runtime.win-x64/10.0.0/microsoft.netcore.app.runtime.win-x64.10.0.0.nupkg#THIRD-PARTY-NOTICES.TXT",
+      "source_blob_sha": null,
+      "retained_sha256": "6d15e10a101c6bfff2ab4429ed061bf76c456fc4b23ad6b03e0d0f8377148a21"
+    },
+    {
+      "key": "cpython-windows-3.12.10",
+      "path": "third_party/licenses/CPython-3.12.10-Windows-LICENSE.txt",
+      "source_url": "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip#LICENSE.txt",
+      "source_blob_sha": null,
+      "retained_sha256": "e502c6b880ff58d614901495a9009c136539cd0b1e2a2abb8fc00b934c203419"
+    },
+    {
+      "key": "Tmds-DBus-0.94.1-MIT",
+      "path": "third_party/licenses/Tmds-DBus-0.94.1-MIT.txt",
+      "source_url": "https://raw.githubusercontent.com/tmds/Tmds.DBus/b4a7fed0b878f74cb54f7cca84d2889af4e596ba/COPYING",
+      "source_blob_sha": null,
+      "retained_sha256": "aca3b49277abcc7886ccb2f115603a9f5b15fc3f96019a10c00f2974098b210c"
+    },
+    {
+      "key": "windows-wheel-isodate-0.7.2-py3-none-any-isodate-0.7.2.dist-info_LICENSE",
+      "path": "third_party/licenses/isodate-0.7.2-py3-none-any-isodate-0.7.2.dist-info_LICENSE.txt",
+      "source_url": "https://pypi.org/project/isodate/0.7.2/#files",
+      "source_blob_sha": null,
+      "archive_filename": "isodate-0.7.2-py3-none-any.whl",
+      "archive_path": "isodate-0.7.2.dist-info/LICENSE",
+      "archive_sha256": "28009937d8031054830160fce6d409ed342816b543597cece116d966c6d99e15",
+      "retained_sha256": "ce5fe4893fb6ab843de77b367bfa9db974d7b00ab9033fcca8d7760a97fe1b43"
+    },
+    {
+      "key": "windows-wheel-lark-1.3.1-py3-none-any-lark-1.3.1.dist-info_licenses_LICENSE",
+      "path": "third_party/licenses/lark-1.3.1-py3-none-any-lark-1.3.1.dist-info_licenses_LICENSE.txt",
+      "source_url": "https://pypi.org/project/lark/1.3.1/#files",
+      "source_blob_sha": null,
+      "archive_filename": "lark-1.3.1-py3-none-any.whl",
+      "archive_path": "lark-1.3.1.dist-info/licenses/LICENSE",
+      "archive_sha256": "c629b661023a014c37da873b4ff58a817398d12635d3bbb2c5a03be7fe5d1e12",
+      "retained_sha256": "2eee60f52d4e11357bf89e72b034d050e285e47fda1361e5662fb322ee27d771"
+    },
+    {
+      "key": "windows-wheel-numpy-2.3.5-cp312-cp312-win_amd64-numpy_ma_LICENSE",
+      "path": "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy_ma_LICENSE.txt",
+      "source_url": "https://pypi.org/project/numpy/2.3.5/#files",
+      "source_blob_sha": null,
+      "archive_filename": "numpy-2.3.5-cp312-cp312-win_amd64.whl",
+      "archive_path": "numpy/ma/LICENSE",
+      "archive_sha256": "86945f2ee6d10cdfd67bcb4069c1662dd711f7e2a4343db5cecec06b87cf31aa",
+      "retained_sha256": "d78dbb208b80d92b4d333e41a4baae50d12444f46e53199fa7726a91de6e2da7"
+    },
+    {
+      "key": "windows-wheel-numpy-2.3.5-cp312-cp312-win_amd64-numpy_random_LICENSE.md",
+      "path": "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy_random_LICENSE.md.txt",
+      "source_url": "https://pypi.org/project/numpy/2.3.5/#files",
+      "source_blob_sha": null,
+      "archive_filename": "numpy-2.3.5-cp312-cp312-win_amd64.whl",
+      "archive_path": "numpy/random/LICENSE.md",
+      "archive_sha256": "86945f2ee6d10cdfd67bcb4069c1662dd711f7e2a4343db5cecec06b87cf31aa",
+      "retained_sha256": "b4bc2f4fa1c95778f1ed3dd8f14706bece399475b978f9f34b5d3cd72521b48a"
+    },
+    {
+      "key": "windows-wheel-numpy-2.3.5-cp312-cp312-win_amd64-numpy__core_include_numpy_random_LICENSE.txt",
+      "path": "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy__core_include_numpy_random_LICENSE.txt.txt",
+      "source_url": "https://pypi.org/project/numpy/2.3.5/#files",
+      "source_blob_sha": null,
+      "archive_filename": "numpy-2.3.5-cp312-cp312-win_amd64.whl",
+      "archive_path": "numpy/_core/include/numpy/random/LICENSE.txt",
+      "archive_sha256": "86945f2ee6d10cdfd67bcb4069c1662dd711f7e2a4343db5cecec06b87cf31aa",
+      "retained_sha256": "d544761558b510866c21f7e8a2d5716fca76e0b98117e3b6b86314db7244d150"
+    },
+    {
+      "key": "windows-wheel-numpy-2.3.5-cp312-cp312-win_amd64-numpy-2.3.5.dist-info_LICENSE.txt",
+      "path": "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy-2.3.5.dist-info_LICENSE.txt.txt",
+      "source_url": "https://pypi.org/project/numpy/2.3.5/#files",
+      "source_blob_sha": null,
+      "archive_filename": "numpy-2.3.5-cp312-cp312-win_amd64.whl",
+      "archive_path": "numpy-2.3.5.dist-info/LICENSE.txt",
+      "archive_sha256": "86945f2ee6d10cdfd67bcb4069c1662dd711f7e2a4343db5cecec06b87cf31aa",
+      "retained_sha256": "596b953e1dcbe829b32ae444387efa15003fc6abdeca8a2179f364a6364c286e"
+    },
+    {
+      "key": "windows-wheel-opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-cv2_LICENSE-3RD-PARTY.txt",
+      "path": "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-cv2_LICENSE-3RD-PARTY.txt.txt",
+      "source_url": "https://pypi.org/project/opencv-python-headless/4.11.0.86/#files",
+      "source_blob_sha": null,
+      "archive_filename": "opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64.whl",
+      "archive_path": "cv2/LICENSE-3RD-PARTY.txt",
+      "archive_sha256": "6c304df9caa7a6a5710b91709dd4786bf20a74d57672b3c31f7033cc638174ca",
+      "retained_sha256": "0b33c5be17819d10ecad11360c6f2bd5a7df7c0f80a3314a81e28070d93818e2"
+    },
+    {
+      "key": "windows-wheel-opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-cv2_LICENSE.txt",
+      "path": "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-cv2_LICENSE.txt.txt",
+      "source_url": "https://pypi.org/project/opencv-python-headless/4.11.0.86/#files",
+      "source_blob_sha": null,
+      "archive_filename": "opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64.whl",
+      "archive_path": "cv2/LICENSE.txt",
+      "archive_sha256": "6c304df9caa7a6a5710b91709dd4786bf20a74d57672b3c31f7033cc638174ca",
+      "retained_sha256": "edef0fac1eb08d29d34563f724742e078da2513e196133a12c6ad9ff01e26107"
+    },
+    {
+      "key": "windows-wheel-opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-opencv_python_headless-4.11.0.86.dist-info_LICENSE-3RD-PARTY.txt",
+      "path": "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-opencv_python_headless-4.11.0.86.dist-info_LICENSE-3RD-PARTY.txt.txt",
+      "source_url": "https://pypi.org/project/opencv-python-headless/4.11.0.86/#files",
+      "source_blob_sha": null,
+      "archive_filename": "opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64.whl",
+      "archive_path": "opencv_python_headless-4.11.0.86.dist-info/LICENSE-3RD-PARTY.txt",
+      "archive_sha256": "6c304df9caa7a6a5710b91709dd4786bf20a74d57672b3c31f7033cc638174ca",
+      "retained_sha256": "0b33c5be17819d10ecad11360c6f2bd5a7df7c0f80a3314a81e28070d93818e2"
+    },
+    {
+      "key": "windows-wheel-opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-opencv_python_headless-4.11.0.86.dist-info_LICENSE.txt",
+      "path": "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-opencv_python_headless-4.11.0.86.dist-info_LICENSE.txt.txt",
+      "source_url": "https://pypi.org/project/opencv-python-headless/4.11.0.86/#files",
+      "source_blob_sha": null,
+      "archive_filename": "opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64.whl",
+      "archive_path": "opencv_python_headless-4.11.0.86.dist-info/LICENSE.txt",
+      "archive_sha256": "6c304df9caa7a6a5710b91709dd4786bf20a74d57672b3c31f7033cc638174ca",
+      "retained_sha256": "edef0fac1eb08d29d34563f724742e078da2513e196133a12c6ad9ff01e26107"
+    },
+    {
+      "key": "windows-wheel-pye57-0.4.19-cp312-cp312-win_amd64-pye57-0.4.19.dist-info_licenses_LICENSE",
+      "path": "third_party/licenses/pye57-0.4.19-cp312-cp312-win_amd64-pye57-0.4.19.dist-info_licenses_LICENSE.txt",
+      "source_url": "https://pypi.org/project/pye57/0.4.19/#files",
+      "source_blob_sha": null,
+      "archive_filename": "pye57-0.4.19-cp312-cp312-win_amd64.whl",
+      "archive_path": "pye57-0.4.19.dist-info/licenses/LICENSE",
+      "archive_sha256": "ec415dac94f66832d8f8709ef33eb43b1a5a002ac63c02af5458229c8d29e3a2",
+      "retained_sha256": "4342b58827d59ba5269d1e00032a8c139abb7e59d4e9a1a1e4e6ab1086b62ba6"
+    },
+    {
+      "key": "windows-wheel-pyquaternion-0.9.9-py3-none-any-pyquaternion-0.9.9.dist-info_LICENSE.txt",
+      "path": "third_party/licenses/pyquaternion-0.9.9-py3-none-any-pyquaternion-0.9.9.dist-info_LICENSE.txt.txt",
+      "source_url": "https://pypi.org/project/pyquaternion/0.9.9/#files",
+      "source_blob_sha": null,
+      "archive_filename": "pyquaternion-0.9.9-py3-none-any.whl",
+      "archive_path": "pyquaternion-0.9.9.dist-info/LICENSE.txt",
+      "archive_sha256": "e65f6e3f7b1fdf1a9e23f82434334a1ae84f14223eee835190cd2e841f8172ec",
+      "retained_sha256": "0de20579e62ec5885fa9685c10de92493d5e53c7681217a82e3fa05645a43c5e"
+    },
+    {
+      "key": "windows-wheel-python_dateutil-2.9.0.post0-py2.py3-none-any-python_dateutil-2.9.0.post0.dist-info_LICENSE",
+      "path": "third_party/licenses/python_dateutil-2.9.0.post0-py2.py3-none-any-python_dateutil-2.9.0.post0.dist-info_LICENSE.txt",
+      "source_url": "https://pypi.org/project/python-dateutil/2.9.0.post0/#files",
+      "source_blob_sha": null,
+      "archive_filename": "python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
+      "archive_path": "python_dateutil-2.9.0.post0.dist-info/LICENSE",
+      "archive_sha256": "a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427",
+      "retained_sha256": "ba00f51a0d92823b5a1cde27d8b5b9d2321e67ed8da9bc163eff96d5e17e577e"
+    },
+    {
+      "key": "windows-wheel-scipy-1.17.0-cp312-cp312-win_amd64-scipy_fft__pocketfft_LICENSE.md",
+      "path": "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy_fft__pocketfft_LICENSE.md.txt",
+      "source_url": "https://pypi.org/project/scipy/1.17.0/#files",
+      "source_blob_sha": null,
+      "archive_filename": "scipy-1.17.0-cp312-cp312-win_amd64.whl",
+      "archive_path": "scipy/fft/_pocketfft/LICENSE.md",
+      "archive_sha256": "0937a0b0d8d593a198cededd4c439a0ea216a3f36653901ea1f3e4be949056f8",
+      "retained_sha256": "c04661685cff9d8035fe1c4c3ab357e7f7633cafc06a73e9d90c3c5fede8a86a"
+    },
+    {
+      "key": "windows-wheel-scipy-1.17.0-cp312-cp312-win_amd64-scipy_integrate_LICENSE_DOP",
+      "path": "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy_integrate_LICENSE_DOP.txt",
+      "source_url": "https://pypi.org/project/scipy/1.17.0/#files",
+      "source_blob_sha": null,
+      "archive_filename": "scipy-1.17.0-cp312-cp312-win_amd64.whl",
+      "archive_path": "scipy/integrate/LICENSE_DOP",
+      "archive_sha256": "0937a0b0d8d593a198cededd4c439a0ea216a3f36653901ea1f3e4be949056f8",
+      "retained_sha256": "6cc2ed6e35b8f376ff3d8f86aeef4e0c34c2309bd6f4a0565936d577839ba023"
+    },
+    {
+      "key": "windows-wheel-scipy-1.17.0-cp312-cp312-win_amd64-scipy_spatial_qhull_src_COPYING_QHULL.txt",
+      "path": "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy_spatial_qhull_src_COPYING_QHULL.txt.txt",
+      "source_url": "https://pypi.org/project/scipy/1.17.0/#files",
+      "source_blob_sha": null,
+      "archive_filename": "scipy-1.17.0-cp312-cp312-win_amd64.whl",
+      "archive_path": "scipy/spatial/qhull_src/COPYING_QHULL.txt",
+      "archive_sha256": "0937a0b0d8d593a198cededd4c439a0ea216a3f36653901ea1f3e4be949056f8",
+      "retained_sha256": "2a6ebb495e26dd5f88cbc40c593733da6edb27b64936f70409cd5a1acafb1c32"
+    },
+    {
+      "key": "windows-wheel-scipy-1.17.0-cp312-cp312-win_amd64-scipy__lib__uarray_LICENSE",
+      "path": "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy__lib__uarray_LICENSE.txt",
+      "source_url": "https://pypi.org/project/scipy/1.17.0/#files",
+      "source_blob_sha": null,
+      "archive_filename": "scipy-1.17.0-cp312-cp312-win_amd64.whl",
+      "archive_path": "scipy/_lib/_uarray/LICENSE",
+      "archive_sha256": "0937a0b0d8d593a198cededd4c439a0ea216a3f36653901ea1f3e4be949056f8",
+      "retained_sha256": "e4c4acc31e8287066d7c995d26e3ef902ca1977ee187b260b11c278366503811"
+    },
+    {
+      "key": "windows-wheel-scipy-1.17.0-cp312-cp312-win_amd64-scipy-1.17.0.dist-info_LICENSE.txt",
+      "path": "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy-1.17.0.dist-info_LICENSE.txt.txt",
+      "source_url": "https://pypi.org/project/scipy/1.17.0/#files",
+      "source_blob_sha": null,
+      "archive_filename": "scipy-1.17.0-cp312-cp312-win_amd64.whl",
+      "archive_path": "scipy-1.17.0.dist-info/LICENSE.txt",
+      "archive_sha256": "0937a0b0d8d593a198cededd4c439a0ea216a3f36653901ea1f3e4be949056f8",
+      "retained_sha256": "564d63dbef2ef3eb1dec94908966d3edf5f11c487ee2cf2baf8bf3faef01bdd9"
+    },
+    {
+      "key": "windows-wheel-shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE.txt",
+      "path": "third_party/licenses/shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE.txt.txt",
+      "source_url": "https://pypi.org/project/shapely/2.1.2/#files",
+      "source_blob_sha": null,
+      "archive_filename": "shapely-2.1.2-cp312-cp312-win_amd64.whl",
+      "archive_path": "shapely-2.1.2.dist-info/licenses/LICENSE.txt",
+      "archive_sha256": "743044b4cfb34f9a67205cee9279feaf60ba7d02e69febc2afc609047cb49179",
+      "retained_sha256": "e8cd7d34604d2758ff589f0f34d6ed79c3f7fb14aaf5e12fb09221421391a3bf"
+    },
+    {
+      "key": "windows-wheel-shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE_GEOS",
+      "path": "third_party/licenses/shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE_GEOS.txt",
+      "source_url": "https://pypi.org/project/shapely/2.1.2/#files",
+      "source_blob_sha": null,
+      "archive_filename": "shapely-2.1.2-cp312-cp312-win_amd64.whl",
+      "archive_path": "shapely-2.1.2.dist-info/licenses/LICENSE_GEOS",
+      "archive_sha256": "743044b4cfb34f9a67205cee9279feaf60ba7d02e69febc2afc609047cb49179",
+      "retained_sha256": "91a5bb11df4d44bfddc0c68db43681705326107781599fb6c6ff821042072d64"
+    },
+    {
+      "key": "windows-wheel-shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE_win32",
+      "path": "third_party/licenses/shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE_win32.txt",
+      "source_url": "https://pypi.org/project/shapely/2.1.2/#files",
+      "source_blob_sha": null,
+      "archive_filename": "shapely-2.1.2-cp312-cp312-win_amd64.whl",
+      "archive_path": "shapely-2.1.2.dist-info/licenses/LICENSE_win32",
+      "archive_sha256": "743044b4cfb34f9a67205cee9279feaf60ba7d02e69febc2afc609047cb49179",
+      "retained_sha256": "9b30cd1a09789884dd54e5828e31d2bf8e6879034e7cf7b6e0321444cf6dd11d"
+    },
+    {
+      "key": "windows-wheel-six-1.17.0-py2.py3-none-any-six-1.17.0.dist-info_LICENSE",
+      "path": "third_party/licenses/six-1.17.0-py2.py3-none-any-six-1.17.0.dist-info_LICENSE.txt",
+      "source_url": "https://pypi.org/project/six/1.17.0/#files",
+      "source_blob_sha": null,
+      "archive_filename": "six-1.17.0-py2.py3-none-any.whl",
+      "archive_path": "six-1.17.0.dist-info/LICENSE",
+      "archive_sha256": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+      "retained_sha256": "4375ba20e2b9c6c4e7cad2940a628fd90e95cc3d50ee92aae755715d8ba1fbd0"
+    },
+    {
+      "key": "windows-wheel-typing_extensions-4.16.0-py3-none-any-typing_extensions-4.16.0.dist-info_licenses_LICENSE",
+      "path": "third_party/licenses/typing_extensions-4.16.0-py3-none-any-typing_extensions-4.16.0.dist-info_licenses_LICENSE.txt",
+      "source_url": "https://pypi.org/project/typing-extensions/4.16.0/#files",
+      "source_blob_sha": null,
+      "archive_filename": "typing_extensions-4.16.0-py3-none-any.whl",
+      "archive_path": "typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+      "archive_sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "retained_sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
     }
   ],
   "external_licence_urls": [

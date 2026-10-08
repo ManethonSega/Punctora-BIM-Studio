@@ -1,0 +1,18 @@
+{
+  "edit_survived_reopen": true,
+  "ifc_exists": true,
+  "viewport_backend": "Software OpenGL: llvmpipe (LLVM 20.1.2, 256 bits) / Mesa",
+  "preview_points": 79206,
+  "conversion_backend": "CPU",
+  "graphics": {
+    "backend": "Software OpenGL: llvmpipe (LLVM 20.1.2, 256 bits) / Mesa",
+    "viewport_width": 845,
+    "viewport_height": 697,
+    "render_callbacks": 35,
+    "cpu_render_submission_mean_ms": 55.17556,
+    "point_buffer_bytes": 2217768,
+    "mesh_buffer_bytes": 12096,
+    "timing_scope": "CPU drawing/submission callbacks; excludes GPU completion and compositor; not FPS"
+  },
+  "test_environment": "Linux container, Xvfb TCP display, Mesa llvmpipe LLVM 20.1.2, 1440x920 window; no physical GPU"
+}

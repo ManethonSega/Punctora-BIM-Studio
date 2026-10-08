@@ -1,0 +1,23 @@
+{
+  "viewport_backend": "Software OpenGL: llvmpipe (LLVM 20.1.2, 256 bits) / Mesa",
+  "load_project_ms": 1046.645,
+  "source_points": 4067815,
+  "preview_points": 100000,
+  "warnings_retained": [
+    "Confirm source Z-up orientation, CRS and vertical datum before survey use.",
+    "E57 coordinateMetadata is absent; no coordinate reference system was inferred.",
+    "Scan 0: ignored point fields: columnIndex, rowIndex."
+  ],
+  "conversion_backend": "CPU",
+  "graphics": {
+    "backend": "Software OpenGL: llvmpipe (LLVM 20.1.2, 256 bits) / Mesa",
+    "viewport_width": 845,
+    "viewport_height": 697,
+    "render_callbacks": 29,
+    "cpu_render_submission_mean_ms": 18.35306896551724,
+    "point_buffer_bytes": 2800000,
+    "mesh_buffer_bytes": 0,
+    "timing_scope": "CPU drawing/submission callbacks; excludes GPU completion and compositor; not FPS"
+  },
+  "test_environment": "Linux container, Xvfb TCP display, Mesa llvmpipe LLVM 20.1.2, 1440x920 window; no physical GPU"
+}

@@ -1,0 +1,59 @@
+name: M3 desktop preview
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.100'
+      - run: python -m pip install -e ".[test]" -c requirements-core.txt
+      - run: dotnet restore desktop/Punctora.Desktop/Punctora.Desktop.csproj --locked-mode
+      - run: dotnet build desktop/Punctora.Desktop/Punctora.Desktop.csproj -c Release --no-restore
+      - name: Linux OpenGL and fallback walkthroughs
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          xvfb-run -a dotnet desktop/Punctora.Desktop/bin/Release/net10.0/Punctora.Desktop.dll --verify-ui outputs/m3-gl
+          xvfb-run -a dotnet desktop/Punctora.Desktop/bin/Release/net10.0/Punctora.Desktop.dll --software --verify-ui outputs/m3-software
+          python scripts/check_desktop_verification.py outputs/m3-gl outputs/m3-software
+      - name: Windows software walkthrough
+        if: runner.os == 'Windows'
+        run: |
+          dotnet desktop/Punctora.Desktop/bin/Release/net10.0/Punctora.Desktop.dll --software --verify-ui outputs/m3-software
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/check_desktop_verification.py outputs/m3-software
+      - name: Build and verify bundled Windows worker
+        if: runner.os == 'Windows'
+        run: python scripts/package_desktop.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m3-desktop-checks-${{ matrix.os }}
+          path: |
+            outputs/m3-*/ui-verification.json
+            outputs/m3-*/ui-error.txt
+            outputs/m3-*/desktop.png
+            outputs/m3-*/viewport-gl.png
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: Punctora-BIM-Studio-M3-win-x64
+          path: artifacts/Punctora-BIM-Studio-M3-win-x64.zip
+          if-no-files-found: error

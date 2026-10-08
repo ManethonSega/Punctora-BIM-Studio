@@ -26,3 +26,8 @@ The implementation is independently authored; no publication text, external
 region-growing implementation, AI weights or datasets are copied.
 SciPy 1.17.0 is an unmodified external runtime dependency. Its installed
 distribution and bundled component notices are retained in third_party/licenses.
+
+M3 uses unmodified Avalonia 12.1.3, ANGLE, SkiaSharp/Skia, HarfBuzzSharp/HarfBuzz,
+MicroCom, desktop build/bus dependencies, .NET 10.0.0 and CPython 3.12.10.
+Complete notices, exact versions, source links and runtime replacement
+information are in ATTRIBUTIONS.md and docs/WINDOWS_RUNTIME_NOTICES.md.

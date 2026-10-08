@@ -1,5 +1,5 @@
 """Validated, serialisable element model with explicit parameter provenance."""
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from math import isfinite, dist
 from typing import Literal
 
@@ -96,10 +96,42 @@ class BuildingModel:
     warnings: list[str] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "BuildingModel":
+        """Load the supported data schema, never executable scene scripts."""
+        if not isinstance(data, dict) or data.get("schema_version") != 2 or data.get("units") != "metres":
+            raise ValueError("Unsupported element schema; schema 2 in metres is required")
+        allowed = {f.name for f in fields(cls)} | {"schema_version", "units"}
+        if set(data) - allowed:
+            raise ValueError("Unknown element-model fields")
+        parts = {}
+        for key, kind in [("storeys", Storey), ("walls", Wall), ("slabs", Slab), ("spaces", Space), ("openings", Opening)]:
+            values = data.get(key, [])
+            if not isinstance(values, list):
+                raise ValueError(f"{key} must be a list")
+            accepted = {f.name for f in fields(kind)}
+            if any(not isinstance(v, dict) or set(v)-accepted for v in values):
+                raise ValueError(f"Unknown fields in {key}")
+            try:
+                parts[key] = [kind(**v) for v in values]
+            except TypeError as exc:
+                raise ValueError(f"Incomplete {key} records") from exc
+        model = cls(name=data.get("name", ""), warnings=data.get("warnings", []),
+                    metadata=data.get("metadata", {}), **parts)
+        try:
+            model.validate()
+        except (TypeError, AttributeError, KeyError) as exc:
+            raise ValueError("Malformed element-model values") from exc
+        return model
+
     def validate(self) -> None:
+        if not isinstance(self.name, str) or not self.name.strip() or not isinstance(self.metadata, dict):
+            raise ValueError("Model requires a name and metadata object")
+        if not isinstance(self.warnings, list) or any(not isinstance(w, str) for w in self.warnings):
+            raise ValueError("Warnings must be a list of strings")
         objects = self.storeys + self.walls + self.slabs + self.spaces + self.openings
         ids = [obj.id for obj in objects]
-        if any(not value for value in ids) or len(set(ids)) != len(ids):
+        if any(not isinstance(value, str) or not value for value in ids) or len(set(ids)) != len(ids):
             raise ValueError("Element IDs must be nonempty and unique")
         storeys = {s.id: s for s in self.storeys}
         walls = {w.id: w for w in self.walls}
@@ -145,6 +177,8 @@ class BuildingModel:
             if opening.offset + opening.width > dist(host.start, host.end) + 1e-8 or opening.sill + opening.height > host.height + 1e-8:
                 raise ValueError("Opening exceeds its host wall")
         for obj in self.storeys + self.walls + self.slabs + self.spaces + self.openings:
+            if hasattr(obj, "review_state") and obj.review_state not in {"unreviewed", "reviewed", "flagged", "rejected"}:
+                raise ValueError("Unknown review state")
             if any(state not in PROVENANCE_STATES for state in obj.provenance.values()):
                 raise ValueError("Unknown provenance state")
 

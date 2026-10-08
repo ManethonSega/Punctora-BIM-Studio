@@ -1,15 +1,15 @@
 # Dependency and research inventory
 
-Reviewed on 2026-10-08. This register distinguishes selected M2 dependencies from future candidates. Cloud2BIM geometry helpers are included as source; NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57 and pyquaternion are external Python dependencies. pye57 compiles libE57Format and links or bundles Xerces-C++; libE57Format vendors CRC++. Exact direct versions are pinned in pyproject.toml; requirements-core.txt records the tested runtime dependencies. No model weights are bundled. Installed Linux licence texts are retained as references, not a complete Windows installer audit. The machine-readable source is [dependency-inventory.json](../dependency-inventory.json). Component credits and notices are in [ATTRIBUTIONS.md](../ATTRIBUTIONS.md).
+Reviewed on 2026-10-08. This register distinguishes selected M2/M3 dependencies from future candidates. Cloud2BIM geometry helpers are included as source; NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57 and pyquaternion are external Python dependencies. pye57 compiles libE57Format and links or bundles Xerces-C++; libE57Format vendors CRC++. Exact direct versions are pinned in pyproject.toml; requirements-core.txt records the tested runtime dependencies. No model weights are bundled. Linux and exact Windows wheel notices are retained; the final installer audit remains M4. The machine-readable source is [dependency-inventory.json](../dependency-inventory.json). Component credits and notices are in [ATTRIBUTIONS.md](../ATTRIBUTIONS.md).
 
 Top-level review identifies published licence evidence, not all-file/transitive clearance. `pending` means the component's terms still need inspection; it is not approved for inclusion. Source links with a commit identify the inspected upstream revision. All chosen package versions must be pinned during implementation.
 
 | Component | Type / intended role | Licence evidence | Status | Selected version |
 | --- | --- | --- | --- | --- |
 | [Cloud2BIM](https://github.com/VaclavNezerka/Cloud2BIM/blob/cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e/LICENSE) | code: Selected reconstruction algorithms | MIT | source_port_reviewed | cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e |
-| [Avalonia](https://github.com/AvaloniaUI/Avalonia/blob/main/licence.md) | code: Desktop UI | MIT | top_level_reviewed | Future candidate |
-| [.NET runtime](https://github.com/dotnet/runtime/blob/main/LICENSE.TXT) | runtime: Desktop runtime | MIT | top_level_reviewed | Future candidate |
-| [CPython](https://github.com/python/cpython/blob/main/LICENSE) | runtime: Bundled geometry worker | PSF-2.0; incorporated components have additional terms | top_level_reviewed | Future candidate |
+| [Avalonia](https://github.com/AvaloniaUI/Avalonia/blob/main/licence.md) | code: Desktop UI | MIT | versioned_notices_retained | 12.1.3 |
+| [.NET runtime](https://github.com/dotnet/runtime/blob/main/LICENSE.TXT) | runtime: Desktop runtime | MIT | versioned_notices_retained | 10.0.0 |
+| [CPython](https://github.com/python/cpython/blob/main/LICENSE) | runtime: Bundled geometry worker | PSF-2.0; incorporated components have additional terms | versioned_notices_retained | 3.12.10 Windows embedded |
 | [pye57](https://github.com/davidcaron/pye57/tree/v0.4.19) | code: Direct E57 import and bounded-memory decoding | MIT | selected_runtime_reviewed | 0.4.19 |
 | [libE57Format](https://github.com/asmaloney/libE57Format/tree/1914b8ea972251d3bb49a33828497dde683205d9) | native code: E57 decoding compiled into pye57 | BSL-1.0 | selected_runtime_reviewed | 3.1.1 at `1914b8e` |
 | [pyquaternion](https://github.com/KieranWynn/pyquaternion/tree/v0.9.9) | code: Quaternion handling used by pye57 | MIT | selected_runtime_reviewed | 0.9.9 |
@@ -67,8 +67,12 @@ The released SpatialLM1.1-Qwen-0.5B checkpoint remains CC-BY-NC-4.0 according to
 
 ## Incorporation decisions
 
-Cloud2BIM, NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57, pyquaternion, libE57Format, Xerces-C++ and CRC++ are selected for the current core. Open3D and Avalonia remain candidates for later milestones. PDAL is optional and is not part of direct E57 import.
+Cloud2BIM, NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57, pyquaternion, libE57Format, Xerces-C++ and CRC++ are selected for the current core. Open3D remains a candidate. Avalonia 12.1.3 and .NET 10.0.0 are now selected for the M3 desktop. PDAL is optional and is not part of direct E57 import.
 
 SpatialLM can inform an independently written element/proposal contract now, but its source-code terms are not assumed permissive. Pointcept's reviewed MIT root licence does not cover every associated pretrained asset. Model weights and datasets remain separate inventory entries.
 
 The ACM and May 2026 arXiv references are recorded together as PointLLM-R, not counted as separate engines. The general local-LLM blog is background reading, not an implementation dependency.
+
+## M3 desktop dependencies
+
+[Desktop runtime notices](WINDOWS_RUNTIME_NOTICES.md) list Avalonia, ANGLE, SkiaSharp, HarfBuzzSharp, MicroCom, build services, Linux DBus, .NET and CPython versions, attributions and complete retained texts. `desktop/packages.lock.json` pins the NuGet graph; `desktop/windows-wheel-hashes.json` pins the Windows worker wheels. No additional AI component is incorporated.

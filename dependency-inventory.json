@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "review_date": "2026-10-08",
-  "phase": "M2 direct E57, bounded fitting and generated provider benchmarks; M3 next",
+  "phase": "M3 desktop implementation and preview verification; Windows hardware acceptance pending",
   "inventory_type": "selected source/runtime dependencies plus future candidates; not a binary SBOM",
   "entries": [
     {
@@ -31,22 +31,22 @@
     },
     {
       "id": "avalonia",
-      "name": "Avalonia",
+      "name": "Avalonia desktop packages",
       "kind": "code",
-      "role": "Desktop UI",
+      "role": "Desktop UI, OpenGL integration, Fluent theme; unmodified NuGet packages",
       "license": "MIT",
-      "review_status": "top_level_reviewed",
+      "review_status": "versioned_notices_retained",
       "evidence": [
-        "https://github.com/AvaloniaUI/Avalonia/blob/main/licence.md"
+        "https://github.com/AvaloniaUI/Avalonia"
       ],
-      "reviewed_revision": null,
-      "selected_version": null,
-      "incorporated": false,
-      "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation.",
-      "attribution": "AvaloniaUI OÜ, copyright as retained in its MIT licence.",
+      "reviewed_revision": "8eeda4f6f546165b3f72e63c9f42247abb306905",
+      "selected_version": "12.1.3",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Unmodified dependencies; retain exact package notices and manifest. Windows hardware acceptance remains pending.",
+      "attribution": "Avalonia Team and AvaloniaUI OÜ",
       "notice_files": [
-        "third_party/references/Avalonia-MIT.txt"
+        "third_party/licenses/Avalonia-12.1.3-MIT.txt"
       ],
       "attribution_register": "third_party/NOTICE_REGISTER.json#avalonia"
     },
@@ -54,47 +54,24 @@
       "id": "dotnet",
       "name": ".NET runtime",
       "kind": "runtime",
-      "role": "Desktop runtime",
-      "license": "MIT",
-      "review_status": "top_level_reviewed",
+      "role": "Self-contained Windows desktop runtime",
+      "license": "MIT with bundled component terms",
+      "review_status": "versioned_notices_retained",
       "evidence": [
-        "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT",
         "https://github.com/dotnet/runtime"
       ],
-      "reviewed_revision": null,
-      "selected_version": null,
-      "incorporated": false,
-      "redistributed": false,
-      "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
+      "reviewed_revision": "v10.0.0",
+      "selected_version": "10.0.0",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Unmodified dependencies; retain exact package notices and manifest. Windows hardware acceptance remains pending.",
       "license_scope_notes": "Root runtime code licence; bundled third-party components retain their terms.",
-      "attribution": ".NET Foundation and Contributors, copyright as retained in its MIT licence.",
+      "attribution": ".NET Foundation and Contributors",
       "notice_files": [
-        "third_party/references/DotNet-MIT.txt"
+        "third_party/licenses/microsoft.netcore.app.runtime.win-x64-10.0.0-license.txt.txt",
+        "third_party/licenses/microsoft.netcore.app.runtime.win-x64-10.0.0-third-party-notices.txt.txt"
       ],
       "attribution_register": "third_party/NOTICE_REGISTER.json#dotnet"
-    },
-    {
-      "id": "python",
-      "name": "CPython",
-      "kind": "runtime",
-      "role": "Bundled geometry worker",
-      "license": "PSF-2.0; incorporated components have additional terms",
-      "review_status": "top_level_reviewed",
-      "evidence": [
-        "https://github.com/python/cpython/blob/main/LICENSE",
-        "https://github.com/python/cpython"
-      ],
-      "reviewed_revision": null,
-      "selected_version": null,
-      "incorporated": false,
-      "redistributed": false,
-      "action_required": "Pin the selected build and retain applicable licence notices; review bundled and transitive components before packaging.",
-      "license_scope_notes": "Open source is a category, not a licence name. Python documentation examples also have BSD-0-Clause terms from Python 3.8.6 onward.",
-      "attribution": "Python Software Foundation and the contributors and historical licensors identified in CPython LICENSE.",
-      "notice_files": [
-        "third_party/references/CPython-PSF.txt"
-      ],
-      "attribution_register": "third_party/NOTICE_REGISTER.json#python"
     },
     {
       "id": "pye57",
@@ -114,7 +91,8 @@
       "action_required": "Retain the included MIT notice and audit the exact platform wheel again when building the Windows installer.",
       "attribution": "David Caron, Copyright 2018.",
       "notice_files": [
-        "third_party/licenses/pye57-0.4.19-MIT.txt"
+        "third_party/licenses/pye57-0.4.19-MIT.txt",
+        "third_party/licenses/pye57-0.4.19-cp312-cp312-win_amd64-pye57-0.4.19.dist-info_licenses_LICENSE.txt"
       ],
       "attribution_register": "third_party/NOTICE_REGISTER.json#pye57"
     },
@@ -157,7 +135,8 @@
       "action_required": "Retain the MIT notice with distributions.",
       "attribution": "Kieran Wynn, Copyright (c) 2015.",
       "notice_files": [
-        "third_party/licenses/pyquaternion-0.9.9-MIT.txt"
+        "third_party/licenses/pyquaternion-0.9.9-MIT.txt",
+        "third_party/licenses/pyquaternion-0.9.9-py3-none-any-pyquaternion-0.9.9.dist-info_LICENSE.txt.txt"
       ],
       "attribution_register": "third_party/NOTICE_REGISTER.json#pyquaternion"
     },
@@ -291,7 +270,11 @@
       "action_required": "Installed as an external dependency for M1. No native binary bundled. Audit exact platform wheels, complete native/transitive notices and source/replacement information before standalone packaging.",
       "attribution": "NumPy Developers and the bundled-library copyright holders identified in the retained wheel licence.",
       "notice_files": [
-        "third_party/licenses/NumPy-2.3.5-wheel.txt"
+        "third_party/licenses/NumPy-2.3.5-wheel.txt",
+        "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy_ma_LICENSE.txt",
+        "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy_random_LICENSE.md.txt",
+        "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy__core_include_numpy_random_LICENSE.txt.txt",
+        "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy-2.3.5.dist-info_LICENSE.txt.txt"
       ],
       "attribution_register": "third_party/NOTICE_REGISTER.json#numpy"
     },
@@ -316,7 +299,12 @@
         "third_party/licenses/SciPy-1.17.0-wheel.txt",
         "third_party/licenses/SciPy-1.17.0-uarray.txt",
         "third_party/licenses/SciPy-1.17.0-pocketfft.txt",
-        "third_party/licenses/SciPy-1.17.0-DOP.txt"
+        "third_party/licenses/SciPy-1.17.0-DOP.txt",
+        "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy_fft__pocketfft_LICENSE.md.txt",
+        "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy_integrate_LICENSE_DOP.txt",
+        "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy_spatial_qhull_src_COPYING_QHULL.txt.txt",
+        "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy__lib__uarray_LICENSE.txt",
+        "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy-1.17.0.dist-info_LICENSE.txt.txt"
       ],
       "attribution_register": "third_party/NOTICE_REGISTER.json#scipy"
     },
@@ -340,7 +328,10 @@
       "attribution": "Shapely contributors and GEOS contributors, as identified in the retained licence texts.",
       "notice_files": [
         "third_party/licenses/Shapely-2.1.2.txt",
-        "third_party/licenses/GEOS-Shapely-wheel.txt"
+        "third_party/licenses/GEOS-Shapely-wheel.txt",
+        "third_party/licenses/shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE.txt.txt",
+        "third_party/licenses/shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE_GEOS.txt",
+        "third_party/licenses/shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE_win32.txt"
       ],
       "attribution_register": "third_party/NOTICE_REGISTER.json#shapely"
     },
@@ -387,7 +378,11 @@
       "attribution": "Olli-Pekka Heinisuo (Python packaging); OpenCV contributors and native third-party copyright holders in the retained notices.",
       "notice_files": [
         "third_party/licenses/OpenCV-python-4.11.0.86.txt",
-        "third_party/licenses/OpenCV-wheel-third-party.txt"
+        "third_party/licenses/OpenCV-wheel-third-party.txt",
+        "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-cv2_LICENSE-3RD-PARTY.txt.txt",
+        "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-cv2_LICENSE.txt.txt",
+        "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-opencv_python_headless-4.11.0.86.dist-info_LICENSE-3RD-PARTY.txt.txt",
+        "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-opencv_python_headless-4.11.0.86.dist-info_LICENSE.txt.txt"
       ],
       "attribution_register": "third_party/NOTICE_REGISTER.json#opencv"
     },
@@ -664,6 +659,182 @@
       "attribution": "Florent Poux and Alex Key (2026), LLM-Supervised Point Cloud Processing, DOI 10.5194/isprs-archives-XLIX-B2-2026-1311-2026. Independently authored geometric experiment; no upstream implementation or paper text copied.",
       "notice_files": [],
       "attribution_register": "third_party/NOTICE_REGISTER.json#isprs"
+    },
+    {
+      "id": "python",
+      "name": "CPython Windows embedded runtime",
+      "kind": "runtime",
+      "role": "Replaceable isolated geometry worker runtime",
+      "license": "PSF and bundled component terms",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://www.python.org/ftp/python/3.12.10/"
+      ],
+      "reviewed_revision": "v3.12.10",
+      "selected_version": "3.12.10",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Unmodified dependencies; retain exact package notices and manifest. Windows hardware acceptance remains pending.",
+      "attribution": "Python Software Foundation and contributors",
+      "notice_files": [
+        "third_party/licenses/CPython-3.12.10-Windows-LICENSE.txt",
+        "third_party/references/CPython-PSF.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#python"
+    },
+    {
+      "id": "angle",
+      "name": "ANGLE Windows native renderer",
+      "kind": "code",
+      "role": "Graphics translation used by Avalonia on Windows",
+      "license": "BSD-3-Clause and bundled component terms",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://github.com/AvaloniaUI/angle"
+      ],
+      "reviewed_revision": "1c89805903c1482166356d3b950d474973180e61",
+      "selected_version": "2.1.27548.20260419",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Unmodified dependencies; retain exact package notices and manifest. Windows hardware acceptance remains pending.",
+      "attribution": "The ANGLE Project Authors, copyright 2018; other copyrights in retained LICENSE",
+      "notice_files": [
+        "third_party/licenses/avalonia.angle.windows.natives-2.1.27548.20260419-license.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#angle"
+    },
+    {
+      "id": "skiasharp",
+      "name": "SkiaSharp and native Skia",
+      "kind": "code",
+      "role": "Desktop rasterization and diagnostic PNG capture",
+      "license": "MIT wrapper and bundled native component terms",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://github.com/mono/SkiaSharp"
+      ],
+      "reviewed_revision": "f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
+      "selected_version": "3.119.4",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Unmodified dependencies; retain exact package notices and manifest. Windows hardware acceptance remains pending.",
+      "attribution": "Microsoft and Skia contributors; native copyrights in retained notices",
+      "notice_files": [
+        "third_party/licenses/skiasharp.nativeassets.win32-3.119.4-license.txt.txt",
+        "third_party/licenses/skiasharp.nativeassets.win32-3.119.4-third-party-notices.txt.txt",
+        "third_party/licenses/skiasharp.nativeassets.linux-3.119.4-license.txt.txt",
+        "third_party/licenses/skiasharp.nativeassets.linux-3.119.4-third-party-notices.txt.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#skiasharp"
+    },
+    {
+      "id": "harfbuzzsharp",
+      "name": "HarfBuzzSharp and native HarfBuzz",
+      "kind": "code",
+      "role": "Desktop font shaping",
+      "license": "MIT wrapper and bundled native component terms",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://github.com/mono/SkiaSharp"
+      ],
+      "reviewed_revision": "2888c737ad016d584c74525e2d35db5097ea8576",
+      "selected_version": "8.3.1.3",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Unmodified dependencies; retain exact package notices and manifest. Windows hardware acceptance remains pending.",
+      "attribution": "Microsoft and HarfBuzz contributors; native copyrights in retained notices",
+      "notice_files": [
+        "third_party/licenses/harfbuzzsharp.nativeassets.win32-8.3.1.3-license.txt.txt",
+        "third_party/licenses/harfbuzzsharp.nativeassets.win32-8.3.1.3-third-party-notices.txt.txt",
+        "third_party/licenses/harfbuzzsharp.nativeassets.linux-8.3.1.3-license.txt.txt",
+        "third_party/licenses/harfbuzzsharp.nativeassets.linux-8.3.1.3-third-party-notices.txt.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#harfbuzzsharp"
+    },
+    {
+      "id": "microcom",
+      "name": "MicroCom.Runtime",
+      "kind": "code",
+      "role": "Unmodified desktop COM interop dependency",
+      "license": "MIT",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://github.com/kekekeks/MicroCom"
+      ],
+      "reviewed_revision": "76785efcafd91b5902fd19dd11145f6dd655b7b4",
+      "selected_version": "0.11.6",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Unmodified dependencies; retain exact package notices and manifest. Windows hardware acceptance remains pending.",
+      "attribution": "Nikita Tsukanov, copyright 2021",
+      "notice_files": [
+        "third_party/licenses/MicroCom-0.11.6-MIT.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#microcom"
+    },
+    {
+      "id": "avalonia-buildservices",
+      "name": "Avalonia.BuildServices",
+      "kind": "code",
+      "role": "Build dependency, not an application feature",
+      "license": "MIT",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://github.com/AvaloniaUI/Avalonia.BuildServices"
+      ],
+      "reviewed_revision": "777f975b0a0cecf0311273711d56697212c558c0",
+      "selected_version": "11.3.2",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Unmodified dependencies; retain exact package notices and manifest. Windows hardware acceptance remains pending.",
+      "attribution": "Avalonia contributors; exact copyright in retained licence",
+      "notice_files": [
+        "third_party/licenses/Avalonia-BuildServices-11.3.2-MIT.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#avalonia-buildservices"
+    },
+    {
+      "id": "tmds-dbus",
+      "name": "Tmds.DBus.Protocol",
+      "kind": "code",
+      "role": "Linux desktop bus integration",
+      "license": "MIT",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://github.com/tmds/Tmds.DBus"
+      ],
+      "reviewed_revision": "b4a7fed0b878f74cb54f7cca84d2889af4e596ba",
+      "selected_version": "0.94.1",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Unmodified dependencies; retain exact package notices and manifest. Windows hardware acceptance remains pending.",
+      "attribution": "Tom Deseyn; copyright in retained COPYING",
+      "notice_files": [
+        "third_party/licenses/Tmds-DBus-0.94.1-MIT.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#tmds-dbus"
+    },
+    {
+      "id": "msvc-runtime",
+      "name": "Microsoft Visual C++ runtime",
+      "license": "Microsoft redistributable runtime terms (MSVC)",
+      "attribution": "Microsoft Corporation; complete supplied notice retained in Shapely Windows LICENSE_win32.",
+      "reviewed_revision": null,
+      "kind": "runtime",
+      "role": "Windows application-local C++ runtime dependencies",
+      "selected_version": "MSVCP140 14.44.35215.0; VCRUNTIME140 14.42.34438.0",
+      "review_status": "supplied_windows_notices_retained",
+      "incorporated": true,
+      "redistributed": true,
+      "evidence": [
+        "https://pypi.org/project/shapely/2.1.2/#files"
+      ],
+      "notice_files": [
+        "third_party/licenses/shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE_win32.txt",
+        "third_party/licenses/CPython-3.12.10-Windows-LICENSE.txt"
+      ],
+      "action_required": "Retain supplied runtime notices and byte-identical DLL; final installer audit remains M4.",
+      "attribution_register": "third_party/NOTICE_REGISTER.json#msvc-runtime"
     }
   ]
 }

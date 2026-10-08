@@ -23,58 +23,39 @@
     },
     {
       "id": "avalonia",
-      "name": "Avalonia",
-      "usage": "candidate or research reference, not incorporated",
-      "scope": "Desktop UI",
+      "name": "Avalonia desktop packages",
+      "usage": "selected desktop build/runtime dependency",
+      "scope": "Desktop UI, OpenGL integration, Fluent theme; unmodified NuGet packages",
       "license": "MIT",
-      "attribution": "AvaloniaUI OÜ, copyright as retained in its MIT licence.",
+      "attribution": "Avalonia Team and AvaloniaUI OÜ",
       "source_urls": [
-        "https://github.com/AvaloniaUI/Avalonia/blob/main/licence.md"
+        "https://github.com/AvaloniaUI/Avalonia"
       ],
       "licence_files": [
-        "third_party/references/Avalonia-MIT.txt"
+        "third_party/licenses/Avalonia-12.1.3-MIT.txt"
       ],
-      "changes": "No upstream code, weights, data or paper content incorporated. Licence reference retained for planned use.",
-      "version": null,
-      "reviewed_revision": null
+      "changes": "Unmodified upstream packages; original Punctora integration code.",
+      "version": "12.1.3",
+      "reviewed_revision": "8eeda4f6f546165b3f72e63c9f42247abb306905"
     },
     {
       "id": "dotnet",
       "name": ".NET runtime",
-      "usage": "candidate or research reference, not incorporated",
-      "scope": "Desktop runtime",
-      "license": "MIT",
-      "attribution": ".NET Foundation and Contributors, copyright as retained in its MIT licence.",
+      "usage": "selected desktop build/runtime dependency",
+      "scope": "Self-contained Windows desktop runtime",
+      "license": "MIT with bundled component terms",
+      "attribution": ".NET Foundation and Contributors",
       "source_urls": [
-        "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT",
         "https://github.com/dotnet/runtime"
       ],
       "licence_files": [
-        "third_party/references/DotNet-MIT.txt"
+        "third_party/licenses/microsoft.netcore.app.runtime.win-x64-10.0.0-license.txt.txt",
+        "third_party/licenses/microsoft.netcore.app.runtime.win-x64-10.0.0-third-party-notices.txt.txt"
       ],
-      "changes": "No upstream code, weights, data or paper content incorporated. Licence reference retained for planned use.",
+      "changes": "Unmodified upstream packages; original Punctora integration code.",
       "scope_note": "Root runtime code licence; bundled third-party components retain their terms.",
-      "version": null,
-      "reviewed_revision": null
-    },
-    {
-      "id": "python",
-      "name": "CPython",
-      "usage": "candidate or research reference, not incorporated",
-      "scope": "Bundled geometry worker",
-      "license": "PSF-2.0; incorporated components have additional terms",
-      "attribution": "Python Software Foundation and the contributors and historical licensors identified in CPython LICENSE.",
-      "source_urls": [
-        "https://github.com/python/cpython/blob/main/LICENSE",
-        "https://github.com/python/cpython"
-      ],
-      "licence_files": [
-        "third_party/references/CPython-PSF.txt"
-      ],
-      "changes": "No upstream code, weights, data or paper content incorporated. Licence reference retained for planned use.",
-      "scope_note": "Open source is a category, not a licence name. Python documentation examples also have BSD-0-Clause terms from Python 3.8.6 onward.",
-      "version": null,
-      "reviewed_revision": null
+      "version": "10.0.0",
+      "reviewed_revision": "v10.0.0"
     },
     {
       "id": "pye57",
@@ -87,7 +68,8 @@
         "https://github.com/davidcaron/pye57/tree/v0.4.19"
       ],
       "licence_files": [
-        "third_party/licenses/pye57-0.4.19-MIT.txt"
+        "third_party/licenses/pye57-0.4.19-MIT.txt",
+        "third_party/licenses/pye57-0.4.19-cp312-cp312-win_amd64-pye57-0.4.19.dist-info_licenses_LICENSE.txt"
       ],
       "changes": "None to the external package. Punctora calls its public and low-level reader interfaces from independently written import code.",
       "version": "0.4.19",
@@ -122,7 +104,8 @@
         "https://github.com/KieranWynn/pyquaternion/tree/v0.9.9"
       ],
       "licence_files": [
-        "third_party/licenses/pyquaternion-0.9.9-MIT.txt"
+        "third_party/licenses/pyquaternion-0.9.9-MIT.txt",
+        "third_party/licenses/pyquaternion-0.9.9-py3-none-any-pyquaternion-0.9.9.dist-info_LICENSE.txt.txt"
       ],
       "changes": "None; external unmodified package.",
       "version": "0.9.9",
@@ -231,7 +214,11 @@
         "third_party/licenses/NumPy-2.3.5-wheel.txt"
       ],
       "licence_files": [
-        "third_party/licenses/NumPy-2.3.5-wheel.txt"
+        "third_party/licenses/NumPy-2.3.5-wheel.txt",
+        "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy_ma_LICENSE.txt",
+        "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy_random_LICENSE.md.txt",
+        "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy__core_include_numpy_random_LICENSE.txt.txt",
+        "third_party/licenses/numpy-2.3.5-cp312-cp312-win_amd64-numpy-2.3.5.dist-info_LICENSE.txt.txt"
       ],
       "changes": "None; external unmodified dependency.",
       "version": "2.3.5",
@@ -252,7 +239,12 @@
         "third_party/licenses/SciPy-1.17.0-wheel.txt",
         "third_party/licenses/SciPy-1.17.0-uarray.txt",
         "third_party/licenses/SciPy-1.17.0-pocketfft.txt",
-        "third_party/licenses/SciPy-1.17.0-DOP.txt"
+        "third_party/licenses/SciPy-1.17.0-DOP.txt",
+        "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy_fft__pocketfft_LICENSE.md.txt",
+        "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy_integrate_LICENSE_DOP.txt",
+        "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy_spatial_qhull_src_COPYING_QHULL.txt.txt",
+        "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy__lib__uarray_LICENSE.txt",
+        "third_party/licenses/scipy-1.17.0-cp312-cp312-win_amd64-scipy-1.17.0.dist-info_LICENSE.txt.txt"
       ],
       "changes": "None; external unmodified dependency.",
       "version": "1.17.0",
@@ -272,7 +264,10 @@
       ],
       "licence_files": [
         "third_party/licenses/Shapely-2.1.2.txt",
-        "third_party/licenses/GEOS-Shapely-wheel.txt"
+        "third_party/licenses/GEOS-Shapely-wheel.txt",
+        "third_party/licenses/shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE.txt.txt",
+        "third_party/licenses/shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE_GEOS.txt",
+        "third_party/licenses/shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE_win32.txt"
       ],
       "changes": "None; external unmodified dependency.",
       "version": "2.1.2",
@@ -311,7 +306,11 @@
       ],
       "licence_files": [
         "third_party/licenses/OpenCV-python-4.11.0.86.txt",
-        "third_party/licenses/OpenCV-wheel-third-party.txt"
+        "third_party/licenses/OpenCV-wheel-third-party.txt",
+        "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-cv2_LICENSE-3RD-PARTY.txt.txt",
+        "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-cv2_LICENSE.txt.txt",
+        "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-opencv_python_headless-4.11.0.86.dist-info_LICENSE-3RD-PARTY.txt.txt",
+        "third_party/licenses/opencv_python_headless-4.11.0.86-cp37-abi3-win_amd64-opencv_python_headless-4.11.0.86.dist-info_LICENSE.txt.txt"
       ],
       "changes": "None; external unmodified dependency.",
       "version": "4.11.0.86 (opencv-python-headless)",
@@ -784,6 +783,151 @@
       "usage": "candidate component, not incorporated",
       "scope": "Optional SpatialLM backend component",
       "changes": "None; no component code or weights included."
+    },
+    {
+      "id": "python",
+      "name": "CPython Windows embedded runtime",
+      "usage": "selected desktop build/runtime dependency",
+      "scope": "Replaceable isolated geometry worker runtime",
+      "license": "PSF and bundled component terms",
+      "attribution": "Python Software Foundation and contributors",
+      "source_urls": [
+        "https://www.python.org/ftp/python/3.12.10/"
+      ],
+      "licence_files": [
+        "third_party/licenses/CPython-3.12.10-Windows-LICENSE.txt",
+        "third_party/references/CPython-PSF.txt"
+      ],
+      "changes": "Unmodified upstream packages; original Punctora integration code.",
+      "version": "3.12.10",
+      "reviewed_revision": "v3.12.10"
+    },
+    {
+      "id": "angle",
+      "name": "ANGLE Windows native renderer",
+      "usage": "selected desktop build/runtime dependency",
+      "scope": "Graphics translation used by Avalonia on Windows",
+      "license": "BSD-3-Clause and bundled component terms",
+      "attribution": "The ANGLE Project Authors, copyright 2018; other copyrights in retained LICENSE",
+      "source_urls": [
+        "https://github.com/AvaloniaUI/angle"
+      ],
+      "licence_files": [
+        "third_party/licenses/avalonia.angle.windows.natives-2.1.27548.20260419-license.txt"
+      ],
+      "changes": "Unmodified upstream packages; original Punctora integration code.",
+      "version": "2.1.27548.20260419",
+      "reviewed_revision": "1c89805903c1482166356d3b950d474973180e61"
+    },
+    {
+      "id": "skiasharp",
+      "name": "SkiaSharp and native Skia",
+      "usage": "selected desktop build/runtime dependency",
+      "scope": "Desktop rasterization and diagnostic PNG capture",
+      "license": "MIT wrapper and bundled native component terms",
+      "attribution": "Microsoft and Skia contributors; native copyrights in retained notices",
+      "source_urls": [
+        "https://github.com/mono/SkiaSharp"
+      ],
+      "licence_files": [
+        "third_party/licenses/skiasharp.nativeassets.win32-3.119.4-license.txt.txt",
+        "third_party/licenses/skiasharp.nativeassets.win32-3.119.4-third-party-notices.txt.txt",
+        "third_party/licenses/skiasharp.nativeassets.linux-3.119.4-license.txt.txt",
+        "third_party/licenses/skiasharp.nativeassets.linux-3.119.4-third-party-notices.txt.txt"
+      ],
+      "changes": "Unmodified upstream packages; original Punctora integration code.",
+      "version": "3.119.4",
+      "reviewed_revision": "f568ac94dd768ef9a2f593537cfde2dd0d348ef5"
+    },
+    {
+      "id": "harfbuzzsharp",
+      "name": "HarfBuzzSharp and native HarfBuzz",
+      "usage": "selected desktop build/runtime dependency",
+      "scope": "Desktop font shaping",
+      "license": "MIT wrapper and bundled native component terms",
+      "attribution": "Microsoft and HarfBuzz contributors; native copyrights in retained notices",
+      "source_urls": [
+        "https://github.com/mono/SkiaSharp"
+      ],
+      "licence_files": [
+        "third_party/licenses/harfbuzzsharp.nativeassets.win32-8.3.1.3-license.txt.txt",
+        "third_party/licenses/harfbuzzsharp.nativeassets.win32-8.3.1.3-third-party-notices.txt.txt",
+        "third_party/licenses/harfbuzzsharp.nativeassets.linux-8.3.1.3-license.txt.txt",
+        "third_party/licenses/harfbuzzsharp.nativeassets.linux-8.3.1.3-third-party-notices.txt.txt"
+      ],
+      "changes": "Unmodified upstream packages; original Punctora integration code.",
+      "version": "8.3.1.3",
+      "reviewed_revision": "2888c737ad016d584c74525e2d35db5097ea8576"
+    },
+    {
+      "id": "microcom",
+      "name": "MicroCom.Runtime",
+      "usage": "selected desktop build/runtime dependency",
+      "scope": "Unmodified desktop COM interop dependency",
+      "license": "MIT",
+      "attribution": "Nikita Tsukanov, copyright 2021",
+      "source_urls": [
+        "https://github.com/kekekeks/MicroCom"
+      ],
+      "licence_files": [
+        "third_party/licenses/MicroCom-0.11.6-MIT.txt"
+      ],
+      "changes": "Unmodified upstream packages; original Punctora integration code.",
+      "version": "0.11.6",
+      "reviewed_revision": "76785efcafd91b5902fd19dd11145f6dd655b7b4"
+    },
+    {
+      "id": "avalonia-buildservices",
+      "name": "Avalonia.BuildServices",
+      "usage": "selected desktop build/runtime dependency",
+      "scope": "Build dependency, not an application feature",
+      "license": "MIT",
+      "attribution": "Avalonia contributors; exact copyright in retained licence",
+      "source_urls": [
+        "https://github.com/AvaloniaUI/Avalonia.BuildServices"
+      ],
+      "licence_files": [
+        "third_party/licenses/Avalonia-BuildServices-11.3.2-MIT.txt"
+      ],
+      "changes": "Unmodified upstream packages; original Punctora integration code.",
+      "version": "11.3.2",
+      "reviewed_revision": "777f975b0a0cecf0311273711d56697212c558c0"
+    },
+    {
+      "id": "tmds-dbus",
+      "name": "Tmds.DBus.Protocol",
+      "usage": "selected desktop build/runtime dependency",
+      "scope": "Linux desktop bus integration",
+      "license": "MIT",
+      "attribution": "Tom Deseyn; copyright in retained COPYING",
+      "source_urls": [
+        "https://github.com/tmds/Tmds.DBus"
+      ],
+      "licence_files": [
+        "third_party/licenses/Tmds-DBus-0.94.1-MIT.txt"
+      ],
+      "changes": "Unmodified upstream packages; original Punctora integration code.",
+      "version": "0.94.1",
+      "reviewed_revision": "b4a7fed0b878f74cb54f7cca84d2889af4e596ba"
+    },
+    {
+      "id": "msvc-runtime",
+      "name": "Microsoft Visual C++ runtime",
+      "license": "Microsoft redistributable runtime terms (MSVC)",
+      "attribution": "Microsoft Corporation; complete supplied notice retained in Shapely Windows LICENSE_win32.",
+      "reviewed_revision": null,
+      "usage": "Windows native dependency, unmodified application-local DLL",
+      "scope": "MSVCP140 for pye57/IfcOpenShell; VCRUNTIME140 supplied by embedded Python",
+      "version": "MSVCP140 14.44.35215.0; VCRUNTIME140 14.42.34438.0",
+      "source_urls": [
+        "https://pypi.org/project/shapely/2.1.2/#files",
+        "https://www.python.org/ftp/python/3.12.10/"
+      ],
+      "licence_files": [
+        "third_party/licenses/shapely-2.1.2-cp312-cp312-win_amd64-shapely-2.1.2.dist-info_licenses_LICENSE_win32.txt",
+        "third_party/licenses/CPython-3.12.10-Windows-LICENSE.txt"
+      ],
+      "changes": "Byte-identical MSVCP140 from reviewed Shapely wheel copied to embedded Python directory under its standard DLL name."
     }
   ]
 }

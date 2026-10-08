@@ -1,0 +1,18 @@
+{
+  "edit_survived_reopen": true,
+  "ifc_exists": true,
+  "viewport_backend": "Software preview (5,000 points): Selected in settings",
+  "preview_points": 79206,
+  "conversion_backend": "CPU",
+  "graphics": {
+    "backend": "Software preview (5,000 points): Selected in settings",
+    "viewport_width": 845,
+    "viewport_height": 697,
+    "render_callbacks": 24,
+    "cpu_render_submission_mean_ms": 43.34460833333335,
+    "point_buffer_bytes": 0,
+    "mesh_buffer_bytes": 0,
+    "timing_scope": "CPU drawing/submission callbacks; excludes GPU completion and compositor; not FPS"
+  },
+  "test_environment": "Linux container, Xvfb TCP display, Mesa llvmpipe LLVM 20.1.2, 1440x920 window; no physical GPU"
+}
