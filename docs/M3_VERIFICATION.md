@@ -62,7 +62,7 @@ The [desktop CI workflow](../.github/workflows/desktop.yml) builds on Linux/Wind
 
 1. Run the Windows preview on the user's RX 7800 XT, verify the reported hardware renderer, orbit/section/picking and cancellation, then measure responsiveness and memory on representative building crops. Linux software OpenGL is not AMD acceptance.
 2. Compare edited IFC in an independent viewer and review an annotated real building against reference dimensions. Both are still open.
-3. Extend fixed preview sampling to view-dependent streaming and add arbitrary box crops as larger-scene review needs are established. Current limits are 100,000 OpenGL samples, 5,000 software samples and a vertical section/storey filter.
+3. Extend fixed preview sampling to view-dependent streaming and add arbitrary box crops as larger-scene review needs are established. Current limits are 500,000 OpenGL samples, 5,000 software samples and a vertical section/storey filter. The benchmark table above records an earlier 100,000-sample build and is retained as historical evidence rather than relabelled.
 4. M4 adds whole-cloud deviation/coverage reporting and clean-machine installer acceptance. Original-fit RMSE, user review states and schema validity stay distinct from measured survey acceptance.
 5. Validate the adaptive worker on the user's physical Windows/AMD machine, especially OpenCL device selection, memory telemetry and wall/opening results on the 210M-point scan. GPU acceleration is intentionally scoped to bounded voxel arithmetic; fitting, topology and IFC writing remain CPU work.
 

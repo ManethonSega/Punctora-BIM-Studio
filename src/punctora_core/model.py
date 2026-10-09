@@ -64,6 +64,32 @@ class Slab:
 
 
 @dataclass
+class SlabOpening:
+    id: str
+    host_slab_id: str
+    start: tuple[float, float]
+    end: tuple[float, float]
+    width: float
+    source_stair_id: str | None = None
+    provenance: dict[str, str] = field(default_factory=dict)
+    review_state: str = "unreviewed"
+    confidence: float | None = None
+    evidence: dict = field(default_factory=dict)
+
+
+def slab_opening_footprint(opening: SlabOpening) -> list[tuple[float, float]]:
+    length = dist(opening.start, opening.end)
+    positive(length, "Slab opening length")
+    dx = (opening.end[0]-opening.start[0])/length
+    dy = (opening.end[1]-opening.start[1])/length
+    side_x, side_y = -dy*opening.width/2, dx*opening.width/2
+    return [(opening.start[0]-side_x, opening.start[1]-side_y),
+            (opening.end[0]-side_x, opening.end[1]-side_y),
+            (opening.end[0]+side_x, opening.end[1]+side_y),
+            (opening.start[0]+side_x, opening.start[1]+side_y)]
+
+
+@dataclass
 class Space:
     id: str
     storey_id: str
@@ -117,6 +143,7 @@ class BuildingModel:
     warnings: list[str] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
     stairs: list[Stair] = field(default_factory=list)
+    slab_openings: list[SlabOpening] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> "BuildingModel":
@@ -127,7 +154,9 @@ class BuildingModel:
         if set(data) - allowed:
             raise ValueError("Unknown element-model fields")
         parts = {}
-        for key, kind in [("storeys", Storey), ("walls", Wall), ("slabs", Slab), ("spaces", Space), ("openings", Opening), ("stairs", Stair)]:
+        for key, kind in [("storeys", Storey), ("walls", Wall), ("slabs", Slab),
+                          ("spaces", Space), ("openings", Opening), ("stairs", Stair),
+                          ("slab_openings", SlabOpening)]:
             values = data.get(key, [])
             if not isinstance(values, list):
                 raise ValueError(f"{key} must be a list")
@@ -151,12 +180,15 @@ class BuildingModel:
             raise ValueError("Model requires a name and metadata object")
         if not isinstance(self.warnings, list) or any(not isinstance(w, str) for w in self.warnings):
             raise ValueError("Warnings must be a list of strings")
-        objects = self.storeys + self.walls + self.slabs + self.spaces + self.openings + self.stairs
+        objects = (self.storeys + self.walls + self.slabs + self.spaces + self.openings
+                   + self.stairs + self.slab_openings)
         ids = [obj.id for obj in objects]
         if any(not isinstance(value, str) or not value for value in ids) or len(set(ids)) != len(ids):
             raise ValueError("Element IDs must be nonempty and unique")
         storeys = {s.id: s for s in self.storeys}
         walls = {w.id: w for w in self.walls}
+        slabs = {s.id: s for s in self.slabs}
+        stairs = {s.id: s for s in self.stairs}
         if not storeys:
             raise ValueError("A building needs at least one storey")
         for s in self.storeys:
@@ -210,6 +242,21 @@ class BuildingModel:
                 raise ValueError("Stair steps must be an integer between 2 and 100")
             if abs(dist(stair.start, stair.end)-stair.going*stair.steps) > 1e-6:
                 raise ValueError("Stair run must equal steps times going")
+        for opening in self.slab_openings:
+            if opening.host_slab_id not in slabs:
+                raise ValueError("Slab opening requires a known host slab")
+            if opening.source_stair_id is not None and opening.source_stair_id not in stairs:
+                raise ValueError("Slab opening source stair is unknown")
+            if (len(opening.start) != 2 or len(opening.end) != 2
+                    or not all(isfinite(x) for x in (*opening.start, *opening.end))):
+                raise ValueError("Slab opening endpoints must be finite 2D points")
+            positive(dist(opening.start, opening.end), "Slab opening length")
+            positive(opening.width, "Slab opening width")
+            footprint = slab_opening_footprint(opening)
+            polygon_check(footprint)
+            from shapely.geometry import Polygon
+            if not Polygon(slabs[opening.host_slab_id].footprint).buffer(1e-8).covers(Polygon(footprint)):
+                raise ValueError("Slab opening must lie inside its host slab footprint")
         for obj in objects:
             if hasattr(obj, "confidence") and obj.confidence is not None and (not isfinite(obj.confidence) or not 0 <= obj.confidence <= 1):
                 raise ValueError("Candidate confidence must lie between zero and one")

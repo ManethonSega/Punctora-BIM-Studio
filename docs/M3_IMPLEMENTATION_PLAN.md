@@ -22,7 +22,7 @@ The user's known desktop RX 7800 XT 16 GB is an intended test target, not tested
 | 6. Reviewed IFC export | Export the edited model through the existing IFC service and show validation findings | Export reflects supported edits, retains mapping and identity, and distinguishes file validity from survey/model acceptance |
 | 7. End-to-end verification | Fixture import/reconstruct/review/edit/save/reopen/export; sample import/view walkthroughs; cancellation/failure tests; graphics measurements | Reproducible reports identify hardware, backend, settings and limits. Windows physical GPU testing is required before claiming the target card works |
 
-Steps 1 through 6 have an initial implementation, with step 7 covered by project regressions, fixture desktop walkthroughs and both supplied sample previews. Hardware acceptance remains pending. The first preview has a fixed 100,000-point cap (5,000 in software fallback), vertical section/storey filtering and no streaming LOD or arbitrary box crop. The first M3 review model can use generated fixtures; the unannotated E57 examples test import and viewing, not accepted architectural reconstruction.
+Steps 1 through 6 have an initial implementation, with step 7 covered by project regressions, fixture desktop walkthroughs and both supplied sample previews. Hardware acceptance remains pending. The current preview has a fixed 500,000-point cap (5,000 in software fallback), vertical section/storey filtering and no streaming LOD or arbitrary box crop. The first M3 review model can use generated fixtures; the unannotated E57 examples test import and viewing, not accepted architectural reconstruction.
 
 ## GPU rendering requirements
 

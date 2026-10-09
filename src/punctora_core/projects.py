@@ -338,13 +338,16 @@ def draft_model(state, data):
 
 def edit_model(state, data, element_id, changes):
     model = draft_model(state, data)
-    element = next((obj for obj in model.walls + model.slabs + model.storeys + model.openings + model.stairs if obj.id == element_id), None)
+    element = next((obj for obj in (model.walls + model.slabs + model.storeys
+                                    + model.openings + model.stairs + model.slab_openings)
+                    if obj.id == element_id), None)
     if element is None:
         raise ValueError("Select a supported element")
     allowed = ({"start", "end", "base", "height", "thickness", "classification", "review_state"} if element in model.walls
                else {"base", "thickness", "review_state"} if element in model.slabs
                else {"kind", "offset", "sill", "width", "height", "review_state"} if element in model.openings
                else {"start", "end", "base", "width", "rise", "going", "steps", "tread_thickness", "review_state"} if element in model.stairs
+               else {"start", "end", "width", "review_state"} if element in model.slab_openings
                else {"name", "elevation", "ceiling"})
     if not isinstance(changes, dict) or not changes or set(changes)-allowed:
         raise ValueError("Unsupported element correction")
@@ -367,6 +370,16 @@ def edit_model(state, data, element_id, changes):
         elif "going" in changes or "steps" in changes:
             element.end = tuple(np.asarray(element.start)+direction*element.going*element.steps)
             element.provenance["end"] = "user_supplied"
+        if set(changes)-{"review_state"}:
+            for opening in model.slab_openings:
+                if opening.source_stair_id == element.id:
+                    opening.review_state = "flagged"
+                    opening.evidence["source_geometry_changed"] = True
+    if element in model.slabs and set(changes)-{"review_state"}:
+        for opening in model.slab_openings:
+            if opening.host_slab_id == element.id:
+                opening.review_state = "flagged"
+                opening.evidence["host_geometry_changed"] = True
     if element in model.storeys:
         shift = element.elevation-old["elevation"]
         height_shift = (element.ceiling-element.elevation)-(old["ceiling"]-old["elevation"])
@@ -456,11 +469,20 @@ def export_project(path, request, progress=lambda *_: None):
         check_revision(state, request["expected_revision"])
         model = draft_model(state, request.get("model") or state["model"])
         rejected = {w.id for w in model.walls if w.review_state == "rejected"}
+        rejected_slabs = {s.id for s in model.slabs if s.review_state == "rejected"}
+        rejected_stairs = {s.id for s in model.stairs if s.review_state == "rejected"}
         model.walls = [w for w in model.walls if w.id not in rejected]
-        model.slabs = [s for s in model.slabs if s.review_state != "rejected"]
+        model.slabs = [s for s in model.slabs if s.id not in rejected_slabs]
         model.openings = [o for o in model.openings if o.host_wall_id not in rejected and o.review_state != "rejected"]
-        model.stairs = [s for s in model.stairs if s.review_state != "rejected"]
-        unresolved = sum(obj.review_state in {"unreviewed", "flagged"} for obj in model.walls + model.slabs + model.openings + model.stairs)
+        model.stairs = [s for s in model.stairs if s.id not in rejected_stairs]
+        initial_slab_openings = len(model.slab_openings)
+        model.slab_openings = [o for o in model.slab_openings
+                               if o.review_state != "rejected"
+                               and o.host_slab_id not in rejected_slabs
+                               and (o.source_stair_id is None or o.source_stair_id not in rejected_stairs)]
+        unresolved = sum(obj.review_state in {"unreviewed", "flagged"}
+                         for obj in model.walls + model.slabs + model.openings
+                         + model.stairs + model.slab_openings)
         if unresolved:
             model.warnings.append(f"Export includes {unresolved} unreviewed or flagged elements; review state does not establish acceptance.")
         if model.metadata.get("geometry_edited"):
@@ -473,7 +495,9 @@ def export_project(path, request, progress=lambda *_: None):
         report = write_ifc(model, target)
         progress(100, "IFC export complete")
         return {"output": str(target), "validation": report, "warnings": model.warnings,
-                "excluded_rejected_walls": len(rejected), "spaces_omitted_after_edits": bool(model.metadata.get("geometry_edited"))}
+                "excluded_rejected_walls": len(rejected),
+                "excluded_slab_openings": initial_slab_openings-len(model.slab_openings),
+                "spaces_omitted_after_edits": bool(model.metadata.get("geometry_edited"))}
 
 
 def cleanup_project(path):

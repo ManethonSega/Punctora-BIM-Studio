@@ -8,7 +8,8 @@ import ifcopenshell.util.shape
 
 from punctora_core.fixtures import demo_cloud
 from punctora_core.ifc_export import create_ifc, validate_ifc, write_ifc
-from punctora_core.model import BuildingModel, Opening, Space, Storey, Wall
+from punctora_core.model import (BuildingModel, Opening, Slab, SlabOpening, Space,
+                                 Stair, Storey, Wall)
 from punctora_core.reconstruction import reconstruct
 
 
@@ -75,6 +76,30 @@ def test_door_window_voids_types_positions_and_cut_volume(tmp_path):
     expected_volume = 6*3*0.3 - (0.9*2.1+1.2*1.1)*0.3
     tessellation = shape(host)
     assert ifcopenshell.util.shape.get_volume(tessellation.geometry) == pytest.approx(expected_volume, abs=1e-6)
+
+
+def test_reviewed_stair_slab_opening_cuts_its_host_floor(tmp_path):
+    lower = Storey("lower", "Lower", 0, 3, [(0, 0), (10, 0), (10, 10), (0, 10)])
+    upper = Storey("upper", "Upper", 3.2, 6.2, [(0, 0), (10, 0), (10, 10), (0, 10)])
+    slab = Slab("upper-floor", "upper", upper.footprint, 3.0, .2, "FLOOR",
+                {"thickness": "measured"})
+    stair = Stair("stair", "lower", (2, 2), (6, 2), 0, 1, .2, .25, 16,
+                  provenance={"treads": "measured"})
+    opening = SlabOpening("stair-opening", slab.id, (1.9, 2), (6.1, 2), 1.2,
+                          stair.id, {"footprint": "inferred"}, "reviewed", .8,
+                          {"scope": "test candidate"})
+    model = BuildingModel("Slab void", [lower, upper], slabs=[slab], stairs=[stair],
+                          slab_openings=[opening])
+    report = write_ifc(model, tmp_path/"slab-opening.ifc")
+    assert report["valid"]
+    file = ifcopenshell.open(tmp_path/"slab-opening.ifc")
+    host = file.by_type("IfcSlab")[0]
+    assert len(host.HasOpenings) == 1
+    assert host.HasOpenings[0].RelatedOpeningElement.Name == opening.id
+    expected = 10*10*.2 - 4.2*1.2*.2
+    assert ifcopenshell.util.shape.get_volume(shape(host).geometry) == pytest.approx(expected, abs=1e-5)
+    properties = ifcopenshell.util.element.get_psets(host.HasOpenings[0].RelatedOpeningElement)
+    assert properties["Punctora_Reconstruction"]["ReviewState"] == "reviewed"
 
 
 def test_validation_detects_original_window_type_defect():

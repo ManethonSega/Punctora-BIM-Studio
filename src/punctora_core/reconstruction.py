@@ -18,14 +18,14 @@ from shapely.ops import polygonize, unary_union
 
 from .cloud_io import CloudData
 from .cloud2bim_geometry import (
-    adjust_intersections, check_overlap_parallel_segments, distance_between_points,
+    check_overlap_parallel_segments, distance_between_points,
     distance_points_to_line_np, merge_collinear_segments, segments_angle,
 )
 from .model import BuildingModel, Slab, Space, Storey, Wall
 from .sampling import (DetectionSample, adaptive_point_limit, available_memory_bytes,
                        point_batches, resolved_cpu_workers, voxel_sample)
 from .surfaces import region_growing
-from .wall_editing import consolidate_walls
+from .wall_editing import consolidate_walls, snap_wall_topology, wall_connectivity_report
 from .compute import ComputeBackend
 from .performance import ResourcePlan, StageProfiler
 from threadpoolctl import threadpool_limits
@@ -73,6 +73,10 @@ class ReconstructionSettings:
     wall_merge_lateral_tolerance_m: float = 0.08
     wall_merge_gap_m: float = 0.35
     wall_merge_thickness_tolerance_m: float = 0.08
+    corner_snap_tolerance_m: float = 0.3
+    t_junction_snap_tolerance_m: float = 0.2
+    t_junction_minimum_angle_deg: float = 25.0
+    topology_gap_tolerance_m: float = 0.05
 
     def validate(self):
         for name, value in asdict(self).items():
@@ -106,6 +110,8 @@ class ReconstructionSettings:
             raise ValueError("Invalid region-growing angle tolerance")
         if self.region_maximum_curvature >= 1/3:
             raise ValueError("region_maximum_curvature must be below 1/3")
+        if self.t_junction_minimum_angle_deg >= 90:
+            raise ValueError("t_junction_minimum_angle_deg must be below 90")
         if not isinstance(self.maximum_grid_cells, int) or isinstance(self.maximum_grid_cells, bool):
             raise ValueError("maximum_grid_cells must be an integer")
         if self.level_density_fraction > 1:
@@ -500,25 +506,28 @@ def _walls_from_faces(faces, storey, settings, z_bounds):
                           observed_faces=[{"start": np.asarray(f[0]).tolist(), "end": np.asarray(f[1]).tolist(),
                                            "z_min": float(z_bounds[0]), "z_max": float(z_bounds[1])} for f in observed],
                           detection_method=settings.surface_method))
-    _snap_walls(walls, settings)
     return walls
 
 
 def _snap_walls(walls, settings):
-    axes = adjust_intersections([[list(w.start), list(w.end)] for w in walls], settings.maximum_wall_thickness_m)
+    topology = snap_wall_topology(
+        walls, corner_tolerance_m=settings.corner_snap_tolerance_m,
+        t_tolerance_m=settings.t_junction_snap_tolerance_m,
+        t_minimum_angle_deg=settings.t_junction_minimum_angle_deg)
     retained = []
-    for wall, axis in zip(walls, axes):
-        # Two nearby junctions can snap both ends of a short candidate to the
-        # same coordinate.  Such an axis is not a wall and later GEOS overlay
-        # operations cannot assign it an edge direction.
-        if (not np.isfinite(np.asarray(axis, dtype=float)).all()
-                or distance_between_points(*axis) < settings.minimum_wall_length_m):
+    dropped = []
+    for wall in walls:
+        # A clustered junction must never reintroduce a zero-length GEOS edge.
+        if (not np.isfinite(np.asarray([wall.start, wall.end], dtype=float)).all()
+                or distance_between_points(wall.start, wall.end) < settings.minimum_wall_length_m):
+            dropped.append(wall.id)
             continue
-        if not np.allclose(axis, [wall.start, wall.end], atol=1e-9):
-            wall.provenance["axis"] = "inferred"  # Snapped junction, not an observed endpoint.
-        wall.start, wall.end = tuple(axis[0]), tuple(axis[1])
         retained.append(wall)
     walls[:] = retained
+    topology["dropped_wall_ids"] = dropped
+    topology["connectivity"] = wall_connectivity_report(
+        walls, topology, settings.topology_gap_tolerance_m)
+    return topology
 
 
 def _region_walls(cloud, storey, settings, backend=None):
@@ -627,10 +636,20 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
                                             2*statistics.get("voxel_size_m", settings.detection_voxel_size_m)),
                         radius=settings.region_plane_tolerance_m if settings.surface_method == "region_growing" else settings.grid_size_m/2,
                         workers=workers)
-        _snap_walls(walls, settings)
+        topology = _snap_walls(walls, settings)
+        counts = topology["connectivity"]["counts"]
+        if topology["dropped_wall_ids"]:
+            warnings.append(f"{level.id}: discarded {len(topology['dropped_wall_ids'])} wall candidate(s) collapsed by junction snapping")
+        if counts.get("unresolved_gap", 0):
+            warnings.append(f"{level.id}: {counts['unresolved_gap']} wall endpoint(s) retain a small unresolved topology gap; verify against the point cloud")
+        if counts.get("open_or_missing", 0):
+            warnings.append(f"{level.id}: {counts['open_or_missing']} wall endpoint(s) are open or may indicate missing geometry; verify against the point cloud")
         record.update(sample_points=len(cloud.points), sampling="full source wall selectors",
                       support_points=sum(w.evidence_count for w in walls),
-                      detected_elements={"walls": len(walls)})
+                      detected_elements={"walls": len(walls)},
+                      topology_counts=counts,
+                      corner_clusters=len(topology["corner_clusters"]),
+                      t_junctions=len(topology["t_junctions"]))
     with profiler.stage("space_topology", storey_id=level.id) as record:
         spaces = spaces_for_storey(level, walls, settings.minimum_space_area_m2, warnings)
         record.update(sample_points=len(walls), detected_elements={"spaces": len(spaces)},
@@ -644,7 +663,7 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
         stairs = detect_stairs(cloud, [level], settings, backend, stair_statistics) if settings.detect_stairs_enabled else []
         record.update(sample_points=sum(x["sample_points"] for x in stair_statistics),
                       sampling=stair_statistics, detected_elements={"stairs": len(stairs)})
-    return walls, spaces, openings, stairs, statistics, proposals, consolidation, warnings
+    return walls, spaces, openings, stairs, statistics, proposals, consolidation, topology, warnings
 
 
 def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None,
@@ -686,11 +705,12 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
             with ThreadPoolExecutor(max_workers=plan.concurrent_storeys) as executor:
                 results = list(executor.map(lambda level: _reconstruct_storey(
                     cloud, level, local_settings, backend, profiler), sorted_levels))
-            detection, proposals, consolidation = [], [], []
+            detection, proposals, consolidation, wall_topology, inter_storey_gaps = [], [], [], [], []
             for index, (level, result) in enumerate(zip(sorted_levels, results)):
-                local_walls, spaces, openings, stairs, statistics, local_proposals, report, local_warnings = result
+                local_walls, spaces, openings, stairs, statistics, local_proposals, report, topology, local_warnings = result
                 proposals.extend(local_proposals)
                 consolidation.append({"storey_id": level.id, **report})
+                wall_topology.append({"storey_id": level.id, **topology})
                 detection.append({"storey_id": level.id, **statistics,
                                   "configured_point_limit": settings.maximum_detection_points,
                                   "effective_point_limit": plan.point_limit})
@@ -706,10 +726,21 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                 model.warnings.extend(local_warnings)
                 if not local_walls:
                     model.warnings.append(f"{level.id}: no supported wall candidates detected")
-                if index and 0 < level.elevation-sorted_levels[index-1].ceiling <= settings.maximum_wall_thickness_m:
-                    thickness, base, state = level.elevation-sorted_levels[index-1].ceiling, sorted_levels[index-1].ceiling, "measured"
+                gap = level.elevation-sorted_levels[index-1].ceiling if index else None
+                if index and 0 < gap <= settings.maximum_wall_thickness_m:
+                    thickness, base, state = gap, sorted_levels[index-1].ceiling, "measured"
                 else:
                     thickness, base, state = settings.assumed_slab_thickness_m, level.elevation-settings.assumed_slab_thickness_m, "inferred"
+                    if index and gap > settings.maximum_wall_thickness_m:
+                        zone = {"lower_storey_id": sorted_levels[index-1].id,
+                                "upper_storey_id": level.id,
+                                "from_m": sorted_levels[index-1].ceiling,
+                                "to_m": level.elevation, "height_m": gap,
+                                "status": "unresolved_vertical_zone"}
+                        inter_storey_gaps.append(zone)
+                        model.warnings.append(
+                            f"{level.id}: unresolved {gap:.3g} m vertical zone above {sorted_levels[index-1].id}; "
+                            "the upper floor slab keeps its assumed thickness instead of filling the gap")
                 model.slabs.append(Slab(f"{level.id}-floor", level.id, level.footprint, base, thickness,
                                         "FLOOR", {"thickness": state, "footprint": "inferred", "material": "unknown"}))
             if not sorted_levels:
@@ -720,6 +751,14 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
             model.slabs.append(Slab("top-slab", last.id, last.footprint,
                                     last.ceiling, settings.assumed_slab_thickness_m, "NOTDEFINED",
                                     {"thickness": "inferred", "footprint": "inferred", "material": "unknown"}))
+            from .features import derive_stair_slab_openings
+            model.slab_openings, slab_opening_diagnostics = derive_stair_slab_openings(
+                model.stairs, model.slabs)
+            skipped_openings = sum(item["status"] != "candidate_created"
+                                   for item in slab_opening_diagnostics)
+            if skipped_openings and model.stairs:
+                model.warnings.append(
+                    f"{skipped_openings} stair flight(s) did not produce a slab-opening candidate because no reached slab or contained footprint was established")
             model.warnings.extend([
                 "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
                 "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
@@ -735,6 +774,9 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                               "fit_rmse_scope": "original points selected near observed wall faces, not whole-cloud deviation",
                               "detection": detection, "surface_proposals": proposals,
                               "wall_consolidation": consolidation,
+                              "wall_topology": wall_topology,
+                              "inter_storey_gaps": inter_storey_gaps,
+                              "slab_opening_detection": slab_opening_diagnostics,
                               "level_detection": None if level_sample is None else {
                                   "sample_points": len(level_sample.points), "voxel_size_m": level_sample.voxel_size_m,
                                   **(level_statistics or {})},

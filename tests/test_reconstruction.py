@@ -72,12 +72,18 @@ def test_two_floors_do_not_leak_rooms_from_previous_floor():
     assert Polygon(fresh[0].footprint).area == pytest.approx(12.0, abs=0.01)
 
 
-def test_intersection_snapping_discards_an_axis_collapsed_to_one_point():
+def test_intersection_snapping_discards_an_axis_collapsed_to_one_point(monkeypatch):
+    import punctora_core.reconstruction as reconstruction
     settings = ReconstructionSettings(minimum_wall_length_m=.5, maximum_wall_thickness_m=.6)
     walls = [
         Wall("short", "storey-1", (-.25, 0), (.25, 0), 0, 3, .2),
         Wall("crossing", "storey-1", (0, -1), (0, 1), 0, 3, .2),
     ]
+    def collapse(items, **_kwargs):
+        items[0].end = items[0].start
+        return {"corner_clusters": [], "t_junctions": [], "rejected": [],
+                "endpoint_relations": []}
+    monkeypatch.setattr(reconstruction, "snap_wall_topology", collapse)
     _snap_walls(walls, settings)
     assert [wall.id for wall in walls] == ["crossing"]
 
@@ -121,6 +127,24 @@ def test_slab_between_two_observed_faces_has_measured_thickness():
     assert intermediate.base == pytest.approx(3.0)
     assert intermediate.thickness == pytest.approx(0.2)
     assert intermediate.provenance["thickness"] == "measured"
+
+
+def test_large_inter_storey_gap_is_reported_without_fabricating_a_thick_slab():
+    automatic = reconstruct(demo_cloud(two_storeys=True))
+    lower, upper = automatic.storeys
+    explicit = [replace(lower, ceiling=2.0), upper]
+    model = reconstruct(demo_cloud(two_storeys=True), storeys=explicit)
+    upper_floor = next(slab for slab in model.slabs if slab.id == upper.id+"-floor")
+    assert upper_floor.base == pytest.approx(upper.elevation-.2)
+    assert upper_floor.thickness == pytest.approx(.2)
+    assert upper_floor.provenance["thickness"] == "inferred"
+    assert model.metadata["inter_storey_gaps"] == [{
+        "lower_storey_id": lower.id, "upper_storey_id": upper.id,
+        "from_m": 2.0, "to_m": upper.elevation,
+        "height_m": pytest.approx(upper.elevation-2.0),
+        "status": "unresolved_vertical_zone",
+    }]
+    assert any("instead of filling the gap" in warning for warning in model.warnings)
 
 
 def test_rotated_floor_reconstructs_in_scan_coordinates():

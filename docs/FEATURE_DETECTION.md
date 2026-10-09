@@ -1,27 +1,46 @@
-# Opening and stair candidates
+# Feature detection and topology limits
 
-Reconstruction now proposes empty rectangular door/window gaps and straight stair flights. Both appear in the element list and cloud/model overlay, support reviewed/flagged/rejected states and save in schema-2 projects. Older schema-2 projects load with an empty stairs list.
+Punctora produces reviewable geometric candidates. A candidate, confidence score, successful IFC export or valid IFC schema does not establish survey accuracy.
 
-## Openings
+## Walls and connectivity
 
-The detector projects bounded source-cloud chunks into each reconstructed wall's local horizontal/vertical frame. A 50 mm (or larger configured grid) occupancy raster closes small sampling gaps. Candidates need a mostly rectangular empty region, supported jambs and lintel, and a supported sill for windows. Floor-touching gaps at least 1.7 m high become door proposals; elevated gaps become window proposals. Wall ends and ceiling-touching empty regions are excluded.
+Wall faces are proposed from contour or region-growing geometry, consolidated conservatively, fitted back to original source records and then passed through a topology stage.
 
-Edit kind (door/window), offset from the wall start, sill, width and height. The preview cuts accepted candidate geometry out of the wall and shows a simple coloured filling envelope. IFC exports IfcOpeningElement with IfcRelVoidsElement and an IfcDoor/IfcWindow filling, including type and IfcRelFillsElement. Rejected openings do not cut exported walls. Rejecting a host wall also excludes its openings.
+The topology stage:
 
-Wall fragments are conservatively consolidated before this detector runs so an opening can be evaluated in one continuous host frame. A manual wall merge reprojects existing opening bounds onto the merged axis. A manual split assigns each opening to the correct segment and refuses a split plane that intersects an opening.
+- clusters credible same-storey corner endpoints with an order-independent union-find pass;
+- derives one shared corner from immutable pre-snap geometry;
+- projects a dangling endpoint onto a host wall only when it lies within the host span, is within the T-junction distance tolerance and meets the minimum crossing angle;
+- refuses to move both endpoints of one wall onto the same host;
+- removes nonfinite or shorter-than-configured wall axes before polygonization;
+- records every endpoint as a shared corner, T-junction, already connected geometry, unresolved small gap, or open/missing candidate.
 
-Missing scan returns can still imitate an opening. Closed doors, reflective glazing, cluttered gaps, arches and gaps outside the size limits can be missed. Confirm candidates against the original scan. No frame, leaf or sash construction is inferred.
+The default corner tolerance is 0.30 m. The default T-junction tolerance is 0.20 m because detected partition axes can end at the observed inner face of a 0.30 m exterior wall. The 25 degree angle gate prevents nearby parallel walls from being pulled together. These thresholds require field tuning against annotated scans.
 
-## Stairs
+Open endpoints are not automatically defects. They may represent scan boundaries, incomplete rooms or genuinely missing geometry. The report therefore asks for point-cloud review rather than silently extending a wall.
 
-A bounded per-storey voxel sample supports local normal estimation. Horizontal patches with plausible tread dimensions are chained by ascending height, direction, width, going and rise. A flight needs at least four supported treads with consistent spacing. Rotated straight flights are supported; one candidate represents one flight.
+## Wall openings
 
-Edit endpoints, base, width, rise, going, tread count and assumed tread thickness. Endpoint edits recompute going; going/count edits recompute the end along the existing direction. The model requires run = going × tread count. Original detection evidence remains unchanged after edits.
+Doors and windows are proposed from bounded empty regions in a host-wall occupancy grid. The detector requires supported side/top edges, size limits and low interior occupancy. It detects visible voids only. Glazing, closed leaves, furniture occlusion and sparse returns can cause misses or false proposals. Accepted wall openings produce an `IfcOpeningElement` plus an `IfcDoor` or `IfcWindow` filling.
 
-IFC exports an IfcStair aggregate containing an IfcStairFlight with tread envelope solids and measured/inferred provenance. The envelope does not represent a continuous structural stair body. Landings, railings, winders, curved stairs and hidden support structure are not inferred. Existing convex slab candidates may span a stairwell; this feature does not repair slab voids. Review slabs separately.
+## Stairs and slab openings
 
-## Review and processing
+Straight stair flights are proposed from repeated horizontal tread patches with consistent rise, going and width. Curved stairs, landings, railings, stringers and structural support are outside the current detector.
 
-The geometric support score is not a calibrated probability. Both detectors run on CPU and use existing NumPy, SciPy and OpenCV dependencies. No Constriq weights or binaries are bundled. Set `detect_openings_enabled` or `detect_stairs_enabled` to `false` in core reconstruction settings to disable an optional stage. Larger stair sampling voxels may lose treads. Opening checks stream source records per wall, so runtime scales with wall and source-point counts.
+After slabs are assembled, a stair can produce a separate `SlabOpening` candidate only when:
 
-Synthetic regressions cover supported openings, solid/sparse-wall negatives, rotated flights, flat-floor/vertical-wall negatives, schema round trip, editing, rejection and IFC EXPRESS/tessellation validation. They do not establish real-building recall, precision or dimensional accuracy.
+1. its computed top reaches the vertical interval of a different `FLOOR` slab within 0.05 m;
+2. its run has nonzero length; and
+3. the complete run-width rectangle, including a 0.10 m review margin, lies inside the host slab footprint.
+
+The candidate has its own stable ID, host slab, source stair, provenance, evidence, support score and review state. It appears as a purple inspection volume in the desktop, can be edited or rejected, survives project save/reopen, participates in point-budget convergence comparisons, and cuts the host slab during IFC export. Rejected candidates, or candidates linked to rejected stairs or slabs, are excluded from project export.
+
+The current rectangle is a tread-envelope proposal, not a headroom or structural trimming calculation. If it extends beyond the slab footprint, Punctora records a skipped diagnostic instead of clipping it into another shape.
+
+## Slabs and vertical gaps
+
+A small observed gap between one storey's ceiling and the next storey's floor can establish an intermediate slab thickness. When the gap exceeds the configured maximum plausible thickness, Punctora keeps the normal assumed slab thickness and records the remaining interval as an unresolved vertical zone. It does not create an unusually thick slab merely to close the model.
+
+## Review and export
+
+Supported candidates can be marked `unreviewed`, `reviewed`, `flagged` or `rejected`. Geometry corrections are recorded as user supplied while original evidence remains attached to the source fit. Export warns when unreviewed or flagged elements remain. Whole-cloud deviation, annotated precision/recall and independent viewer acceptance remain separate quality work.

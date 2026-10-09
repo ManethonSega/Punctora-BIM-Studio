@@ -1,6 +1,6 @@
 """Conservative wall consolidation and explicit topology corrections."""
 from copy import deepcopy
-from math import acos, degrees, dist
+from math import acos, degrees, dist, radians, sin
 
 import numpy as np
 
@@ -99,6 +99,208 @@ def consolidate_walls(walls, *, angle_deg=2.0, lateral_m=.08, gap_m=.35, thickne
     return result, {"input_walls": len(walls), "output_walls": len(result), "groups": merged}
 
 
+def _cross(first, second):
+    return float(first[0]*second[1]-first[1]*second[0])
+
+
+def _line_intersection(first_start, first_end, second_start, second_end):
+    first, second = first_end-first_start, second_end-second_start
+    divisor = _cross(first, second)
+    if abs(divisor) <= 1e-12:
+        return None
+    scale = _cross(second_start-first_start, second)/divisor
+    point = first_start+scale*first
+    return point if np.isfinite(point).all() else None
+
+
+def _project_onto_segment(point, start, end):
+    vector = end-start
+    length = float(np.linalg.norm(vector))
+    if length <= 1e-9:
+        return None
+    direction = vector/length
+    along = float((point-start)@direction)
+    if along < 0 or along > length:
+        return None
+    foot = start+along*direction
+    return foot, float(np.linalg.norm(point-foot)), along, length
+
+
+def _angle_degrees(first_start, first_end, second_start, second_end):
+    first, second = first_end-first_start, second_end-second_start
+    denominator = float(np.linalg.norm(first)*np.linalg.norm(second))
+    if denominator <= 1e-12:
+        return 0.0
+    return degrees(acos(float(np.clip(abs(first@second)/denominator, 0, 1))))
+
+
+def snap_wall_topology(walls, *, corner_tolerance_m=.3, t_tolerance_m=.1,
+                       t_minimum_angle_deg=25.0):
+    """Snap corners and credible T-junctions from one immutable geometry snapshot.
+
+    Corner endpoints are clustered through common axis intersections. T-junctions
+    are restricted to nonparallel walls, and a wall with both ends beside the same
+    host is never moved onto it. The returned endpoint records are keyed by stable
+    wall IDs so filtering a collapsed candidate cannot corrupt the diagnostics.
+    """
+    if not walls:
+        return {"corner_clusters": [], "t_junctions": [], "rejected": [],
+                "endpoint_relations": []}
+    if corner_tolerance_m <= 0 or t_tolerance_m <= 0 or not 0 < t_minimum_angle_deg < 90:
+        raise ValueError("Wall topology tolerances and angle must be positive")
+    if len({wall.id for wall in walls}) != len(walls):
+        raise ValueError("Wall topology requires unique wall IDs")
+
+    keys = [(wall.id, end) for wall in walls for end in ("start", "end")]
+    original = {(wall.id, end): np.asarray(getattr(wall, end), dtype=float)
+                for wall in walls for end in ("start", "end")}
+    proposed = {key: value.copy() for key, value in original.items()}
+    parent = {key: key for key in keys}
+
+    def find(key):
+        while parent[key] != key:
+            parent[key] = parent[parent[key]]
+            key = parent[key]
+        return key
+
+    def union(first, second):
+        first, second = find(first), find(second)
+        if first != second:
+            parent[max(first, second)] = min(first, second)
+
+    support = {key: [] for key in keys}
+    minimum_sine = sin(radians(10.0))
+    for first_index, first in enumerate(walls):
+        first_start, first_end = original[(first.id, "start")], original[(first.id, "end")]
+        first_vector = first_end-first_start
+        for second in walls[first_index+1:]:
+            if first.storey_id != second.storey_id:
+                continue
+            second_start, second_end = original[(second.id, "start")], original[(second.id, "end")]
+            second_vector = second_end-second_start
+            denominator = float(np.linalg.norm(first_vector)*np.linalg.norm(second_vector))
+            if denominator <= 1e-12 or abs(_cross(first_vector, second_vector))/denominator < minimum_sine:
+                continue
+            point = _line_intersection(first_start, first_end, second_start, second_end)
+            if point is None:
+                continue
+            first_key = min(((first.id, end) for end in ("start", "end")),
+                            key=lambda key: float(np.linalg.norm(original[key]-point)))
+            second_key = min(((second.id, end) for end in ("start", "end")),
+                             key=lambda key: float(np.linalg.norm(original[key]-point)))
+            if (np.linalg.norm(original[first_key]-point) > corner_tolerance_m
+                    or np.linalg.norm(original[second_key]-point) > corner_tolerance_m):
+                continue
+            support[first_key].append(point); support[second_key].append(point)
+            union(first_key, second_key)
+
+    clusters = {}
+    for key in keys:
+        if support[key]:
+            clusters.setdefault(find(key), []).append(key)
+    relations, cluster_records, rejected = {}, [], []
+    for members in clusters.values():
+        if len(members) < 2:
+            continue
+        target = np.mean([point for key in members for point in support[key]], axis=0)
+        movements = {key: float(np.linalg.norm(original[key]-target)) for key in members}
+        if max(movements.values()) > corner_tolerance_m+1e-9:
+            rejected.append({"kind": "corner_cluster_drift", "wall_ends": [list(key) for key in members],
+                             "maximum_displacement_m": max(movements.values())})
+            continue
+        for key in members:
+            proposed[key] = target.copy(); relations[key] = "shared_corner"
+        cluster_records.append({"wall_ends": [list(key) for key in sorted(members)],
+                                "target": target.tolist(),
+                                "maximum_displacement_m": max(movements.values())})
+
+    # Select every T-junction from the same post-corner snapshot. No selection
+    # can influence a later one through in-place wall mutation.
+    t_candidates = {}
+    for wall in walls:
+        source_start, source_end = proposed[(wall.id, "start")], proposed[(wall.id, "end")]
+        for end in ("start", "end"):
+            key = (wall.id, end)
+            if key in relations:
+                continue
+            point = proposed[key]
+            choices = []
+            for host in walls:
+                if host.id == wall.id or host.storey_id != wall.storey_id:
+                    continue
+                host_start, host_end = proposed[(host.id, "start")], proposed[(host.id, "end")]
+                angle = _angle_degrees(source_start, source_end, host_start, host_end)
+                if angle < t_minimum_angle_deg:
+                    continue
+                projection = _project_onto_segment(point, host_start, host_end)
+                if projection is None:
+                    continue
+                foot, distance, along, length = projection
+                if distance <= t_tolerance_m:
+                    choices.append((distance, host.id, foot, along, length, angle))
+            if choices:
+                t_candidates[key] = min(choices, key=lambda item: (item[0], item[1]))
+
+    for wall in walls:
+        start, end = t_candidates.get((wall.id, "start")), t_candidates.get((wall.id, "end"))
+        if start is not None and end is not None and start[1] == end[1]:
+            rejected.append({"kind": "both_ends_near_same_host", "wall_id": wall.id,
+                             "host_wall_id": start[1]})
+            t_candidates.pop((wall.id, "start"), None)
+            t_candidates.pop((wall.id, "end"), None)
+
+    t_records = []
+    for key, (distance, host_id, foot, along, host_length, angle) in sorted(t_candidates.items()):
+        proposed[key] = foot; relations[key] = "t_junction"
+        t_records.append({"wall_id": key[0], "end": key[1], "host_wall_id": host_id,
+                          "distance_m": distance, "host_offset_m": along,
+                          "host_length_m": host_length, "angle_deg": angle})
+
+    for wall in walls:
+        for end in ("start", "end"):
+            key = (wall.id, end)
+            target = proposed[key]
+            if not np.allclose(original[key], target, atol=1e-9):
+                setattr(wall, end, tuple(map(float, target)))
+                wall.provenance["axis"] = "inferred"
+    return {"corner_clusters": cluster_records, "t_junctions": t_records,
+            "rejected": rejected,
+            "endpoint_relations": [{"wall_id": key[0], "end": key[1], "relation": relation}
+                                   for key, relation in sorted(relations.items())]}
+
+
+def wall_connectivity_report(walls, topology, gap_tolerance_m=.05):
+    """Classify every final endpoint without asserting that an open end is wrong."""
+    relation = {(item["wall_id"], item["end"]): item["relation"]
+                for item in topology.get("endpoint_relations", [])}
+    endpoints = []
+    exact = 1e-7
+    for wall in walls:
+        for end in ("start", "end"):
+            key, point = (wall.id, end), np.asarray(getattr(wall, end), dtype=float)
+            if key in relation:
+                endpoints.append({"wall_id": wall.id, "end": end, "status": relation[key],
+                                  "nearest_wall_distance_m": 0.0})
+                continue
+            nearest = None
+            for other in walls:
+                if other.id == wall.id or other.storey_id != wall.storey_id:
+                    continue
+                projection = _project_onto_segment(point, np.asarray(other.start, dtype=float),
+                                                   np.asarray(other.end, dtype=float))
+                if projection is not None:
+                    nearest = projection[1] if nearest is None else min(nearest, projection[1])
+            status = ("connected_geometry" if nearest is not None and nearest <= exact
+                      else "unresolved_gap" if nearest is not None and nearest <= gap_tolerance_m
+                      else "open_or_missing")
+            endpoints.append({"wall_id": wall.id, "end": end, "status": status,
+                              "nearest_wall_distance_m": nearest})
+    counts = {}
+    for endpoint in endpoints:
+        counts[endpoint["status"]] = counts.get(endpoint["status"], 0)+1
+    return {"endpoints": endpoints, "counts": counts}
+
+
 def _reassign_opening(opening, source, target):
     source_start, _, source_direction, _ = _axis(source)
     target_start, _, target_direction, _ = _axis(target)
@@ -143,7 +345,6 @@ def merge_walls(model: BuildingModel, wall_ids: list[str]) -> BuildingModel:
         "result_wall_id": combined.id, "quality_scope": "Source observed faces and evidence are retained; the merged axis is user supplied."})
     model.validate()
     return model
-
 
 def split_wall(model: BuildingModel, wall_id: str, offset: float) -> BuildingModel:
     wall = next((candidate for candidate in model.walls if candidate.id == wall_id), None)

@@ -7,8 +7,9 @@ import cv2
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from scipy.spatial import cKDTree
+from shapely.geometry import Polygon
 
-from .model import Opening, Stair
+from .model import Opening, SlabOpening, Stair, slab_opening_footprint
 from .sampling import adaptive_point_limit, resolved_cpu_workers, voxel_sample
 
 
@@ -201,4 +202,58 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None):
                                      "scope": "straight flight proposal; support structure and landings not inferred"}))
             used.update(chain)
     return flights
+
+
+def derive_stair_slab_openings(stairs, slabs, margin_m=.1, vertical_tolerance_m=.05):
+    """Create reviewable slab-opening candidates only where a stair reaches a slab.
+
+    The rectangle is stored in the element model, so preview and IFC export use
+    the same reviewed geometry. Candidates that extend beyond the host footprint
+    are skipped rather than silently clipped into a different shape.
+    """
+    openings, diagnostics = [], []
+    for stair in stairs:
+        top = stair.base+stair.steps*stair.rise
+        candidates = []
+        for slab in slabs:
+            if slab.kind != "FLOOR" or slab.storey_id == stair.storey_id:
+                continue
+            low, high = slab.base, slab.base+slab.thickness
+            distance = 0.0 if low <= top <= high else min(abs(top-low), abs(top-high))
+            if distance <= vertical_tolerance_m:
+                candidates.append((distance, slab.base, slab.id, slab))
+        if not candidates:
+            diagnostics.append({"stair_id": stair.id, "status": "no_intersected_slab",
+                                "stair_top_m": top})
+            continue
+        distance, _, _, slab = min(candidates, key=lambda item: (item[0], item[1], item[2]))
+        start, end = np.asarray(stair.start, dtype=float), np.asarray(stair.end, dtype=float)
+        length = float(np.linalg.norm(end-start))
+        if length <= 1e-9:
+            diagnostics.append({"stair_id": stair.id, "status": "degenerate_run"})
+            continue
+        direction = (end-start)/length
+        opening = SlabOpening(
+            f"{stair.id}-slab-opening", slab.id,
+            tuple(map(float, start-direction*margin_m)),
+            tuple(map(float, end+direction*margin_m)),
+            float(stair.width+2*margin_m), stair.id,
+            {"footprint": "inferred", "host_slab_id": "inferred"},
+            confidence=stair.confidence,
+            evidence={"method": "stair_reaches_slab", "source_stair_id": stair.id,
+                      "stair_top_m": float(top), "host_slab_base_m": float(slab.base),
+                      "host_slab_top_m": float(slab.base+slab.thickness),
+                      "vertical_distance_m": float(distance), "margin_m": float(margin_m),
+                      "scope": "Tread-envelope opening candidate; landing, headroom and structural trimming require review"})
+        footprint = Polygon(slab_opening_footprint(opening))
+        host = Polygon(slab.footprint)
+        if not host.buffer(1e-8).covers(footprint):
+            diagnostics.append({"stair_id": stair.id, "host_slab_id": slab.id,
+                                "status": "outside_host_footprint", "stair_top_m": top})
+            continue
+        openings.append(opening)
+        diagnostics.append({"stair_id": stair.id, "host_slab_id": slab.id,
+                            "slab_opening_id": opening.id, "status": "candidate_created",
+                            "stair_top_m": top, "vertical_distance_m": distance})
+    return openings, diagnostics
 

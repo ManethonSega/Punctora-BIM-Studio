@@ -12,7 +12,7 @@ import ifcopenshell.validate
 
 from . import __version__
 from .ifc_geometry import IFCGeometry
-from .model import BuildingModel
+from .model import BuildingModel, slab_opening_footprint
 
 
 def _guid(project, identifier):
@@ -129,6 +129,7 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
                     "FitScope": wall.evidence.get("scope", "caller-supplied evidence scope unspecified")})
         wall_entities[wall.id], wall_frames[wall.id] = entity, frame
 
+    slab_entities = {}
     for slab in model.slabs:
         entity = root("IfcSlab", slab.id, predefined=slab.kind)
         api("spatial.assign_container", products=[entity], relating_structure=storeys[slab.storey_id])
@@ -136,6 +137,22 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         matrix[2, 3] = slab.base
         solid(entity, slab.footprint, slab.thickness, matrix)
         provenance(entity, slab.id, slab.provenance, {"ReviewState": slab.review_state})
+        slab_entities[slab.id] = entity
+
+    slabs = {slab.id: slab for slab in model.slabs}
+    for opening in model.slab_openings:
+        host = slabs[opening.host_slab_id]
+        void = root("IfcOpeningElement", opening.id, predefined="OPENING")
+        matrix = np.eye(4)
+        matrix[2, 3] = host.base-.02
+        solid(void, slab_opening_footprint(opening), host.thickness+.04, matrix)
+        api("feature.add_feature", feature=void, element=slab_entities[host.id])
+        provenance(void, opening.id, opening.provenance,
+                   {"ReviewState": opening.review_state,
+                    "GeometricSupportScore": opening.confidence,
+                    "SourceStairId": opening.source_stair_id or "unknown",
+                    "RepresentationScope": opening.evidence.get(
+                        "scope", "Reviewed slab-opening candidate")})
 
     for space in model.spaces:
         entity = root("IfcSpace", space.id, predefined="NOTDEFINED")
