@@ -5,7 +5,10 @@ MIT geometry helpers. Original orchestration, fitting and element model are
 Punctora code. No plots, fabricated materials or cross-floor wall accumulation.
 """
 from dataclasses import asdict, dataclass
+from concurrent.futures import ThreadPoolExecutor
 from math import isfinite
+import os
+import time
 import cv2
 import numpy as np
 from scipy.signal import find_peaks
@@ -18,7 +21,8 @@ from .cloud2bim_geometry import (
     distance_points_to_line_np, merge_collinear_segments, segments_angle,
 )
 from .model import BuildingModel, Slab, Space, Storey, Wall
-from .sampling import voxel_sample
+from .sampling import (DetectionSample, adaptive_point_limit, available_memory_bytes,
+                       point_batches, resolved_cpu_workers, voxel_sample)
 from .surfaces import region_growing
 from .wall_editing import consolidate_walls
 
@@ -41,9 +45,11 @@ class ReconstructionSettings:
     maximum_grid_cells: int = 20_000_000
     surface_method: str = "contour"
     detection_voxel_size_m: float = 0.02
-    maximum_level_detection_points: int = 500_000
-    maximum_detection_points: int = 50_000
-    processing_chunk_points: int = 100_000
+    maximum_level_detection_points: int = 2_000_000
+    maximum_detection_points: int = 2_000_000
+    processing_chunk_points: int = 1_000_000
+    maximum_working_memory_gb: float = 20.0
+    cpu_workers: int = 0
     region_neighbours: int = 24
     region_neighbour_radius_m: float = 0.2
     region_normal_radius_m: float = 0.1
@@ -64,7 +70,7 @@ class ReconstructionSettings:
 
     def validate(self):
         for name, value in asdict(self).items():
-            if name in {"surface_method", "region_adaptive", "detect_openings_enabled", "detect_stairs_enabled", "consolidate_walls_enabled"}:
+            if name in {"surface_method", "region_adaptive", "detect_openings_enabled", "detect_stairs_enabled", "consolidate_walls_enabled", "cpu_workers"}:
                 continue
             if not isfinite(value) or value <= 0:
                 raise ValueError(f"{name} must be finite and positive")
@@ -75,11 +81,13 @@ class ReconstructionSettings:
         if (not isinstance(self.detect_openings_enabled, bool) or not isinstance(self.detect_stairs_enabled, bool)
                 or not isinstance(self.consolidate_walls_enabled, bool)):
             raise ValueError("Feature detection switches must be booleans")
-        for name in ["maximum_level_detection_points", "maximum_detection_points", "processing_chunk_points", "region_neighbours", "region_minimum_points"]:
+        for name in ["maximum_level_detection_points", "maximum_detection_points", "processing_chunk_points", "region_neighbours", "region_minimum_points", "cpu_workers"]:
             if not isinstance(getattr(self, name), int) or isinstance(getattr(self, name), bool):
                 raise ValueError(f"{name} must be an integer")
         if self.maximum_level_detection_points < 30 or self.maximum_detection_points < 30 or not 6 <= self.region_neighbours <= 128:
             raise ValueError("Detection budget must be >=30 and region_neighbours between 6 and 128")
+        if self.cpu_workers < -1:
+            raise ValueError("cpu_workers must be -1 (all), 0 (automatic) or a positive integer")
         if self.region_minimum_points < 6 or self.region_minimum_points > self.maximum_detection_points:
             raise ValueError("region_minimum_points exceeds the detection budget or is below 6")
         if not 0 < self.region_minimum_wall_height_fraction <= 1:
@@ -171,12 +179,127 @@ def detect_storeys(points: np.ndarray, settings: ReconstructionSettings) -> list
     return storeys
 
 
+def _hash_xy_cells(cells):
+    """Deterministic spatial hash used to retain distributed level evidence."""
+    x, y = cells[:, 0].astype(np.uint64), cells[:, 1].astype(np.uint64)
+    value = x * np.uint64(0x9E3779B185EBCA87) ^ y * np.uint64(0xC2B2AE3D27D4EB4F)
+    value ^= value >> np.uint64(30)
+    value *= np.uint64(0xBF58476D1CE4E5B9)
+    value ^= value >> np.uint64(27)
+    value *= np.uint64(0x94D049BB133111EB)
+    return value ^ (value >> np.uint64(31))
+
+
+def streaming_level_sample(points, settings):
+    """Use every source Z value, then retain spatial evidence only near peaks."""
+    size = settings.level_bin_size_m
+    counts, source_count = {}, 0
+    workers = resolved_cpu_workers(settings.cpu_workers)
+    starts = range(0, len(points), settings.processing_chunk_points)
+    def histogram_chunk(begin):
+        batch = points[begin:begin+settings.processing_chunk_points]
+        bins, amount = np.unique(np.floor(batch[:, 2] / size + 1e-9).astype(np.int64), return_counts=True)
+        return bins, amount, len(batch)
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        results = executor.map(histogram_chunk, starts)
+        for bins, amount, batch_count in results:
+            source_count += batch_count
+            for key, value in zip(bins, amount):
+                counts[int(key)] = counts.get(int(key), 0) + int(value)
+    if not counts:
+        raise ValueError("The working cloud contains no points")
+    first, last = min(counts), max(counts)
+    if last-first+1 > settings.maximum_grid_cells:
+        raise ValueError("Vertical extent exceeds the level histogram limit")
+    histogram = np.zeros(last-first+1, dtype=np.int64)
+    for key, value in counts.items():
+        histogram[key-first] = value
+    smooth = np.convolve(histogram.astype(float), [.2, .6, .2], mode="same")
+    maximum = float(smooth.max())
+    minimum_height = max(20.0, maximum * .002)
+    peaks, _ = find_peaks(smooth, height=minimum_height,
+                          prominence=max(10.0, maximum * .001),
+                          distance=max(2, int(round(.10 / size))))
+    endpoints = [index for index in (0, len(smooth)-1)
+                 if smooth[index] >= minimum_height
+                 and (len(smooth) == 1 or smooth[index] >= smooth[1 if index == 0 else -2])]
+    peaks = np.unique(np.concatenate([peaks, endpoints])).astype(int)
+    if len(peaks) < 2:
+        order = np.argsort(smooth, kind="stable")[::-1]
+        selected = list(peaks)
+        distance = max(2, int(round(.10 / size)))
+        for candidate in order:
+            if smooth[candidate] < 20 or any(abs(int(candidate)-old) < distance for old in selected):
+                continue
+            selected.append(int(candidate))
+            if len(selected) >= 32:
+                break
+        peaks = np.asarray(sorted(selected), dtype=int)
+    if len(peaks) > 64:
+        strongest = np.argsort(smooth[peaks], kind="stable")[-64:]
+        peaks = np.sort(peaks[strongest])
+    absolute_peaks = peaks + first
+    total_limit = adaptive_point_limit(settings.maximum_level_detection_points,
+                                       settings.maximum_working_memory_gb, bytes_per_point=96)
+    per_level = max(10_000, total_limit // max(1, len(absolute_peaks)))
+    retained_hashes = [np.empty(0, dtype=np.uint64) for _ in absolute_peaks]
+    retained_points = [np.empty((0, 3), dtype=float) for _ in absolute_peaks]
+    retained_indices = [np.empty(0, dtype=np.int64) for _ in absolute_peaks]
+    footprint_cell = max(.04, 2 * settings.grid_size_m)
+    for batch, cloud_indices in point_batches(points, settings.processing_chunk_points):
+        zbin = np.floor(batch[:, 2] / size + 1e-9).astype(np.int64)
+        positions = np.searchsorted(absolute_peaks, zbin)
+        right = np.minimum(positions, len(absolute_peaks)-1)
+        left = np.maximum(positions-1, 0)
+        choose_right = np.abs(zbin-absolute_peaks[right]) < np.abs(zbin-absolute_peaks[left])
+        nearest = np.where(choose_right, right, left)
+        near = np.abs(zbin-absolute_peaks[nearest]) <= 1
+        for level in np.unique(nearest[near]):
+            mask = near & (nearest == level)
+            candidate = batch[mask]
+            ids = cloud_indices[mask]
+            cells = np.floor(candidate[:, :2] / footprint_cell + 1e-9).astype(np.int64)
+            hashes = _hash_xy_cells(cells)
+            _, unique = np.unique(hashes, return_index=True)
+            hashes, candidate, ids = hashes[unique], candidate[unique], ids[unique]
+            hashes = np.concatenate([retained_hashes[level], hashes])
+            candidate = np.concatenate([retained_points[level], candidate])
+            ids = np.concatenate([retained_indices[level], ids])
+            _, unique = np.unique(hashes, return_index=True)
+            hashes, candidate, ids = hashes[unique], candidate[unique], ids[unique]
+            if len(hashes) > per_level:
+                keep = np.argpartition(hashes, per_level-1)[:per_level]
+                hashes, candidate, ids = hashes[keep], candidate[keep], ids[keep]
+            retained_hashes[level], retained_points[level], retained_indices[level] = hashes, candidate, ids
+    available = [index for index, values in enumerate(retained_points) if len(values) >= 20]
+    if len(available) < 2:
+        raise ValueError("No spatially supported floor/ceiling candidates found; add or adjust explicit storey bounds")
+    sample_points = np.concatenate([retained_points[index] for index in available])
+    sample_indices = np.concatenate([retained_indices[index] for index in available])
+    return DetectionSample(sample_points, sample_indices, footprint_cell, source_count), {
+        "method": "full_cloud_streaming_histogram", "source_points_scanned": source_count,
+        "histogram_bins": len(histogram),
+        "candidate_level_bins": [int(absolute_peaks[index]) for index in available],
+        "retained_spatial_points": len(sample_points),
+        "working_memory_limit_gb": settings.maximum_working_memory_gb,
+        "cpu_workers": workers,
+    }
+
+
 def _segments(points: np.ndarray, settings: ReconstructionSettings) -> list:
     pixel = settings.grid_size_m
-    origin = points[:, :2].min(axis=0) - 2 * pixel
-    dimensions = np.ceil((points[:, :2].max(axis=0) - origin) / pixel).astype(int) + 3
-    if int(dimensions[0]) * int(dimensions[1]) > settings.maximum_grid_cells:
-        raise ValueError("Scan extent exceeds the contour-grid limit; segment the cloud or enlarge the grid")
+    low, high = points[:, :2].min(axis=0), points[:, :2].max(axis=0)
+    for _ in range(16):
+        origin = low - 2 * pixel
+        dimensions = np.ceil((high-origin)/pixel).astype(int)+3
+        cells = int(dimensions[0])*int(dimensions[1])
+        if cells <= settings.maximum_grid_cells:
+            break
+        pixel *= max(1.05, np.sqrt(cells/settings.maximum_grid_cells)*1.01)
+        if pixel > max(.10, 8*settings.grid_size_m):
+            raise ValueError("Scan extent exceeds the contour-grid limit; crop outliers or segment the cloud")
+    else:
+        raise ValueError("Scan extent cannot be represented within the contour-grid memory limit")
     cells = np.floor((points[:, :2] - origin) / pixel + 1e-9).astype(int)
     mask = np.zeros((int(dimensions[1]), int(dimensions[0])), dtype=np.uint8)
     mask[cells[:, 1], cells[:, 0]] = 255
@@ -370,9 +493,12 @@ def _snap_walls(walls, settings):
 
 
 def _region_walls(cloud, storey, settings):
+    point_limit = adaptive_point_limit(settings.maximum_detection_points,
+                                       settings.maximum_working_memory_gb, bytes_per_point=256)
     sample = voxel_sample(cloud.points, settings.detection_voxel_size_m,
-                          settings.maximum_detection_points, settings.processing_chunk_points,
-                          (storey.elevation, storey.ceiling))
+                          point_limit, settings.processing_chunk_points,
+                          (storey.elevation, storey.ceiling),
+                          resolved_cpu_workers(settings.cpu_workers))
     patches, statistics = region_growing(sample, settings)
     height = storey.ceiling-storey.elevation
     faces = []
@@ -425,13 +551,15 @@ def spaces_for_storey(storey: Storey, walls: list[Wall], minimum_area: float = 1
 
 def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None,
                 storeys: list[Storey] | None = None, name: str = "Punctora reconstruction") -> BuildingModel:
+    started = time.perf_counter()
     settings = settings or ReconstructionSettings()
     settings.validate()
-    level_sample = None
+    level_sample, level_statistics = None, None
     if storeys is None:
-        level_sample = voxel_sample(cloud.points, settings.detection_voxel_size_m,
-                                    settings.maximum_level_detection_points, settings.processing_chunk_points)
+        level_started = time.perf_counter()
+        level_sample, level_statistics = streaming_level_sample(cloud.points, settings)
         levels = detect_storeys(level_sample.points, settings)
+        level_statistics["seconds"] = time.perf_counter()-level_started
     else:
         levels = storeys
     model = BuildingModel(name, list(levels))
@@ -440,7 +568,10 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
     if any(a.ceiling > b.elevation + 1e-8 for a, b in zip(sorted_levels, sorted_levels[1:])):
         raise ValueError("Storey clear-height intervals overlap")
     detection, proposals, consolidation = [], [], []
+    point_limit = adaptive_point_limit(settings.maximum_detection_points,
+                                       settings.maximum_working_memory_gb, bytes_per_point=256)
     for index, level in enumerate(sorted_levels):
+        storey_started = time.perf_counter()
         if settings.surface_method == "region_growing":
             local_walls, patches, statistics = _region_walls(cloud, level, settings)
             proposals.extend({**p, "id": f"{level.id}-{p['id']}", "storey_id": level.id,
@@ -448,8 +579,9 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
         else:
             height = level.ceiling-level.elevation
             sample = voxel_sample(cloud.points, settings.detection_voxel_size_m,
-                                  settings.maximum_detection_points, settings.processing_chunk_points,
-                                  (level.elevation+0.7*height, level.elevation+0.9*height))
+                                  point_limit, settings.processing_chunk_points,
+                                  (level.elevation+0.7*height, level.elevation+0.9*height),
+                                  resolved_cpu_workers(settings.cpu_workers))
             local_walls = detect_walls(sample.points, level, settings)
             statistics = {"sample_points": len(sample.points), "source_point_count": sample.source_point_count,
                           "voxel_size_m": sample.voxel_size_m}
@@ -462,7 +594,10 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
         else:
             report = {"input_walls": len(local_walls), "output_walls": len(local_walls), "groups": []}
         consolidation.append({"storey_id": level.id, **report})
-        detection.append({"storey_id": level.id, **statistics})
+        detection.append({"storey_id": level.id, **statistics,
+                          "seconds": time.perf_counter()-storey_started,
+                          "configured_point_limit": settings.maximum_detection_points,
+                          "effective_point_limit": point_limit})
         if statistics.get("voxel_size_m", settings.detection_voxel_size_m) > settings.detection_voxel_size_m:
             model.warnings.append(f"{level.id}: detection voxels enlarged to {statistics['voxel_size_m']:.6g} m to respect the point budget; small features may be missed")
         from .evidence import attach_evidence
@@ -495,8 +630,10 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                             settings.assumed_slab_thickness_m, "NOTDEFINED",
                             {"thickness": "inferred", "footprint": "inferred", "material": "unknown"}))
     from .features import detect_openings, detect_stairs
+    feature_started = time.perf_counter()
     model.openings = detect_openings(cloud, model.walls, settings) if settings.detect_openings_enabled else []
     model.stairs = detect_stairs(cloud, sorted_levels, settings) if settings.detect_stairs_enabled else []
+    feature_seconds = time.perf_counter()-feature_started
     model.warnings.extend([
         "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
         "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
@@ -512,7 +649,15 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                       "detection": detection, "surface_proposals": proposals,
                       "wall_consolidation": consolidation,
                       "level_detection": None if level_sample is None else {
-                          "sample_points": len(level_sample.points), "voxel_size_m": level_sample.voxel_size_m},
+                          "sample_points": len(level_sample.points), "voxel_size_m": level_sample.voxel_size_m,
+                          **(level_statistics or {})},
+                      "performance": {"total_seconds": time.perf_counter()-started,
+                                      "feature_detection_seconds": feature_seconds,
+                                      "cpu_workers": resolved_cpu_workers(settings.cpu_workers),
+                                      "logical_cpu_count": os.cpu_count(),
+                                      "available_memory_gb_at_start": available_memory_bytes()/1024**3,
+                                      "working_memory_limit_gb": settings.maximum_working_memory_gb,
+                                      "compute_backend": "CPU; multicore neighbour queries; GPU rendering is separate"},
                       "element_schema_version": 2}
     model.validate()
     return model

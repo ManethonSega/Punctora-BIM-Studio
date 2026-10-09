@@ -8,7 +8,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 from .model import Opening, Stair
-from .sampling import voxel_sample
+from .sampling import adaptive_point_limit, resolved_cpu_workers, voxel_sample
 
 
 def detect_openings(cloud, walls, settings):
@@ -79,10 +79,13 @@ def detect_openings(cloud, walls, settings):
 
 def detect_stairs(cloud, storeys, settings):
     flights = []
+    workers = resolved_cpu_workers(settings.cpu_workers)
+    point_limit = adaptive_point_limit(settings.maximum_detection_points,
+                                       settings.maximum_working_memory_gb, bytes_per_point=256)
     for storey in storeys:
         sample = voxel_sample(cloud.points, max(0.035, settings.detection_voxel_size_m),
-                              settings.maximum_detection_points, settings.processing_chunk_points,
-                              (storey.elevation+0.08, storey.ceiling-0.05))
+                              point_limit, settings.processing_chunk_points,
+                              (storey.elevation+0.08, storey.ceiling-0.05), workers)
         points = sample.points
         if len(points) < 60:
             continue
@@ -91,7 +94,7 @@ def detect_stairs(cloud, storeys, settings):
         tree = cKDTree(points)
         horizontal = np.zeros(len(points), bool)
         for begin in range(0, len(points), 2048):
-            distances, indices = tree.query(points[begin:begin+2048], k=min(12, len(points)), workers=1)
+            distances, indices = tree.query(points[begin:begin+2048], k=min(12, len(points)), workers=workers)
             neighbours = points[indices]
             centre = neighbours.mean(axis=1, keepdims=True)
             covariance = np.einsum("nki,nkj->nij", neighbours-centre, neighbours-centre)

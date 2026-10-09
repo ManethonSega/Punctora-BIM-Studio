@@ -57,10 +57,12 @@ def test_bounded_sampling_is_chunk_independent_and_keeps_original_rows(tmp_path)
         mapped[start*len(original):(start+1)*len(original)] = original
     first = voxel_sample(mapped, .02, maximum_points=4000, chunk_points=317)
     second = voxel_sample(mapped, .02, maximum_points=4000, chunk_points=10_000)
+    parallel = voxel_sample(mapped, .02, maximum_points=4000, chunk_points=317, workers=4)
     assert len(first.points) <= 4000
     assert first.source_point_count == len(mapped)
     assert first.voxel_size_m > .02
     np.testing.assert_array_equal(first.cloud_indices, second.cloud_indices)
+    np.testing.assert_array_equal(first.cloud_indices, parallel.cloud_indices)
     np.testing.assert_array_equal(first.points, mapped[first.cloud_indices])
     assert first.cloud_indices.max() < len(original)
 
@@ -103,7 +105,8 @@ def test_region_model_exports_valid_ifc_with_fit_scope(tmp_path):
 
 @pytest.mark.parametrize("field,value", [("surface_method", "invented"), ("region_neighbours", 3),
     ("region_adaptive", "true"), ("maximum_detection_points", 20), ("region_minimum_wall_height_fraction", 2),
-    ("region_normal_angle_deg", 90), ("processing_chunk_points", True)])
+    ("region_normal_angle_deg", 90), ("processing_chunk_points", True),
+    ("cpu_workers", -2), ("maximum_working_memory_gb", 0)])
 def test_invalid_provider_settings_fail_before_processing(field, value):
     with pytest.raises(ValueError):
         replace(ReconstructionSettings(), **{field:value}).validate()

@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from collections import deque
 import numpy as np
 from scipy.spatial import cKDTree
-from .sampling import DetectionSample
+from .sampling import DetectionSample, resolved_cpu_workers
 
 
 @dataclass
@@ -39,6 +39,7 @@ def region_growing(sample: DetectionSample, settings):
     if n < settings.region_minimum_points:
         return [], {"sample_points": n, "patches": 0, "unassigned_points": n}
     tree = cKDTree(points)
+    workers = resolved_cpu_workers(settings.cpu_workers)
     k = min(settings.region_neighbours, n)
     radius = max(settings.region_neighbour_radius_m, 2.5 * sample.voxel_size_m)
     normal_radius = max(settings.region_normal_radius_m, 1.45 * sample.voxel_size_m)
@@ -48,9 +49,9 @@ def region_growing(sample: DetectionSample, settings):
     # Batched covariance calculation avoids an N x k x 3 temporary.
     for start in range(0, n, 2048):
         part = points[start:start + 2048]
-        _, growth_ids = tree.query(part, k=k, distance_upper_bound=radius, workers=1)
+        _, growth_ids = tree.query(part, k=k, distance_upper_bound=radius, workers=workers)
         neighbours[start:start + len(part)] = growth_ids
-        distances, ids = tree.query(part, k=k, distance_upper_bound=normal_radius, workers=1)
+        distances, ids = tree.query(part, k=k, distance_upper_bound=normal_radius, workers=workers)
         valid = np.isfinite(distances)
         local = points[np.minimum(ids, n - 1)] - part[:, None, :]
         counts = valid.sum(axis=1)

@@ -259,7 +259,7 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
                      "preview": preview, "import_manifest": manifest, "model": model,
                      "coordinate_confirmation": {"z_up": not bool(source), "crs": "unconfirmed", "vertical_datum": "unconfirmed"},
                      "warnings": manifest["warnings"] if manifest else ["Generated example, not a survey."],
-                     "processing_backend": "CPU; no GPU compute backend implemented"}
+                     "processing_backend": "Adaptive multicore CPU; GPU currently renders the preview only"}
             close_cloud(cloud)
             publish_generation(path, job_id, stage)
             # Cancellation before this replacement can only leave an unused generation.

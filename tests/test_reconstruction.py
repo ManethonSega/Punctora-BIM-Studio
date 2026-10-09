@@ -6,7 +6,7 @@ from shapely.geometry import Polygon
 
 from punctora_core.cloud_io import CloudData
 from punctora_core.fixtures import demo_cloud, room_cloud
-from punctora_core.reconstruction import ReconstructionSettings, detect_storeys, reconstruct, spaces_for_storey
+from punctora_core.reconstruction import ReconstructionSettings, detect_storeys, reconstruct, spaces_for_storey, streaming_level_sample
 
 
 def test_one_floor_detects_walls_slabs_and_two_rooms():
@@ -33,6 +33,24 @@ def test_level_detection_recovers_less_dense_ceiling_peaks():
         np.column_stack([xy_sparse, np.full(len(xy_sparse), 6.1)]),
     ])
     storeys = detect_storeys(points, settings)
+    assert [(round(s.elevation, 1), round(s.ceiling, 1)) for s in storeys] == [(0.0, 3.0), (3.0, 6.1)]
+
+
+def test_streaming_level_detection_uses_every_source_height_before_spatial_reduction():
+    settings = ReconstructionSettings(maximum_level_detection_points=40_000,
+                                      processing_chunk_points=317)
+    xy_dense = np.array([(x, y) for x in np.linspace(0, 8, 70) for y in np.linspace(0, 5, 45)])
+    xy_sparse = np.array([(x, y) for x in np.linspace(0, 8, 28) for y in np.linspace(0, 5, 18)])
+    points = np.vstack([
+        np.column_stack([xy_dense, np.zeros(len(xy_dense))]),
+        np.column_stack([xy_sparse, np.full(len(xy_sparse), 3.0)]),
+        np.column_stack([xy_sparse, np.full(len(xy_sparse), 6.1)]),
+    ])
+    sample, statistics = streaming_level_sample(points, settings)
+    storeys = detect_storeys(sample.points, settings)
+    assert statistics["method"] == "full_cloud_streaming_histogram"
+    assert statistics["source_points_scanned"] == len(points)
+    assert len(sample.points) <= settings.maximum_level_detection_points
     assert [(round(s.elevation, 1), round(s.ceiling, 1)) for s in storeys] == [(0.0, 3.0), (3.0, 6.1)]
 
 

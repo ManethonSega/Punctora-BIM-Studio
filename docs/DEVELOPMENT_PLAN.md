@@ -18,6 +18,8 @@ The [M3 implementation plan](M3_IMPLEMENTATION_PLAN.md) records the desktop sequ
 
 Accuracy run 1 is implemented in 0.3.0a4: conservative collinear wall consolidation, desktop multi-wall merge and wall split, hosted-opening reassignment, undo/save/reopen persistence, and validated IFC regression coverage. Real-scan threshold tuning remains part of the annotated field benchmark rather than a synthetic accuracy claim.
 
+The 0.3.0a5 large-survey pass replaces globally sampled level discovery with a two-pass full-cloud streaming Z histogram and spatially distributed level evidence. Default candidate budgets are raised to two million points, processing chunks to one million records, and supported neighbour/voxel operations use all logical processors except one by default. A 20 GB policy ceiling is reduced automatically to 60% of currently available physical memory. Recorded model metadata includes effective budgets, timings, worker count and the level-detection method. GPU compute remains a separate backend task; OpenGL GPU activity is rendering, not reconstruction.
+
 ## First usable release acceptance
 
 - Import a supported registered E57 without altering it or duplicating cached points on rerun.
