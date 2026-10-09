@@ -1,6 +1,6 @@
 # M3 desktop verification
 
-Recorded 2026-10-08. Initial desktop implementation is ready for Windows preview testing. Linux and Windows CI review/export checks are verified; testing on the user's physical Windows/AMD machine remains pending. This is not a claim of survey accuracy or a completed installer.
+Recorded 2026-10-09. Initial desktop implementation is ready for Windows preview testing. Linux and Windows CI review/export checks are verified; testing on the user's physical Windows/AMD machine remains pending. This is not a claim of survey accuracy or a completed installer.
 
 ![M3 generated review example](images/m3-desktop.png)
 
@@ -17,9 +17,9 @@ Recorded 2026-10-08. Initial desktop implementation is ready for Windows preview
 
 ## Automated evidence
 
-Verified code revision: [`4b9be0d`](https://github.com/ManethonSega/Punctora-BIM-Studio/commit/4b9be0ddbdf517de093cb59a5dfcc909ef55549d). The [core CI run](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/runs/37822331692) passed all **89 tests** in each of four jobs: Windows and Ubuntu, each with Python 3.11 and 3.12. The [desktop CI run](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/runs/37822331484) passed Release builds, Linux OpenGL/software walkthroughs, the Windows software walkthrough and bundled Windows worker checks.
+Verified code revision: [`84e8e0d`](https://github.com/ManethonSega/Punctora-BIM-Studio/commit/84e8e0d5957b95fa2f8635e3c2f74a7a284764b0). The [core CI run](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/runs/37893969335) passed all **89 tests** in each of four jobs: Windows and Ubuntu, each with Python 3.11 and 3.12. The [desktop CI run](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/runs/37893966108) passed Release builds, Linux OpenGL/software walkthroughs, the Windows software walkthrough and bundled Windows worker checks. The embedded Windows interpreter verified detection followed immediately by IFC export, IFC roundtrip validation and rejection of an invalid EXPRESS rule.
 
-[Download the verified Windows preview](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/runs/37822331484/artifacts/11570745096). Extract the artifact, then extract its contained ZIP and run **Punctora.Desktop.exe** with all extracted files kept together. GitHub sign-in is required for artifact downloads; this artifact expires on 2027-01-06. Its archive SHA-256 is `a2fd646e240ddc8c45fe3d29749828126672f9b0614400309eabd10d486ed60f`. This is the corrected preview; use it in preference to the earlier `b62bbba` build.
+[Download the verified Windows preview](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/runs/37893966108/artifacts/11599727689). Extract the artifact, then extract its contained ZIP and run **Punctora.Desktop.exe** with all extracted files kept together. GitHub sign-in is required for artifact downloads; this artifact expires on 2027-01-07. Its archive SHA-256 is `76e996aafeb4ea070ab1cdcf7985ae5dda1b3972a69a9cc902ea335c7c3e0abc`. This is the corrected 0.3.0a2 preview; it replaces the earlier 0.3.0a1 builds.
 
 The test suite contains **89 tests**: 74 previous core regressions and 15 project/worker regressions. Project checks cover edit/save/reopen/copy/export, retained evidence, stable IFC IDs, rejected geometry, invalid/nonfinite edits, overlapping storeys, stale revisions, a simulated failed atomic replacement, path escape, real worker termination during reconstruction, lock release, cleanup, malformed protocol, resuming an interrupted copy, and releasing mapped ndarray views before Windows directory publication.
 
@@ -78,4 +78,4 @@ The core now declares pytest 8.4.2 as a runtime dependency. Its transitive packa
 
 The desktop buttons now read **Detect elements** and **Convert to IFC**. Conversion first detects elements if the project has no model, subject to the existing Z-up confirmation. Existing projects and their assets remain compatible. Automatic door/window detection and coordinated multicore/GPU conversion are still open work. A low overall CPU percentage does not by itself establish a bottleneck: sampling, storey processing and wall-evidence loops are sequential, and region-growing neighbour queries explicitly use one worker. Stage profiling is needed before selecting parallel work.
 
-The original 0.3.0a1 artifact above is historical and contains the reported export packaging defect. Use the corrected 0.3.0a2 artifact from its successful desktop workflow run.
+The corrected 0.3.0a2 artifact linked above replaces the original 0.3.0a1 preview, which contained the reported export packaging defect. Its Windows package verification and all four core CI jobs passed.
