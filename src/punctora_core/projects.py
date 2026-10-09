@@ -16,6 +16,7 @@ from .evidence import write_wall_evidence
 from .fixtures import demo_cloud
 from .ifc_export import write_ifc
 from .model import BuildingModel
+from .convergence import compare_budgets
 from .reconstruction import ReconstructionSettings, reconstruct
 from .wall_editing import merge_walls, split_wall
 
@@ -249,7 +250,8 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
             model = None
             if not source:
                 progress(80, "Reconstructing example")
-                candidate = reconstruct(cloud, name=path.stem)
+                candidate = reconstruct(cloud, name=path.stem,
+                                        diagnostics=lambda report: atomic_json(stage / "performance.json", report))
                 candidate.metadata["project_id"] = project_id
                 candidate.warnings = [w for w in candidate.warnings if "No desktop review" not in w]
                 model = candidate.to_dict()
@@ -259,7 +261,8 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
                      "preview": preview, "import_manifest": manifest, "model": model,
                      "coordinate_confirmation": {"z_up": not bool(source), "crs": "unconfirmed", "vertical_datum": "unconfirmed"},
                      "warnings": manifest["warnings"] if manifest else ["Generated example, not a survey."],
-                     "processing_backend": "Adaptive multicore CPU; GPU currently renders the preview only"}
+                     "processing_backend": candidate.metadata.get("performance", {}).get(
+                         "compute_backend", "CPU") if model is not None else "not reconstructed"}
             close_cloud(cloud)
             publish_generation(path, job_id, stage)
             # Cancellation before this replacement can only leave an unused generation.
@@ -280,7 +283,16 @@ def reconstruct_project(path, request, progress=lambda *_: None):
             cloud = load_cloud(path, state)
             settings = ReconstructionSettings(**request.get("settings", {}))
             progress(20, "Finding surfaces and fitting elements")
-            model = reconstruct(cloud, settings, name=state["name"])
+            performance_path = assets_for(path) / "last-performance.json"
+            save_performance = lambda report: atomic_json(performance_path, report)
+            if request.get("compare_budgets"):
+                model, budget_report = compare_budgets(
+                    cloud, settings, progress=progress, diagnostics=save_performance)
+                atomic_json(assets_for(path) / "budget-comparison.json", budget_report)
+                model.metadata["budget_comparison"] = budget_report
+            else:
+                model = reconstruct(cloud, settings, name=state["name"],
+                                     progress=progress, diagnostics=save_performance)
             model.metadata["project_id"] = state["project_id"]
             if state["import_manifest"]:
                 manifest = state["import_manifest"]
@@ -308,6 +320,8 @@ def reconstruct_project(path, request, progress=lambda *_: None):
             state["generations"] = list(dict.fromkeys([state["cloud"]["generation"], token]))
             state["coordinate_confirmation"]["z_up"] = True
             state["revision"] = uuid.uuid4().hex
+            state["processing_backend"] = model.metadata.get("performance", {}).get(
+                "compute_backend", "CPU")
             close_cloud(cloud)
             publish_generation(path, token, stage)
             atomic_json(path, state)
@@ -484,3 +498,4 @@ def cleanup_project(path):
                     shutil.rmtree(child)
                     removed.append(f"{area}/{child.name}")
         return {"removed": removed}
+

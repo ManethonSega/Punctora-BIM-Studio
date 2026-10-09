@@ -1,5 +1,6 @@
 """Original-record wall fitting and recomputable, bounded evidence selectors."""
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from .sampling import point_batches
 
@@ -85,7 +86,7 @@ def wall_batches(cloud, wall, chunk_points):
             yield indices[selected], distances[selected]
 
 
-def attach_evidence(cloud, walls, chunk_points=100_000, endpoint_margin=0.04, radius=0.01):
+def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=0.04, radius=0.01):
     for wall in walls:
         wall.observed_faces = [_refine_face(cloud.points, f, radius, endpoint_margin, chunk_points)
                                for f in wall.observed_faces]
@@ -135,6 +136,16 @@ def attach_evidence(cloud, walls, chunk_points=100_000, endpoint_margin=0.04, ra
         wall.evidence["maximum_distance_m"] = maximum if count else None
 
 
+def attach_evidence(cloud, walls, chunk_points=100_000, endpoint_margin=0.04,
+                    radius=0.01, workers=1):
+    """Fit independent wall regions in parallel without duplicating the cloud."""
+    if workers <= 1 or len(walls) <= 1:
+        return _attach_evidence_serial(cloud, walls, chunk_points, endpoint_margin, radius)
+    with ThreadPoolExecutor(max_workers=min(workers, len(walls))) as executor:
+        list(executor.map(lambda wall: _attach_evidence_serial(
+            cloud, [wall], chunk_points, endpoint_margin, radius), walls))
+
+
 def write_wall_evidence(cloud, walls, directory, chunk_points=100_000, surface_proposals=None):
     """Write complete source references as mapped N x 3 int64 arrays.
 
@@ -168,3 +179,4 @@ def write_wall_evidence(cloud, walls, directory, chunk_points=100_000, surface_p
         proposal["representative_cloud_records"] = {"path": f"evidence/{directory.name}/{path.name}",
                                                      "count": len(ids), "dtype": "int64"}
         del proposal["representative_cloud_indices"]
+

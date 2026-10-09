@@ -24,6 +24,7 @@ jobs:
         run: python scripts/verify_worker_runtime.py --output outputs/runtime
       - run: python -m pytest -q
       - run: python -m punctora_core demo --two-storeys --output-dir outputs/demo
+      - run: python -m punctora_core demo --compare-budgets --output-dir outputs/budget-comparison
       - run: python -m punctora_core demo --settings docs/region-growing-settings.json --output-dir outputs/region-demo
       - run: python -m punctora_core.benchmark --cases clean rotated thin_partition --check --output-dir outputs/benchmarks
       - uses: actions/upload-artifact@v4
@@ -33,3 +34,4 @@ jobs:
           name: m2-benchmark-${{ matrix.os }}-py${{ matrix.python }}
           path: outputs/benchmarks/benchmark.json
           retention-days: 7
+

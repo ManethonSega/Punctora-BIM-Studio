@@ -14,6 +14,7 @@ from .e57_io import read_e57
 from .fixtures import demo_cloud
 from .ifc_export import write_ifc
 from .reconstruction import ReconstructionSettings, reconstruct
+from .convergence import compare_budgets
 from .evidence import write_wall_evidence
 
 
@@ -38,14 +39,20 @@ def main(argv=None):
     demo.add_argument("--two-storeys", action="store_true")
     demo.add_argument("--output-dir", type=Path, required=True)
     demo.add_argument("--settings", type=Path, help="JSON object containing ReconstructionSettings fields")
+    demo.add_argument("--compare-budgets", action="store_true",
+                      help="Compare 250k/500k/1M/2M/5M candidate budgets until geometry stabilises")
     convert = commands.add_parser("convert-xyz", help="Reconstruct local, registered XYZ data with declared units and Z up")
     convert.add_argument("input", type=Path)
     convert.add_argument("--units", choices=["m", "mm"], required=True)
     convert.add_argument("--settings", type=Path, help="JSON object containing ReconstructionSettings fields")
+    convert.add_argument("--compare-budgets", action="store_true",
+                         help="Compare candidate budgets until geometry stabilises")
     convert.add_argument("--output-dir", type=Path, required=True)
     e57 = commands.add_parser("convert-e57", help="Import registered E57 scans and reconstruct in a local metre frame")
     e57.add_argument("input", type=Path)
     e57.add_argument("--settings", type=Path, help="JSON object containing ReconstructionSettings fields")
+    e57.add_argument("--compare-budgets", action="store_true",
+                     help="Compare candidate budgets until geometry stabilises")
     e57.add_argument("--chunk-points", type=int, default=1_000_000,
                      help="Maximum E57 records decoded at once (default: 1000000)")
     e57.add_argument("--output-dir", type=Path, required=True)
@@ -78,7 +85,18 @@ def main(argv=None):
                 return 0
         if getattr(args, "settings", None):
             settings = ReconstructionSettings(**json.loads(args.settings.read_text(encoding="utf-8")))
-        model = reconstruct(cloud, settings, name="Punctora core example" if args.command == "demo" else args.input.stem)
+        args.output_dir.mkdir(parents=True, exist_ok=True)
+        performance_path = args.output_dir / "performance.json"
+        if getattr(args, "compare_budgets", False):
+            model, budget_report = compare_budgets(
+                cloud, settings,
+                diagnostics=lambda report: _json_write(performance_path, report))
+            _json_write(args.output_dir / "budget-comparison.json", budget_report)
+        else:
+            model = reconstruct(
+                cloud, settings,
+                name="Punctora core example" if args.command == "demo" else args.input.stem,
+                diagnostics=lambda report: _json_write(performance_path, report))
         model.metadata["source"] = source
         if import_manifest is not None:
             model.warnings.extend(import_manifest["warnings"])
@@ -90,7 +108,6 @@ def main(argv=None):
                 "raw_point_count": import_manifest["raw_point_count"],
                 "valid_point_count": import_manifest["valid_point_count"],
             }
-        args.output_dir.mkdir(parents=True, exist_ok=True)
         # Protect the source even if output directory overlaps its directory.
         destinations = [args.output_dir/name for name in ["model.ifc", "elements.json", "validation.json", "source.xyz"]]
         if args.command == "convert-xyz" and any(p.resolve() == args.input.resolve() for p in destinations[:3]):
@@ -121,3 +138,4 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

@@ -1,6 +1,6 @@
 # M3 desktop verification
 
-Recorded 2026-10-09. Initial desktop implementation is ready for Windows preview testing. Linux and Windows CI review/export checks are verified; testing on the user's physical Windows/AMD machine remains pending. This is not a claim of survey accuracy or a completed installer.
+Recorded 2026-10-09. The desktop implementation and adaptive High Performance worker are ready for Windows preview testing. Linux and Windows CI review/export checks are verified; testing on the user's physical Windows/AMD machine remains pending. This is not a claim of survey accuracy or a completed installer.
 
 ![M3 generated review example](images/m3-desktop.png)
 
@@ -64,7 +64,7 @@ The [desktop CI workflow](../.github/workflows/desktop.yml) builds on Linux/Wind
 2. Compare edited IFC in an independent viewer and review an annotated real building against reference dimensions. Both are still open.
 3. Extend fixed preview sampling to view-dependent streaming and add arbitrary box crops as larger-scene review needs are established. Current limits are 100,000 OpenGL samples, 5,000 software samples and a vertical section/storey filter.
 4. M4 adds whole-cloud deviation/coverage reporting and clean-machine installer acceptance. Original-fit RMSE, user review states and schema validity stay distinct from measured survey acceptance.
-5. Profile CPU conversion by stage before implementing bounded multicore orchestration and a compatible GPU compute backend. Conversion remains CPU-only; the renderer is a separate acceleration path. R13 in the requirements and the M3 acceleration plan remain open.
+5. Validate the adaptive worker on the user's physical Windows/AMD machine, especially OpenCL device selection, memory telemetry and wall/opening results on the 210M-point scan. GPU acceleration is intentionally scoped to bounded voxel arithmetic; fitting, topology and IFC writing remain CPU work.
 
 The research-informed boundary is preserved: observations and original evidence are separate from edited/inferred proposals; explicit unknowns remain unknown; rejected proposals do not enter the reviewed export. SpatialLM/Pointcept/GPT4Point and other research code/weights are not integrated into M3.
 
@@ -76,6 +76,7 @@ The user reported successful E57 import and wall/slab/storey detection, followed
 
 The core now declares pytest 8.4.2 as a runtime dependency. Its transitive packages are pinned, hashed and attributed with complete wheel notices. Validation remains enabled. The package verification now uses the embedded interpreter in isolated mode, from outside the repository, to detect elements, export immediately, reopen the IFC and reject invalid space containment. Core CI also runs that workflow without installing test extras.
 
-The desktop buttons now read **Detect elements** and **Convert to IFC**. Conversion first detects elements if the project has no model, subject to the existing Z-up confirmation. Existing projects and their assets remain compatible. Automatic door/window detection and coordinated multicore/GPU conversion are still open work. A low overall CPU percentage does not by itself establish a bottleneck: sampling, storey processing and wall-evidence loops are sequential, and region-growing neighbour queries explicitly use one worker. Stage profiling is needed before selecting parallel work.
+The desktop buttons read **Detect elements** and **Convert to IFC**. Conversion first detects elements if the project has no model, subject to the existing Z-up confirmation. Existing projects and their assets remain compatible. The High Performance worker now exposes adaptive multicore processing, optional bounded GPU voxel indexing, resource telemetry, and an optional 250k–5M budget comparison. A low overall CPU percentage on an earlier build is not evidence about this worker; physical hardware validation remains open.
 
 The corrected 0.3.0a2 artifact linked above replaces the original 0.3.0a1 preview, which contained the reported export packaging defect. Its Windows package verification and all four core CI jobs passed.
+

@@ -1,6 +1,6 @@
 # M3 desktop preview
 
-The desktop opens registered E57 scans, fits the current CPU reconstruction providers, overlays candidate geometry, edits supported elements and exports validated IFC4. It uses local files and has no AI weights or scan uploads.
+The desktop opens registered E57 scans, fits the current reconstruction providers, overlays candidate geometry, edits supported elements and exports validated IFC4. It uses local files and has no AI weights or scan uploads. Reconstruction is adaptive multicore CPU work with optional bounded GPU voxel arithmetic; the CPU fallback is deterministic.
 
 ## Windows preview
 
@@ -21,9 +21,9 @@ The application automatically attempts an OpenGL cloud/model renderer. On Window
 
 The OpenGL preview is capped at 100,000 deterministic source samples, held in batched XYZ/RGBA buffers. Camera transformations, section clipping and point depth run in the graphics context. Canonical fitting coordinates remain double precision; preview floats never overwrite scan data. Transparent candidate meshes and observed points form an inspection overlay. The preview is not an exact hidden-surface rendering or a deviation report.
 
-This preview uses a fixed sample rather than view-dependent streaming/LOD. It provides a vertical section and storey filtering; arbitrary box crops and large-scene picking indexes are follow-up work. Version 0.3.0a5 adds full-cloud streaming level statistics, adaptive memory limits, larger geometry budgets and multicore sampling/nearest-neighbour queries. Version 0.3.0a4 added conservative automatic wall-fragment consolidation and draft merge/split controls. Version 0.3.0a3 added geometric opening-gap and straight-stair candidates, parameter editing, review states and IFC export. Opening candidates cut the host wall in the preview; stair candidates display tread envelopes. See [feature detection and limits](FEATURE_DETECTION.md).
+This preview uses a fixed sample rather than view-dependent streaming/LOD. It provides a vertical section and storey filtering; arbitrary box crops and large-scene picking indexes are follow-up work. Version 0.3.0a6 adds adaptive multicore storey/wall processing, optional OpenCL/CUDA voxel arithmetic, per-stage resource telemetry, and point-budget convergence checks. Version 0.3.0a5 added full-cloud streaming level statistics, adaptive memory limits, larger geometry budgets and multicore sampling/nearest-neighbour queries. Version 0.3.0a4 added conservative automatic wall-fragment consolidation and draft merge/split controls. Version 0.3.0a3 added geometric opening-gap and straight-stair candidates, parameter editing, review states and IFC export. Opening candidates cut the host wall in the preview; stair candidates display tread envelopes. See [feature detection and limits](FEATURE_DETECTION.md) and [High Performance reconstruction](HIGH_PERFORMANCE.md).
 
-**Point-cloud-to-IFC conversion still uses the CPU.** GPU rendering does not accelerate E57 decoding, reconstruction or IFC writing. Coordinated multicore reconstruction and a GPU compute backend need separate profiling and numerical verification. Existing native NumPy/OpenCV routines may use threads internally.
+**Point-cloud-to-IFC conversion is not fully GPU based.** E57 decoding, geometric fitting, topology and IFC writing remain CPU work. The worker uses all available CPU cores except one by default and can use Open3D CUDA or OpenCL for bounded voxel indexing when a compatible device and runtime are installed. Stage telemetry reports the selected backend, GPU calls and transfer/compute time; unavailable device counters remain explicit nulls.
 
 The M3 OpenGL/fallback walkthroughs have been checked under Linux/Xvfb/Mesa, and software review/export has passed Windows CI. The 0.3.0a2 package check also performs immediate IFC export using only the bundled interpreter, including EXPRESS-rule validation. AMD RX 7800 XT and clean Windows acceptance remain hardware checks; no hardware frame-rate claim is made. See [M3 verification](https://github.com/ManethonSega/Punctora-BIM-Studio/blob/main/docs/M3_VERIFICATION.md) for current evidence.
 
@@ -48,3 +48,4 @@ python scripts/package_desktop.py
 ```
 
 The script checks the embedded Python archive and Windows wheel hashes, retains licences and records a package manifest. On Windows it also runs the embedded worker from the package directory. Build output is in `artifacts/` and is excluded from source control. Runtime replacements and source locations are documented in `WINDOWS_RUNTIME_NOTICES.md`.
+

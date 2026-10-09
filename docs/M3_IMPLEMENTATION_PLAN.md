@@ -1,10 +1,10 @@
 # M3 desktop implementation plan
 
-Recorded 2026-10-08. Status: initial desktop implementation and Linux walkthroughs verified; Windows hardware acceptance pending. M2 supplies E57 import, CPU reconstruction, evidence and IFC export. M3 turns that core into an interactive desktop review workflow. The user clarified that automatic GPU use and multicore CPU acceleration primarily concern **point-cloud-to-IFC conversion**. GPU rendering is a separate M3 design choice, not a substitute for accelerating conversion.
+Recorded 2026-10-09. Status: desktop implementation and adaptive High Performance worker are ready for Windows hardware acceptance. M2 supplies E57 import, evidence and IFC export. M3 turns that core into an interactive desktop review workflow. The user clarified that automatic GPU use and multicore CPU acceleration primarily concern **point-cloud-to-IFC conversion**. GPU rendering is a separate M3 design choice, not a substitute for accelerating conversion.
 
 ## Current GPU status
 
-The repository now includes a batched OpenGL/ANGLE viewport with bounded software fallback. No GPU compute backend is implemented. pye57 import, NumPy/SciPy/OpenCV reconstruction, source-record fitting and IfcOpenShell export currently run on the CPU. Available graphics hardware does not automatically accelerate these Python algorithms.
+The repository includes a batched OpenGL/ANGLE viewport with bounded software fallback. The worker now probes Open3D CUDA and OpenCL for bounded voxel indexing, with deterministic NumPy fallback. pye57 import, geometric fitting, topology and IfcOpenShell export remain CPU work. Available graphics hardware does not automatically accelerate those CPU algorithms.
 
 Avalonia's [Windows documentation](https://docs.avaloniaui.net/docs/platform-specific-guides/windows) describes GPU-backed UI rendering and software fallback. That does not supply the application's 3D cloud/model engine. The dedicated batched viewport is implemented; physical hardware benchmarking remains pending. Avalonia exposes [OpenGlControlBase](https://api-docs.avaloniaui.net/docs/T_Avalonia_OpenGL_Controls_OpenGlControlBase) as one possible integration route. A native Direct3D viewport is another prototype option on Windows; Microsoft's [WARP guidance](https://learn.microsoft.com/en-us/windows/win32/direct3darticles/directx-warp) documents hardware/software rendering and the importance of efficient batching. M3 selected and pinned Avalonia 12.1.3 with OpenGlControlBase; Linux EGL/Mesa exercises the renderer and Windows uses Avalonia's ANGLE integration.
 
@@ -35,9 +35,9 @@ Steps 1 through 6 have an initial implementation, with step 7 covered by project
 
 ## Processing acceleration policy
 
-GPU rendering is the M3 viewport design where compatible hardware is available. GPU reconstruction and coordinated multicore conversion are separate measured improvements, not implied benefits of the UI framework. The original M2 functionality is implemented; this performance extension has not been implemented or benchmarked.
+GPU rendering is the M3 viewport design where compatible hardware is available. GPU reconstruction arithmetic and coordinated multicore conversion are separate measured improvements, not implied benefits of the UI framework. The High Performance extension is implemented for storey/wall-region orchestration, bounded voxel arithmetic, telemetry and budget convergence; physical hardware benchmarking remains pending.
 
-Code inspection found `workers=1` for both region-growing neighbour queries and sequential storey/face orchestration. Native NumPy/OpenCV operations can already use library-managed CPU threads, but the number depends on the distribution and process settings. The existing comparison runner caps BLAS/OpenMP threads for reproducibility; this is not a maximum-throughput multicore benchmark, and those environment variables alone do not establish every native library's thread count.
+The worker resolves all logical processors except one by default, runs independent storeys concurrently, parallelises wall fitting/evidence/opening regions, and caps BLAS threads to avoid nested oversubscription. Native NumPy/OpenCV operations can still use library-managed threads, so stage telemetry records actual process CPU time and memory rather than assuming perfect scaling.
 
 | Conversion stage | Multicore experiment | GPU experiment |
 | --- | --- | --- |
@@ -46,7 +46,7 @@ Code inspection found `workers=1` for both region-growing neighbour queries and 
 | Original-record fitting/evidence | Bounded independent wall/face batches and shared read-only mapped points; deterministic output assembly | Evaluate batched distances/residuals/reductions while preserving double-precision fitting requirements and point identity |
 | IFC creation and validation | Parallelize only independent preparation/checks whose APIs permit it; avoid concurrent mutation of the same IFC model | Keep the existing CPU IFC service; no GPU implementation or demonstrated benefit |
 
-First measure import, detection, fitting, evidence output and IFC/validation separately on a representative building crop. Then compare one worker with bounded 2/4/8-worker configurations and selected GPU kernels. Avoid multiplying outer workers by uncontrolled inner BLAS/OpenCV threads. Preserve UI responsiveness and cap total RAM/VRAM. Mapped-file residency and repeated full-cloud wall reads can limit scaling even when more cores are available.
+The worker measures import, level detection, fitting, evidence output and IFC/validation separately. It avoids multiplying outer workers by uncontrolled inner BLAS/OpenCV threads, preserves UI responsiveness and caps total RAM/VRAM. Mapped-file residency and repeated full-cloud wall reads can limit scaling even when more cores are available. `--compare-budgets` compares 250k, 500k, 1M, 2M and 5M candidate budgets and stops after two stable geometry changes; this is a convergence check, not accuracy certification.
 
 Primary references: [SciPy 1.17 neighbour-query workers](https://docs.scipy.org/doc/scipy-1.17.0/reference/generated/scipy.spatial.cKDTree.query.html), [NumPy 2.3 native-thread configuration](https://numpy.org/doc/2.3/reference/global_state.html), and [NVIDIA's profiling/transfer guidance](https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html). The last reference explains performance principles; it is not an AMD-compatible backend selection or a decision to use CUDA.
 
@@ -65,3 +65,4 @@ M3 is complete when the review workflow works, supported edits survive reopening
 ## Implemented evidence
 
 See [M3 verification](M3_VERIFICATION.md), [desktop usage](DESKTOP.md), `desktop/Punctora.Desktop`, `src/punctora_core/projects.py`, `src/punctora_core/worker.py`, and `tests/test_projects.py`. The M3 CI workflow builds Linux/Windows, exercises review/export and packages the replaceable Windows worker with exact runtime notices. Pending target GPU, clean-machine and real-building accuracy checks remain explicit.
+

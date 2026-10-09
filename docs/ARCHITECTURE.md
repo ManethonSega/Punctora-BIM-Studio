@@ -9,7 +9,7 @@ Status: M3 desktop implementation and Linux preview walkthroughs verified; Windo
 | Desktop | Project setup, jobs, 3D review, corrections and export | .NET 10.0.0 and Avalonia 12.1.3; batched OpenGL/ANGLE point/mesh viewport with software fallback |
 | Import worker | Read E57 scans, poses and available metadata, reject invalid coordinates | Python and pye57 0.4.19; bounded-memory decoding implemented and checked with generated fixtures and two supplied examples |
 | Cloud store | Preserve the source, index working points and serve reduced preview data | Disk-backed working arrays plus immutable project generations and bounded xyzrgb-f32-le display samples; no streaming LOD yet |
-| Reconstruction | Detect floors and surfaces, fit walls/slabs and retain scan evidence | Contour baseline plus CPU region-growing experiment; capped voxel proposals, batched SciPy neighbourhoods and original-record wall fitting implemented |
+| Reconstruction | Detect floors and surfaces, fit walls/slabs and retain scan evidence | Contour baseline plus CPU region-growing experiment; adaptive point budgets, streaming full-cloud levels, bounded voxel proposals, batched SciPy neighbourhoods and original-record wall fitting implemented |
 | Element model | Stable IDs, geometric parameters, host/storey relationships and provenance | Punctora-owned versioned JSON representation |
 | IFC service | IFC4 geometry, decomposition, containment, openings and georeferencing | IfcOpenShell library; local placement plus E57-source `IfcMapConversion` implemented |
 | Quality service | IFC rules, geometric checks and surface-deviation measurements | Deterministic calculations with explicit coverage and sampling |
@@ -19,13 +19,13 @@ The Python worker is launched by the desktop app. The packaged product must incl
 
 ## GPU policy for M3
 
-The user's clarified requirement on 2026-10-08 concerns accelerating **point-cloud-to-IFC conversion**, including multiple CPU cores and an available compatible GPU. Profile stages and add bounded parallel computation where measured beneficial; preserve a correct CPU fallback. Region-growing neighbour queries currently use one worker; storey and wall orchestration is sequential. NumPy/OpenCV may already parallelize some native operations, which is not a coordinated whole-pipeline multicore implementation. GPU computation is not implemented.
+The user's clarified requirement on 2026-10-08 concerns accelerating **point-cloud-to-IFC conversion**, including multiple CPU cores and an available compatible GPU. The worker now resolves all logical CPU cores except one by default, parallelises independent storeys and wall regions, limits nested BLAS pools, and records stage telemetry. Bounded voxel indexing attempts Open3D CUDA or OpenCL double-precision arithmetic when available, then falls back to NumPy. Fitting, topology and IFC writing remain CPU algorithms; GPU use is not claimed for those stages.
 
 The M3 rendering design also prefers an available compatible GPU for the 3D point-cloud/model viewport, separately from conversion acceleration. Support AMD, NVIDIA and Intel graphics through a vendor-neutral rendering API; CUDA is not a desktop requirement. Prefer a suitable hardware adapter and provide a bounded software preview when hardware initialization is unavailable or fails. Report the actual viewport adapter/backend and fallback state, separately from worker processing.
 
 GPU-accelerated Avalonia controls alone do not establish a GPU 3D cloud renderer. The viewport prototype must use batched point/mesh buffers, GPU camera transformations and depth handling, bounded uploads and detail selection. Keep canonical fitting coordinates in double precision; local-origin reduced-precision preview buffers do not replace source evidence. Worker jobs, uploads and indexing must not block the UI.
 
-The existing E57 decoder, contour/region-growing reconstruction and IFC exporter remain CPU implementations. Profile reconstruction and deviation workloads separately, and adopt a compute backend only after end-to-end timing, memory and numerical-equivalence checks including transfer costs. A detected graphics GPU does not establish that a particular compute or AI backend is supported. No GPU speedup or target-card compatibility has been measured yet.
+The E57 decoder, contour/region-growing fitting and IFC exporter remain CPU implementations. Voxel arithmetic is profiled separately and uses bounded transfer chunks. A detected graphics GPU does not establish that a particular compute or AI backend is supported. The `--compare-budgets` diagnostic records geometry stability at 250k, 500k, 1M, 2M and 5M candidate budgets, but it is not a survey-accuracy certification.
 
 See the [M3 implementation plan](M3_IMPLEMENTATION_PLAN.md) for sequence and acceptance checks.
 
@@ -76,3 +76,4 @@ Processing is local by default. Future remote inference requires an explicit use
 ## Desktop project lifecycle
 
 `.punctora` schema 1 stores the project identity, revision, relative asset references, import manifest, coordinate confirmation, warnings and schema-2 element model. Each job stages an immutable generation and publishes it before atomically replacing the project JSON. The last saved revision is protected by an OS lock and optimistic revision checks. Draft corrections preserve original faces/evidence and record user provenance. Save-copy carries only referenced generations and retains element/IFC identity. Rejected geometry is excluded from reviewed export; derived spaces are withheld after geometry edits.
+

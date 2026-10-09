@@ -81,7 +81,8 @@ def main():
                 "core_version": tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"],
                 "dotnet_runtime": "10.0.0", "python": "3.12.10",
                 "python_archive_sha256": PYTHON_HASH, "windows_wheels": hashes["wheels"], "installed_license_files": license_files,
-                "reconstruction_backend": "CPU", "viewport": "automatic OpenGL/ANGLE with software fallback"}
+                "reconstruction_backend": "adaptive multicore CPU with optional OpenCL/CUDA voxel indexing",
+                "viewport": "automatic OpenGL/ANGLE with software fallback"}
     manifest["app_local_cpp_runtime"] = {"source": cpp_runtime.relative_to(output).as_posix(),
                                         "destination": "worker/python/msvcp140.dll", "sha256": digest(cpp_runtime)}
     (output / "package-manifest.json").write_text(json.dumps(manifest, indent=2)+"\n", encoding="utf-8")
@@ -98,3 +99,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

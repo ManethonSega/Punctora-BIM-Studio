@@ -15,7 +15,11 @@ class DetectionSample:
 
 
 def available_memory_bytes():
-    """Best-effort currently available physical memory, without psutil."""
+    """Best-effort currently available physical memory, without psutil.
+
+    On Linux containers, cap the host value by the cgroup limit so the 20 GiB
+    policy cannot mistake host RAM for memory available to the worker.
+    """
     if os.name == "nt":
         class MemoryStatus(ctypes.Structure):
             _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong),
@@ -26,13 +30,26 @@ def available_memory_bytes():
         status = MemoryStatus(); status.length = ctypes.sizeof(status)
         if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
             return int(status.available_physical)
+    host_available = None
     try:
         with open("/proc/meminfo", encoding="ascii") as file:
             for line in file:
                 if line.startswith("MemAvailable:"):
-                    return int(line.split()[1]) * 1024
+                    host_available = int(line.split()[1]) * 1024
+                    break
     except OSError:
         pass
+    if host_available is not None:
+        try:
+            with open("/sys/fs/cgroup/memory.max", encoding="ascii") as limit_file:
+                limit_text = limit_file.read().strip()
+            with open("/sys/fs/cgroup/memory.current", encoding="ascii") as current_file:
+                current = int(current_file.read().strip())
+            if limit_text != "max":
+                host_available = min(host_available, max(0, int(limit_text)-current))
+        except (OSError, ValueError):
+            pass
+        return host_available
     try:
         return int(os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE"))
     except (AttributeError, OSError, ValueError):
@@ -42,7 +59,7 @@ def available_memory_bytes():
 def adaptive_point_limit(requested, maximum_working_memory_gb=20.0, bytes_per_point=192):
     """Cap a requested working set by both user policy and available RAM."""
     policy = int(maximum_working_memory_gb * 1024**3)
-    usable = min(policy, max(256 * 1024**2, int(available_memory_bytes() * .60)))
+    usable = min(policy, int(available_memory_bytes() * .60))
     return max(30, min(int(requested), usable // bytes_per_point))
 
 
@@ -67,7 +84,7 @@ def point_batches(points, chunk_points=100_000, z_bounds=None):
 
 
 def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
-                 chunk_points=100_000, z_bounds=None, workers=1):
+                 chunk_points=100_000, z_bounds=None, workers=1, backend=None):
     """Keep the first record in each voxel; enlarge voxels instead of truncating.
 
     Each parallel wave holds at most maximum_points + workers*chunk_points
@@ -106,7 +123,8 @@ def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
                 batch, indices = selected_chunk(begin)
                 if not len(batch):
                     return np.empty(0, dtype=np.int64)
-                scaled = np.floor((batch-origin)/size+1e-9)
+                scaled = (backend.voxel_indices(batch, origin, size) if backend is not None
+                          else np.floor((batch-origin)/size+1e-9))
                 if not np.isfinite(scaled).all() or scaled.max() > np.iinfo(np.int64).max / 2:
                     raise ValueError("Coordinate extent exceeds the voxel index limit")
                 _, first = np.unique(scaled.astype(np.int64), axis=0, return_index=True)
@@ -114,8 +132,11 @@ def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
             for wave in range(0, len(starts), workers):
                 local = list(executor.map(local_voxels, starts[wave:wave+workers]))
                 candidates = np.concatenate([retained, *local])
+                if not len(candidates):
+                    continue
                 coordinates = points[candidates]
-                scaled = np.floor((coordinates-origin)/size+1e-9)
+                scaled = (backend.voxel_indices(coordinates, origin, size) if backend is not None
+                          else np.floor((coordinates-origin)/size+1e-9))
                 if not np.isfinite(scaled).all() or scaled.max() > np.iinfo(np.int64).max / 2:
                     raise ValueError("Coordinate extent exceeds the voxel index limit")
                 _, first = np.unique(scaled.astype(np.int64), axis=0, return_index=True)
@@ -127,3 +148,4 @@ def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
                 return DetectionSample(points[retained], retained, size, count)
             size *= 2
     raise ValueError("Unable to reduce detection cloud within its point budget")
+

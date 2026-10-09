@@ -149,8 +149,8 @@
     {
       "id": "open3d",
       "name": "Open3D",
-      "usage": "candidate or research reference, not incorporated",
-      "scope": "Surface fitting and cloud processing",
+      "usage": "optional runtime dependency; CUDA voxel arithmetic only",
+      "scope": "Bounded GPU voxel indexing when a compatible NVIDIA CUDA build is installed",
       "license": "MIT",
       "attribution": "www.open3d.org, Copyright (c) 2018-2026.",
       "source_urls": [
@@ -159,8 +159,47 @@
       "licence_files": [
         "third_party/references/Open3D-MIT.txt"
       ],
-      "changes": "No upstream code, weights, data or paper content incorporated. Licence reference retained for planned use.",
-      "version": null,
+      "changes": "Optional external wheel; no Open3D fitting or topology code is called. CPU fallback remains available.",
+      "version": "0.20.0 CUDA wheel, optional",
+      "reviewed_revision": null
+    },
+    {
+      "id": "pyopencl",
+      "name": "pyopencl",
+      "usage": "optional runtime dependency; OpenCL voxel arithmetic",
+      "scope": "Bounded GPU voxel indexing when a double-precision OpenCL device is available",
+      "license": "MIT",
+      "attribution": "Andreas Kloeckner and PyOpenCL contributors.",
+      "source_urls": ["https://github.com/inducer/pyopencl"],
+      "licence_files": ["third_party/references/pyopencl-MIT.txt"],
+      "changes": "Optional external dependency; CPU fallback remains deterministic.",
+      "version": "2026.1.4",
+      "reviewed_revision": null
+    },
+    {
+      "id": "psutil",
+      "name": "psutil",
+      "usage": "selected runtime dependency",
+      "scope": "Process and system resource telemetry",
+      "license": "BSD-3-Clause",
+      "attribution": "Giampaolo Rodola' and psutil contributors.",
+      "source_urls": ["https://github.com/giampaolo/psutil"],
+      "licence_files": ["third_party/references/psutil-BSD-3-Clause.txt"],
+      "changes": "Unmodified external dependency; /proc and Windows API fallbacks remain in the profiler.",
+      "version": "7.2.2",
+      "reviewed_revision": null
+    },
+    {
+      "id": "threadpoolctl",
+      "name": "threadpoolctl",
+      "usage": "selected runtime dependency",
+      "scope": "BLAS thread-pool coordination during reconstruction",
+      "license": "BSD-3-Clause",
+      "attribution": "Thomas J. Fan and threadpoolctl contributors.",
+      "source_urls": ["https://github.com/joblib/threadpoolctl"],
+      "licence_files": ["third_party/references/threadpoolctl-BSD-3-Clause.txt"],
+      "changes": "Unmodified external dependency; limits nested BLAS parallelism only.",
+      "version": "3.6.0",
       "reviewed_revision": null
     },
     {
@@ -944,3 +983,4 @@
     }
   ]
 }
+

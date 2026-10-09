@@ -188,22 +188,73 @@
       "id": "open3d",
       "name": "Open3D",
       "kind": "code",
-      "role": "Surface fitting and cloud processing",
+      "role": "Optional CUDA voxel arithmetic and cloud processing",
       "license": "MIT",
-      "review_status": "top_level_reviewed",
+      "review_status": "optional_runtime_reviewed",
       "evidence": [
         "https://github.com/isl-org/Open3D/blob/main/LICENSE"
       ],
       "reviewed_revision": null,
-      "selected_version": null,
+      "selected_version": "0.20.0 CUDA wheel, optional",
       "incorporated": false,
       "redistributed": false,
-      "action_required": "Pin and review the exact component and its dependencies before incorporation.",
+      "action_required": "Optional NVIDIA-only wheel; not bundled by default. CPU and OpenCL fallbacks remain available.",
       "attribution": "www.open3d.org, Copyright (c) 2018-2026.",
       "notice_files": [
         "third_party/references/Open3D-MIT.txt"
       ],
       "attribution_register": "third_party/NOTICE_REGISTER.json#open3d"
+    },
+    {
+      "id": "pyopencl",
+      "name": "pyopencl",
+      "kind": "code",
+      "role": "Optional bounded OpenCL voxel arithmetic",
+      "license": "MIT",
+      "review_status": "optional_runtime_reviewed",
+      "evidence": ["https://github.com/inducer/pyopencl"],
+      "reviewed_revision": null,
+      "selected_version": "2026.1.4",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Use only when a compatible double-precision OpenCL device is available; CPU fallback is deterministic.",
+      "attribution": "Andreas Kloeckner and PyOpenCL contributors.",
+      "notice_files": ["third_party/references/pyopencl-MIT.txt"],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#pyopencl"
+    },
+    {
+      "id": "psutil",
+      "name": "psutil",
+      "kind": "code",
+      "role": "Process and system resource telemetry",
+      "license": "BSD-3-Clause",
+      "review_status": "selected_runtime_reviewed",
+      "evidence": ["https://github.com/giampaolo/psutil"],
+      "reviewed_revision": null,
+      "selected_version": "7.2.2",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Retain BSD-3-Clause notice with the worker distribution.",
+      "attribution": "Giampaolo Rodola' and psutil contributors.",
+      "notice_files": ["third_party/references/psutil-BSD-3-Clause.txt"],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#psutil"
+    },
+    {
+      "id": "threadpoolctl",
+      "name": "threadpoolctl",
+      "kind": "code",
+      "role": "BLAS thread-pool coordination",
+      "license": "BSD-3-Clause",
+      "review_status": "selected_runtime_reviewed",
+      "evidence": ["https://github.com/joblib/threadpoolctl"],
+      "reviewed_revision": null,
+      "selected_version": "3.6.0",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Retain BSD-3-Clause notice with the worker distribution.",
+      "attribution": "Thomas J. Fan and threadpoolctl contributors.",
+      "notice_files": ["third_party/references/threadpoolctl-BSD-3-Clause.txt"],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#threadpoolctl"
     },
     {
       "id": "ifcopenshell",
@@ -966,3 +1017,4 @@
     }
   ]
 }
+

@@ -4,7 +4,7 @@ Cloud2BIM's histogram/contour/parallel-face strategy is retained, with selected
 MIT geometry helpers. Original orchestration, fitting and element model are
 Punctora code. No plots, fabricated materials or cross-floor wall accumulation.
 """
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from concurrent.futures import ThreadPoolExecutor
 from math import isfinite
 import os
@@ -25,6 +25,9 @@ from .sampling import (DetectionSample, adaptive_point_limit, available_memory_b
                        point_batches, resolved_cpu_workers, voxel_sample)
 from .surfaces import region_growing
 from .wall_editing import consolidate_walls
+from .compute import ComputeBackend
+from .performance import ResourcePlan, StageProfiler
+from threadpoolctl import threadpool_limits
 
 
 @dataclass(frozen=True)
@@ -45,11 +48,13 @@ class ReconstructionSettings:
     maximum_grid_cells: int = 20_000_000
     surface_method: str = "contour"
     detection_voxel_size_m: float = 0.02
-    maximum_level_detection_points: int = 2_000_000
-    maximum_detection_points: int = 2_000_000
+    maximum_level_detection_points: int = 5_000_000
+    maximum_detection_points: int = 5_000_000
     processing_chunk_points: int = 1_000_000
     maximum_working_memory_gb: float = 20.0
     cpu_workers: int = 0
+    compute_backend: str = "auto"
+    gpu_memory_mb: int = 256
     region_neighbours: int = 24
     region_neighbour_radius_m: float = 0.2
     region_normal_radius_m: float = 0.1
@@ -70,12 +75,16 @@ class ReconstructionSettings:
 
     def validate(self):
         for name, value in asdict(self).items():
-            if name in {"surface_method", "region_adaptive", "detect_openings_enabled", "detect_stairs_enabled", "consolidate_walls_enabled", "cpu_workers"}:
+            if name in {"surface_method", "region_adaptive", "detect_openings_enabled", "detect_stairs_enabled", "consolidate_walls_enabled", "cpu_workers", "compute_backend"}:
                 continue
             if not isfinite(value) or value <= 0:
                 raise ValueError(f"{name} must be finite and positive")
         if self.surface_method not in {"contour", "region_growing"}:
             raise ValueError("surface_method must be contour or region_growing")
+        if self.compute_backend not in {"auto", "cpu", "cuda", "opencl"}:
+            raise ValueError("compute_backend must be auto, cpu, cuda or opencl")
+        if not isinstance(self.gpu_memory_mb, int) or isinstance(self.gpu_memory_mb, bool) or self.gpu_memory_mb < 32:
+            raise ValueError("gpu_memory_mb must be an integer >=32")
         if not isinstance(self.region_adaptive, bool):
             raise ValueError("region_adaptive must be a boolean")
         if (not isinstance(self.detect_openings_enabled, bool) or not isinstance(self.detect_stairs_enabled, bool)
@@ -241,7 +250,10 @@ def streaming_level_sample(points, settings):
     absolute_peaks = peaks + first
     total_limit = adaptive_point_limit(settings.maximum_level_detection_points,
                                        settings.maximum_working_memory_gb, bytes_per_point=96)
-    per_level = max(10_000, total_limit // max(1, len(absolute_peaks)))
+    # Keep the combined level evidence inside the requested budget.  The old
+    # lower bound of 10,000 points per level could silently exceed the budget
+    # on a scan with only one or two strong height peaks.
+    per_level = max(1, total_limit // max(1, len(absolute_peaks)))
     retained_hashes = [np.empty(0, dtype=np.uint64) for _ in absolute_peaks]
     retained_points = [np.empty((0, 3), dtype=float) for _ in absolute_peaks]
     retained_indices = [np.empty(0, dtype=np.int64) for _ in absolute_peaks]
@@ -407,7 +419,7 @@ def _coalesce_faces(faces, section, settings):
     return result
 
 
-def detect_walls(points, storey: Storey, settings: ReconstructionSettings) -> list[Wall]:
+def detect_walls(points, storey: Storey, settings: ReconstructionSettings, workers=1) -> list[Wall]:
     height = storey.ceiling-storey.elevation
     # A section within the clear height, not a band extending beyond the ceiling.
     mask = (points[:, 2] >= storey.elevation+0.7*height) & (points[:, 2] <= storey.elevation+0.9*height)
@@ -415,8 +427,15 @@ def detect_walls(points, storey: Storey, settings: ReconstructionSettings) -> li
     if len(section) < 6:
         return []
     faces = []
-    for segment in _segments(section, settings):
-        fit = _fit_face(segment, section, 2 * settings.grid_size_m)
+    segments = _segments(section, settings)
+    def fit_segment(segment):
+        return _fit_face(segment, section, 2 * settings.grid_size_m)
+    if workers > 1 and len(segments) > 1:
+        with ThreadPoolExecutor(max_workers=min(workers, len(segments))) as executor:
+            fitted = executor.map(fit_segment, segments)
+    else:
+        fitted = map(fit_segment, segments)
+    for fit in fitted:
         if fit is None:
             continue
         face, count, rmse = fit
@@ -492,13 +511,13 @@ def _snap_walls(walls, settings):
         wall.start, wall.end = tuple(axis[0]), tuple(axis[1])
 
 
-def _region_walls(cloud, storey, settings):
+def _region_walls(cloud, storey, settings, backend=None):
     point_limit = adaptive_point_limit(settings.maximum_detection_points,
                                        settings.maximum_working_memory_gb, bytes_per_point=256)
     sample = voxel_sample(cloud.points, settings.detection_voxel_size_m,
                           point_limit, settings.processing_chunk_points,
                           (storey.elevation, storey.ceiling),
-                          resolved_cpu_workers(settings.cpu_workers))
+                          resolved_cpu_workers(settings.cpu_workers), backend)
     patches, statistics = region_growing(sample, settings)
     height = storey.ceiling-storey.elevation
     faces = []
@@ -549,115 +568,165 @@ def spaces_for_storey(storey: Storey, walls: list[Wall], minimum_area: float = 1
     return spaces
 
 
-def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None,
-                storeys: list[Storey] | None = None, name: str = "Punctora reconstruction") -> BuildingModel:
-    started = time.perf_counter()
-    settings = settings or ReconstructionSettings()
-    settings.validate()
-    level_sample, level_statistics = None, None
-    if storeys is None:
-        level_started = time.perf_counter()
-        level_sample, level_statistics = streaming_level_sample(cloud.points, settings)
-        levels = detect_storeys(level_sample.points, settings)
-        level_statistics["seconds"] = time.perf_counter()-level_started
-    else:
-        levels = storeys
-    model = BuildingModel(name, list(levels))
-    model.validate()
-    sorted_levels = sorted(levels, key=lambda s: s.elevation)
-    if any(a.ceiling > b.elevation + 1e-8 for a, b in zip(sorted_levels, sorted_levels[1:])):
-        raise ValueError("Storey clear-height intervals overlap")
-    detection, proposals, consolidation = [], [], []
-    point_limit = adaptive_point_limit(settings.maximum_detection_points,
-                                       settings.maximum_working_memory_gb, bytes_per_point=256)
-    for index, level in enumerate(sorted_levels):
-        storey_started = time.perf_counter()
+def _reconstruct_storey(cloud, level, settings, backend, profiler):
+    """Process one storey independently, returning only storey-owned objects."""
+    from .evidence import attach_evidence
+    from .features import detect_openings, detect_stairs
+    workers = resolved_cpu_workers(settings.cpu_workers)
+    with profiler.stage("wall_proposals", storey_id=level.id, point_budget=settings.maximum_detection_points) as record:
         if settings.surface_method == "region_growing":
-            local_walls, patches, statistics = _region_walls(cloud, level, settings)
-            proposals.extend({**p, "id": f"{level.id}-{p['id']}", "storey_id": level.id,
-                              "provider": "region_growing"} for p in patches)
+            walls, patches, statistics = _region_walls(cloud, level, settings, backend)
+            proposals = [{**p, "id": f"{level.id}-{p['id']}", "storey_id": level.id,
+                          "provider": "region_growing"} for p in patches]
         else:
             height = level.ceiling-level.elevation
             sample = voxel_sample(cloud.points, settings.detection_voxel_size_m,
-                                  point_limit, settings.processing_chunk_points,
+                                  settings.maximum_detection_points, settings.processing_chunk_points,
                                   (level.elevation+0.7*height, level.elevation+0.9*height),
-                                  resolved_cpu_workers(settings.cpu_workers))
-            local_walls = detect_walls(sample.points, level, settings)
+                                  workers, backend)
+            walls = detect_walls(sample.points, level, settings, workers)
+            proposals = []
             statistics = {"sample_points": len(sample.points), "source_point_count": sample.source_point_count,
                           "voxel_size_m": sample.voxel_size_m}
+        record.update(statistics, sample_points=statistics.get("sample_points"),
+                      detected_elements={"walls": len(walls)})
+    with profiler.stage("wall_consolidation", storey_id=level.id) as record:
         if settings.consolidate_walls_enabled:
-            local_walls, report = consolidate_walls(
-                local_walls, angle_deg=settings.wall_merge_angle_deg,
+            walls, consolidation = consolidate_walls(
+                walls, angle_deg=settings.wall_merge_angle_deg,
                 lateral_m=settings.wall_merge_lateral_tolerance_m,
                 gap_m=settings.wall_merge_gap_m,
                 thickness_m=settings.wall_merge_thickness_tolerance_m)
         else:
-            report = {"input_walls": len(local_walls), "output_walls": len(local_walls), "groups": []}
-        consolidation.append({"storey_id": level.id, **report})
-        detection.append({"storey_id": level.id, **statistics,
-                          "seconds": time.perf_counter()-storey_started,
-                          "configured_point_limit": settings.maximum_detection_points,
-                          "effective_point_limit": point_limit})
-        if statistics.get("voxel_size_m", settings.detection_voxel_size_m) > settings.detection_voxel_size_m:
-            model.warnings.append(f"{level.id}: detection voxels enlarged to {statistics['voxel_size_m']:.6g} m to respect the point budget; small features may be missed")
-        from .evidence import attach_evidence
-        attach_evidence(cloud, local_walls, settings.processing_chunk_points,
-                        # Raster fitting can trim a junction zone. Search up to
-                        # half the configured maximum thickness beyond each
-                        # endpoint, retaining a finite, recorded support window.
+            consolidation = {"input_walls": len(walls), "output_walls": len(walls), "groups": []}
+        record["detected_elements"] = {"walls": len(walls)}
+    with profiler.stage("original_wall_fitting", storey_id=level.id, source_points=len(cloud.points)) as record:
+        attach_evidence(cloud, walls, settings.processing_chunk_points,
                         endpoint_margin=max(settings.maximum_wall_thickness_m/2, 4*settings.grid_size_m,
                                             2*statistics.get("voxel_size_m", settings.detection_voxel_size_m)),
-                        radius=settings.region_plane_tolerance_m if settings.surface_method == "region_growing" else settings.grid_size_m/2)
-        _snap_walls(local_walls, settings)
-        for wall in local_walls:
-            if wall.evidence_count < 6:
-                model.warnings.append(f"{wall.id}: fewer than six supporting source records; geometric review required")
-        model.walls.extend(local_walls)
-        model.spaces.extend(spaces_for_storey(level, local_walls, settings.minimum_space_area_m2))
-        if not local_walls:
-            model.warnings.append(f"{level.id}: no supported wall candidates detected")
-        if index and 0 < level.elevation-sorted_levels[index-1].ceiling <= settings.maximum_wall_thickness_m:
-            thickness = level.elevation-sorted_levels[index-1].ceiling
-            base, state = sorted_levels[index-1].ceiling, "measured"
-        else:
-            thickness, base, state = settings.assumed_slab_thickness_m, level.elevation-settings.assumed_slab_thickness_m, "inferred"
-        model.slabs.append(Slab(f"{level.id}-floor", level.id, level.footprint, base, thickness,
-                                "FLOOR", {"thickness": state, "footprint": "inferred", "material": "unknown"}))
-    last = sorted_levels[-1]
-    if level_sample is not None and level_sample.voxel_size_m > settings.detection_voxel_size_m:
-        model.warnings.append(f"Level detection voxels enlarged to {level_sample.voxel_size_m:.6g} m; horizontal levels and footprints need review")
-    model.slabs.append(Slab("top-slab", last.id, last.footprint, last.ceiling,
-                            settings.assumed_slab_thickness_m, "NOTDEFINED",
-                            {"thickness": "inferred", "footprint": "inferred", "material": "unknown"}))
-    from .features import detect_openings, detect_stairs
-    feature_started = time.perf_counter()
-    model.openings = detect_openings(cloud, model.walls, settings) if settings.detect_openings_enabled else []
-    model.stairs = detect_stairs(cloud, sorted_levels, settings) if settings.detect_stairs_enabled else []
-    feature_seconds = time.perf_counter()-feature_started
-    model.warnings.extend([
-        "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
-        "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
-        "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
-        "Openings are empty wall-gap proposals; glazing, closed doors and occlusion require manual review.",
-        "Stairs are straight-flight tread envelopes; landings, railings and support structure are not reconstructed.",
-        "Candidate scores are geometric support indicators, not calibrated accuracy probabilities. No whole-cloud deviation report is implemented.",
-    ])
-    model.metadata = {"engine": settings.surface_method, "settings": asdict(settings),
-                      "source_points": len(cloud.points),
-                      "coordinate_frame": cloud.metadata.get("coordinate_frame", "caller-supplied metres, Z up"),
-                      "fit_rmse_scope": "original points selected near observed wall faces, not whole-cloud deviation",
-                      "detection": detection, "surface_proposals": proposals,
-                      "wall_consolidation": consolidation,
-                      "level_detection": None if level_sample is None else {
-                          "sample_points": len(level_sample.points), "voxel_size_m": level_sample.voxel_size_m,
-                          **(level_statistics or {})},
-                      "performance": {"total_seconds": time.perf_counter()-started,
-                                      "feature_detection_seconds": feature_seconds,
-                                      "cpu_workers": resolved_cpu_workers(settings.cpu_workers),
-                                      "logical_cpu_count": os.cpu_count(),
-                                      "available_memory_gb_at_start": available_memory_bytes()/1024**3,
-                                      "working_memory_limit_gb": settings.maximum_working_memory_gb,
-                                      "compute_backend": "CPU; multicore neighbour queries; GPU rendering is separate"},
-                      "element_schema_version": 2}
-    model.validate()
-    return model
+                        radius=settings.region_plane_tolerance_m if settings.surface_method == "region_growing" else settings.grid_size_m/2,
+                        workers=workers)
+        _snap_walls(walls, settings)
+        record.update(sample_points=len(cloud.points), sampling="full source wall selectors",
+                      support_points=sum(w.evidence_count for w in walls),
+                      detected_elements={"walls": len(walls)})
+    with profiler.stage("space_topology", storey_id=level.id) as record:
+        spaces = spaces_for_storey(level, walls, settings.minimum_space_area_m2)
+        record.update(sample_points=len(walls), detected_elements={"spaces": len(spaces)})
+    with profiler.stage("openings", storey_id=level.id, source_points=len(cloud.points)) as record:
+        openings = detect_openings(cloud, walls, settings, workers) if settings.detect_openings_enabled else []
+        record.update(sample_points=len(cloud.points) if settings.detect_openings_enabled else 0,
+                      sampling="full source wall selectors", detected_elements={"openings": len(openings)})
+    with profiler.stage("stairs", storey_id=level.id) as record:
+        stair_statistics = []
+        stairs = detect_stairs(cloud, [level], settings, backend, stair_statistics) if settings.detect_stairs_enabled else []
+        record.update(sample_points=sum(x["sample_points"] for x in stair_statistics),
+                      sampling=stair_statistics, detected_elements={"stairs": len(stairs)})
+    return walls, spaces, openings, stairs, statistics, proposals, consolidation
+
+
+def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None,
+                storeys: list[Storey] | None = None, name: str = "Punctora reconstruction",
+                progress=lambda *_: None, diagnostics=None) -> BuildingModel:
+    """Run adaptive multicore reconstruction with optional bounded GPU arithmetic."""
+    started = time.perf_counter()
+    settings = settings or ReconstructionSettings()
+    settings.validate()
+    backend = ComputeBackend(settings.compute_backend, settings.gpu_memory_mb)
+    profiler = StageProfiler(backend)
+    try:
+        with threadpool_limits(limits=1, user_api="blas"):
+            initial_plan = ResourcePlan.create(settings, len(cloud.points))
+            workers = initial_plan.workers
+            level_sample = None
+            level_statistics = None
+            if storeys is None:
+                with profiler.stage("level_detection", source_points=len(cloud.points)) as record:
+                    level_sample, level_statistics = streaming_level_sample(cloud.points, settings)
+                    levels = detect_storeys(level_sample.points, settings)
+                    record.update(sample_points=len(level_sample.points),
+                                  detected_elements={"storeys": len(levels)},
+                                  method=level_statistics["method"])
+            else:
+                levels = storeys
+            model = BuildingModel(name, list(levels))
+            model.validate()
+            sorted_levels = sorted(levels, key=lambda s: s.elevation)
+            if any(a.ceiling > b.elevation + 1e-8 for a, b in zip(sorted_levels, sorted_levels[1:])):
+                raise ValueError("Storey clear-height intervals overlap")
+            plan = ResourcePlan.create(settings, len(cloud.points), len(sorted_levels))
+            local_settings = replace(settings, cpu_workers=plan.workers_per_storey,
+                                     maximum_detection_points=plan.point_limit,
+                                     region_minimum_points=min(settings.region_minimum_points, plan.point_limit),
+                                     processing_chunk_points=plan.chunk_points)
+            progress(20, f"Compute: {backend.name}; {plan.workers} CPU workers")
+            progress(35, f"Processing {len(sorted_levels)} storeys with {plan.concurrent_storeys} parallel workers")
+            with ThreadPoolExecutor(max_workers=plan.concurrent_storeys) as executor:
+                results = list(executor.map(lambda level: _reconstruct_storey(
+                    cloud, level, local_settings, backend, profiler), sorted_levels))
+            detection, proposals, consolidation = [], [], []
+            for index, (level, result) in enumerate(zip(sorted_levels, results)):
+                local_walls, spaces, openings, stairs, statistics, local_proposals, report = result
+                proposals.extend(local_proposals)
+                consolidation.append({"storey_id": level.id, **report})
+                detection.append({"storey_id": level.id, **statistics,
+                                  "configured_point_limit": settings.maximum_detection_points,
+                                  "effective_point_limit": plan.point_limit})
+                if statistics.get("voxel_size_m", settings.detection_voxel_size_m) > settings.detection_voxel_size_m:
+                    model.warnings.append(f"{level.id}: detection voxels enlarged to {statistics['voxel_size_m']:.6g} m to respect the point budget; small features may be missed")
+                for wall in local_walls:
+                    if wall.evidence_count < 6:
+                        model.warnings.append(f"{wall.id}: fewer than six supporting source records; geometric review required")
+                model.walls.extend(local_walls)
+                model.spaces.extend(spaces)
+                model.openings.extend(openings)
+                model.stairs.extend(stairs)
+                if not local_walls:
+                    model.warnings.append(f"{level.id}: no supported wall candidates detected")
+                if index and 0 < level.elevation-sorted_levels[index-1].ceiling <= settings.maximum_wall_thickness_m:
+                    thickness, base, state = level.elevation-sorted_levels[index-1].ceiling, sorted_levels[index-1].ceiling, "measured"
+                else:
+                    thickness, base, state = settings.assumed_slab_thickness_m, level.elevation-settings.assumed_slab_thickness_m, "inferred"
+                model.slabs.append(Slab(f"{level.id}-floor", level.id, level.footprint, base, thickness,
+                                        "FLOOR", {"thickness": state, "footprint": "inferred", "material": "unknown"}))
+            if not sorted_levels:
+                raise ValueError("No storeys available for reconstruction")
+            last = sorted_levels[-1]
+            if level_sample is not None and level_sample.voxel_size_m > settings.detection_voxel_size_m:
+                model.warnings.append(f"Level detection voxels enlarged to {level_sample.voxel_size_m:.6g} m; horizontal levels and footprints need review")
+            model.slabs.append(Slab("top-slab", last.id, last.footprint,
+                                    last.ceiling, settings.assumed_slab_thickness_m, "NOTDEFINED",
+                                    {"thickness": "inferred", "footprint": "inferred", "material": "unknown"}))
+            model.warnings.extend([
+                "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
+                "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
+                "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+                "Openings are empty wall-gap proposals; glazing, closed doors and occlusion require manual review.",
+                "Stairs are straight-flight tread envelopes; landings, railings and support structure are not reconstructed.",
+                "Candidate scores are geometric support indicators, not calibrated accuracy probabilities. No whole-cloud deviation report is implemented.",
+            ])
+            perf = profiler.report()
+            model.metadata = {"engine": settings.surface_method, "settings": asdict(settings),
+                              "source_points": len(cloud.points),
+                              "coordinate_frame": cloud.metadata.get("coordinate_frame", "caller-supplied metres, Z up"),
+                              "fit_rmse_scope": "original points selected near observed wall faces, not whole-cloud deviation",
+                              "detection": detection, "surface_proposals": proposals,
+                              "wall_consolidation": consolidation,
+                              "level_detection": None if level_sample is None else {
+                                  "sample_points": len(level_sample.points), "voxel_size_m": level_sample.voxel_size_m,
+                                  **(level_statistics or {})},
+                              "performance": {"total_seconds": time.perf_counter()-started,
+                                              "cpu_workers": plan.workers,
+                                              "logical_cpu_count": os.cpu_count(),
+                                              "available_memory_gb_at_start": plan.available_at_start/1024**3,
+                                              "working_memory_limit_gb": settings.maximum_working_memory_gb,
+                                              "resource_plan": plan.report(),
+                                              "compute_backend": backend.name,
+                                              **perf},
+                              "element_schema_version": 2}
+            model.validate()
+            return model
+    finally:
+        if diagnostics is not None:
+            diagnostics(profiler.report())
+

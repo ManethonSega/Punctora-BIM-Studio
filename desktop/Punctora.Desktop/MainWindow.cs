@@ -32,6 +32,7 @@ public sealed class MainWindow : Window
     readonly ComboBox review=new(){ItemsSource=new[]{"unreviewed","reviewed","flagged","rejected"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly ComboBox classification=new(){ItemsSource=new[]{"unclassified","paired_faces","single_face_candidate","exterior_candidate","consolidated_candidate","interior","exterior"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly CheckBox zUp=new(){Content="Z is up (confirm before fitting)"};
+    readonly CheckBox compareBudgets=new(){Content="Compare 250k–5M budgets"};
     readonly Slider section=new(){Minimum=0,Maximum=10,Value=10};
     readonly ProgressBar progress=new(){Minimum=0,Maximum=100,Height=4};
     readonly List<Button> projectActions=[];
@@ -46,7 +47,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a5 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
+        Title="Punctora BIM Studio | 0.3.0a6 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -55,7 +56,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a5",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a6",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -73,7 +74,7 @@ public sealed class MainWindow : Window
         options.Children.Add(Text("Model opacity",11));var opacity=new Slider{Minimum=.05,Maximum=1,Value=1};opacity.PropertyChanged+=(_,e)=>{if(e.Property==Slider.ValueProperty){viewport.View.Opacity=(float)opacity.Value;viewport.Redraw();}};options.Children.Add(opacity);
         options.Children.Add(Text("Section: visible below height",11));options.Children.Add(section);
         section.PropertyChanged+=(_,e)=>{if(e.Property==Slider.ValueProperty)FilterStorey();};
-        options.Children.Add(Text("Surface method",11));options.Children.Add(method);options.Children.Add(zUp);
+        options.Children.Add(Text("Surface method",11));options.Children.Add(method);options.Children.Add(zUp);options.Children.Add(compareBudgets);
         var software=new CheckBox{Content="Use software preview",IsChecked=viewport.SoftwareMode};
         software.IsCheckedChanged+=(_,_)=>{if(software.IsChecked==true)viewport.UseSoftware("Selected in settings");else viewport.UseAutomatic();};options.Children.Add(software);
         options.Children.Add(Text("ELEMENTS",12));left.Children.Add(options);Grid.SetRow(elements,1);elements.Margin=new Thickness(0,8,0,0);left.Children.Add(elements);
@@ -131,8 +132,11 @@ public sealed class MainWindow : Window
         var request=extra??new JsonObject();request["command"]=command;request["project"]=path;
         try
         {
-            var result=await worker.RunAsync(request,(value,phase)=>Dispatcher.UIThread.Post(()=>{progress.IsIndeterminate=false;progress.Value=value;status.Text=phase+" · conversion: multicore CPU";}),jobCancellation.Token);
-            status.Text="Completed";progress.Value=100;return result;
+            var result=await worker.RunAsync(request,(value,phase)=>Dispatcher.UIThread.Post(()=>{progress.IsIndeterminate=false;progress.Value=value;status.Text=phase+" · adaptive multicore/GPU";}),jobCancellation.Token);
+            var geometryBackend=result?["processing_backend"]?.GetValue<string>()
+                ?? result?["model"]?["metadata"]?["performance"]?["compute_backend"]?.GetValue<string>();
+            status.Text=geometryBackend==null?"Completed":"Completed · geometry: "+geometryBackend;
+            progress.Value=100;return result;
         }
         catch(OperationCanceledException)
         {
@@ -171,6 +175,9 @@ public sealed class MainWindow : Window
             section.Minimum=scene.Minimum.Z-.5;section.Maximum=scene.Maximum.Z+.5;
             if(fit)section.Value=section.Maximum;else section.Value=Math.Clamp(section.Value,section.Minimum,section.Maximum);
             warnings.Text=string.Join("\n\n",state["warnings"]!.AsArray().Select(n=>n!.GetValue<string>()).Concat(model?["warnings"]?.AsArray().Select(n=>n!.GetValue<string>())??[]).Distinct());
+            var performance=model?["metadata"]?["performance"] as JsonObject;
+            var computeBackend=performance?["compute_backend"]?.GetValue<string>();
+            if(computeBackend!=null)backend.Text=$"Geometry backend: {computeBackend} · {performance?["cpu_workers"]?.GetValue<int>()??0} CPU workers";
             counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {model?["walls"]?.AsArray().Count??0} walls, {model?["slabs"]?.AsArray().Count??0} slabs, {model?["openings"]?.AsArray().Count??0} openings, {model?["stairs"]?.AsArray().Count??0} stairs · local metres";
         }
         finally{refreshing=false;}
@@ -320,7 +327,7 @@ public sealed class MainWindow : Window
     {
         if(state==null||projectPath==null||!RequireClean())return;
         if(zUp.IsChecked!=true){status.Text="Confirm Z is up before fitting. A missing CRS can remain explicitly unknown for local review.";return;}
-        var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["confirm_z_up"]=true,["settings"]=new JsonObject{["surface_method"]=method.SelectedIndex==1?"region_growing":"contour"}};
+        var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["confirm_z_up"]=true,["compare_budgets"]=compareBudgets.IsChecked==true,["settings"]=new JsonObject{["surface_method"]=method.SelectedIndex==1?"region_growing":"contour"}};
         var result=await RunAsync("reconstruct",projectPath,request);if(result!=null){dirty=false;undo.Clear();await PresentAsync(projectPath,result,false);await RunAsync("cleanup",projectPath);}
     }
     async Task ExportAsync()
@@ -373,7 +380,7 @@ public sealed class MainWindow : Window
             await ExportToAsync(Path.Combine(output,"edited.ifc"));
             await Task.Delay(1800);for(var i=0;i<30;i++){viewport.View.Camera.Yaw+=.008f;viewport.Redraw();await Task.Delay(20);}viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(700);
             using(var bitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96))){bitmap.Render(this);using var outputStream=File.Create(Path.Combine(output,"desktop.png"));bitmap.Save(outputStream,PngBitmapEncoderOptions.Default);}
-            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="CPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
+            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
             dirty=false;Environment.ExitCode=0;Close();
         }
         catch(Exception e){File.WriteAllText(Path.Combine(output,"ui-error.txt"),e.ToString());dirty=false;Environment.ExitCode=1;Close();}
@@ -387,9 +394,10 @@ public sealed class MainWindow : Window
             await Task.Delay(1800);for(var i=0;i<30;i++){viewport.View.Camera.Yaw+=.008f;viewport.Redraw();await Task.Delay(20);}viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(800);
             using(var bitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96)))
             {bitmap.Render(this);using var stream=File.Create(Path.Combine(output,"desktop.png"));bitmap.Save(stream,PngBitmapEncoderOptions.Default);}
-            File.WriteAllText(Path.Combine(output,"preview-verification.json"),new JsonObject{["viewport_backend"]=viewport.Backend,["load_project_ms"]=loadMs,["source_points"]=viewport.View.Scene.TotalPoints,["preview_points"]=viewport.View.Scene.Points.Length/7,["warnings_retained"]=state["warnings"]!.DeepClone(),["conversion_backend"]="CPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
+            File.WriteAllText(Path.Combine(output,"preview-verification.json"),new JsonObject{["viewport_backend"]=viewport.Backend,["load_project_ms"]=loadMs,["source_points"]=viewport.View.Scene.TotalPoints,["preview_points"]=viewport.View.Scene.Points.Length/7,["warnings_retained"]=state["warnings"]!.DeepClone(),["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
             Environment.ExitCode=0;Close();
         }
         catch(Exception e){File.WriteAllText(Path.Combine(output,"ui-error.txt"),e.ToString());Environment.ExitCode=1;Close();}
     }
 }
+

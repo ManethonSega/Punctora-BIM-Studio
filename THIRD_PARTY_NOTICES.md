@@ -33,6 +33,10 @@ The adapted routines cover distances, collinearity, merging, parallel overlap, i
 | libE57Format | 3.1.1 at `1914b8e` | [BSL-1.0](third_party/licenses/libE57Format-BSL-1.0.txt) |
 | Apache Xerces-C++ | 3.2.3 in pye57 build scripts | [Apache-2.0](third_party/licenses/Xerces-C-Apache-2.0.txt), [NOTICE](third_party/licenses/Xerces-C-NOTICE.txt) |
 | CRC++ | vendored by libE57Format | [BSD-3-Clause](third_party/licenses/CRCpp-BSD-3-Clause.txt) |
+| psutil | 7.2.2 | [BSD-3-Clause](third_party/references/psutil-BSD-3-Clause.txt) |
+| threadpoolctl | 3.6.0 | [BSD-3-Clause](third_party/references/threadpoolctl-BSD-3-Clause.txt) |
+| pyopencl | 2026.1.4, optional OpenCL backend | [MIT](third_party/references/pyopencl-MIT.txt) |
+| Open3D CUDA | Optional NVIDIA backend, not bundled by default | [MIT](third_party/references/Open3D-MIT.txt) |
 
 These are references from the tested Linux dependencies, not a completed Windows binary audit. `requirements-core.txt` records runtime versions including transitive Python dependencies. pytest and its dependencies are required at runtime by IfcOpenShell 0.8.3 EXPRESS validation; their exact wheel notices are retained in `third_party/licenses` and listed in `ATTRIBUTIONS.md`. Platform-specific bundled/native terms and source/replacement information must be checked before distributing the standalone application.
 
@@ -47,3 +51,4 @@ Optional research components are credited with their own licence notices without
 ## M3 desktop distribution
 
 See [Windows runtime notices](docs/WINDOWS_RUNTIME_NOTICES.md) for all pinned desktop dependencies, exact Python/.NET runtimes, native notices and LGPL replacement/source information. Exact Windows wheel licence snapshots supplement the prior Linux references. Licences remain in the installed package directories and are also copied with the preview. No licence reference grants rights to unrelated upstream assets.
+

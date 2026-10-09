@@ -14,11 +14,11 @@ The immediate goal is a runnable Windows application that accepts a registered E
 
 IFC validation starts in M1 and evolves throughout; M4 makes it user-facing and packages it. Quality metrics do not wait until after the first real scan trial. Additional formats and complex building systems follow only when justified by measured results.
 
-The [M3 implementation plan](M3_IMPLEMENTATION_PLAN.md) records the desktop sequence and the user's automatic-GPU requirement. Viewport rendering and reconstruction computation are separate backends; M2 processing is currently CPU-only.
+The [M3 implementation plan](M3_IMPLEMENTATION_PLAN.md) records the desktop sequence and the user's automatic-GPU requirement. Viewport rendering and reconstruction computation are separate backends; the High Performance worker now coordinates multicore CPU processing and bounded optional GPU voxel arithmetic, while fitting, topology and IFC writing remain CPU work.
 
 Accuracy run 1 is implemented in 0.3.0a4: conservative collinear wall consolidation, desktop multi-wall merge and wall split, hosted-opening reassignment, undo/save/reopen persistence, and validated IFC regression coverage. Real-scan threshold tuning remains part of the annotated field benchmark rather than a synthetic accuracy claim.
 
-The 0.3.0a5 large-survey pass replaces globally sampled level discovery with a two-pass full-cloud streaming Z histogram and spatially distributed level evidence. Default candidate budgets are raised to two million points, processing chunks to one million records, and supported neighbour/voxel operations use all logical processors except one by default. A 20 GB policy ceiling is reduced automatically to 60% of currently available physical memory. Recorded model metadata includes effective budgets, timings, worker count and the level-detection method. GPU compute remains a separate backend task; OpenGL GPU activity is rendering, not reconstruction.
+The 0.3.0a6 High Performance pass replaces globally sampled level discovery with a full-cloud streaming Z histogram and spatially distributed level evidence. Candidate budgets can reach five million points, processing chunks are bounded dynamically, and independent storeys/wall regions use all logical processors except one by default. A 20 GB policy ceiling is reduced automatically to 60% of currently available physical memory after reserving the source cloud. Recorded model metadata includes effective budgets, stage timings, RSS/CPU/GPU telemetry, worker count and the level-detection method. Open3D CUDA or OpenCL is used only for bounded voxel indexing when available, with CPU fallback. The `--compare-budgets` diagnostic tests 250k, 500k, 1M, 2M and 5M until geometry stabilises; it does not certify survey accuracy.
 
 ## First usable release acceptance
 
@@ -37,3 +37,4 @@ Tests target defects and coordinate/IFC correctness rather than documentation or
 ## Parallel investigations
 
 Review model permissions and device compatibility while developing the core. Benchmark an independent AI experiment only when it can use the common proposal contract. Neither model availability nor licensing negotiations block M1-M5.
+

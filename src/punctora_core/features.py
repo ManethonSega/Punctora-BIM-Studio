@@ -4,6 +4,7 @@ Scores describe geometric support, not calibrated probabilities or scan accuracy
 Missing returns alone never establish an opening. No pretrained models are used.
 """
 import cv2
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from scipy.spatial import cKDTree
 
@@ -11,7 +12,12 @@ from .model import Opening, Stair
 from .sampling import adaptive_point_limit, resolved_cpu_workers, voxel_sample
 
 
-def detect_openings(cloud, walls, settings):
+def detect_openings(cloud, walls, settings, workers=None):
+    workers = resolved_cpu_workers(settings.cpu_workers) if workers is None else workers
+    if workers > 1 and len(walls) > 1:
+        with ThreadPoolExecutor(max_workers=min(workers, len(walls))) as executor:
+            groups = executor.map(lambda wall: detect_openings(cloud, [wall], settings, 1), walls)
+            return [opening for group in groups for opening in group]
     result = []
     cell = max(0.05, settings.grid_size_m)
     for wall in walls:
@@ -77,7 +83,7 @@ def detect_openings(cloud, walls, settings):
     return result
 
 
-def detect_stairs(cloud, storeys, settings):
+def detect_stairs(cloud, storeys, settings, backend=None, statistics=None):
     flights = []
     workers = resolved_cpu_workers(settings.cpu_workers)
     point_limit = adaptive_point_limit(settings.maximum_detection_points,
@@ -85,7 +91,11 @@ def detect_stairs(cloud, storeys, settings):
     for storey in storeys:
         sample = voxel_sample(cloud.points, max(0.035, settings.detection_voxel_size_m),
                               point_limit, settings.processing_chunk_points,
-                              (storey.elevation+0.08, storey.ceiling-0.05), workers)
+                              (storey.elevation+0.08, storey.ceiling-0.05), workers, backend)
+        if statistics is not None:
+            statistics.append({"storey_id": storey.id, "sample_points": len(sample.points),
+                               "source_point_count": sample.source_point_count,
+                               "voxel_size_m": sample.voxel_size_m})
         points = sample.points
         if len(points) < 60:
             continue
@@ -191,3 +201,4 @@ def detect_stairs(cloud, storeys, settings):
                                      "scope": "straight flight proposal; support structure and landings not inferred"}))
             used.update(chain)
     return flights
+

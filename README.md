@@ -6,9 +6,9 @@ Punctora BIM Studio is an experimental desktop application for importing registe
 
 ## Current status
 
-**M3 desktop implementation is available; Windows hardware acceptance remains pending.** The .NET/Avalonia desktop imports registered E57 files, shows bounded cloud/model overlays, edits supported wall/slab/storey parameters, saves and reopens atomic projects, and exports reviewed IFC4. It automatically attempts an OpenGL/ANGLE viewport and provides software fallback. Conversion remains CPU-based; GPU compute and coordinated multicore reconstruction are not implemented.
+**M3 desktop implementation is available; Windows hardware acceptance remains pending.** The .NET/Avalonia desktop imports registered E57 files, shows bounded cloud/model overlays, edits supported wall/slab/storey parameters, saves and reopens atomic projects, and exports reviewed IFC4. It automatically attempts an OpenGL/ANGLE viewport and provides software fallback. Reconstruction now uses adaptive multicore execution and bounded optional GPU voxel indexing, with a deterministic CPU fallback. Fitting, topology and IFC construction remain CPU algorithms.
 
-The core suite now contains 102 automated tests, including wall consolidation, manual wall merge/split, opening/stair detection, persistence and validated IFC regressions. Earlier Linux desktop walkthroughs passed with both Mesa software OpenGL and forced software preview; both supplied E57 examples were imported and displayed with 100,000-point previews. Physical AMD GPU performance, clean Windows installation and annotated real-building accuracy remain acceptance checks. No AI weights or installer are included in the source. See [M3 verification](docs/M3_VERIFICATION.md) and [desktop usage](docs/DESKTOP.md).
+The core suite contains the existing automated geometry/IFC regressions plus High Performance backend, telemetry and convergence checks. Earlier Linux desktop walkthroughs passed with both Mesa software OpenGL and forced software preview; both supplied E57 examples were imported and displayed with 100,000-point previews. Physical AMD GPU performance, clean Windows installation and annotated real-building accuracy remain acceptance checks. No AI weights or installer are included in the source. See [M3 verification](docs/M3_VERIFICATION.md) and [desktop usage](docs/DESKTOP.md).
 
 The M2 core retains bounded-memory E57 decoding, reversible coordinates, original-record wall fitting and evidence. Two supplied scans, with 1.21 million and 4.07 million points, passed full-record import integrity checks. Missing CRS/vertical datum and the pump's missing pose remain explicit warnings. Geometric door/window-gap and straight-stair-flight detection is now implemented. Collinear wall fragments are conservatively consolidated before opening detection; the desktop also supports explicit merge/split corrections with hosted-opening reassignment, review states and IFC4 export. See [feature detection and limits](docs/FEATURE_DETECTION.md). These are unreviewed proposals, not established survey accuracy.
 The first usable milestone targets Windows x64 and one representative building floor. It must run locally without Revit, an AI model or an NVIDIA GPU.
@@ -38,7 +38,9 @@ The demo writes `model.ifc`, `elements.json`, `validation.json` and a generated 
 python -m punctora_core convert-xyz floor.xyz --units m --output-dir outputs/floor
 ```
 
-Contours remain the default: region growing is a selectable geometric experiment, not an AI dependency. Level detection, convex floor envelopes, missing wall faces and slab thickness assumptions require review. Successful IFC validation establishes schema and tessellation checks, not scan accuracy. See [core usage and limitations](docs/CORE.md), [M2 fitting results](docs/M2_FITTING_VERIFICATION.md) and [M2 E57 verification](docs/M2_E57_VERIFICATION.md).
+Add `--compare-budgets` to `demo`, `convert-xyz`, or `convert-e57` to compare 250k, 500k, 1M, 2M and 5M candidate budgets until two consecutive geometry comparisons are stable. The output includes `performance.json` and, when requested, `budget-comparison.json`.
+
+Contours remain the default: region growing is a selectable geometric experiment, not an AI dependency. Level detection, convex floor envelopes, missing wall faces and slab thickness assumptions require review. Successful IFC validation establishes schema and tessellation checks, not scan accuracy. See [core usage and limitations](docs/CORE.md), [High Performance reconstruction](docs/HIGH_PERFORMANCE.md), [M2 fitting results](docs/M2_FITTING_VERIFICATION.md) and [M2 E57 verification](docs/M2_E57_VERIFICATION.md).
 
 ## First usable version
 
@@ -76,3 +78,4 @@ Original Punctora source and documentation are licensed under [Apache License 2.
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Do not commit building scans, project deliverables, credentials or model weights. Use small generated fixtures for public development examples.
+

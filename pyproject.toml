@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "punctora-core"
-version = "0.3.0a5"
+version = "0.3.0a6"
 description = "Punctora BIM Studio experimental E57 reconstruction and IFC core"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -18,12 +18,16 @@ dependencies = [
   "ifcopenshell==0.8.3",
   "pye57==0.4.19",
   "pyquaternion==0.9.9",
+  "psutil==7.2.2",
+  "threadpoolctl==3.6.0",
+  "pyopencl==2026.1.4",
   # IfcOpenShell 0.8.3 EXPRESS validation imports _pytest.assertion at runtime.
   "pytest==8.4.2",
 ]
 
 [project.optional-dependencies]
 test = ["pytest==8.4.2"]
+gpu = ["pyopencl==2026.1.4"]
 
 [project.scripts]
 punctora-core = "punctora_core.cli:main"
@@ -34,3 +38,4 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+

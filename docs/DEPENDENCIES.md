@@ -1,6 +1,6 @@
 # Dependency and research inventory
 
-Reviewed on 2026-10-08. This register distinguishes selected M2/M3 dependencies from future candidates. Cloud2BIM geometry helpers are included as source; NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57 and pyquaternion are external Python dependencies. pye57 compiles libE57Format and links or bundles Xerces-C++; libE57Format vendors CRC++. Exact direct versions are pinned in pyproject.toml; requirements-core.txt records the tested runtime dependencies. No model weights are bundled. Linux and exact Windows wheel notices are retained; the final installer audit remains M4. The machine-readable source is [dependency-inventory.json](../dependency-inventory.json). Component credits and notices are in [ATTRIBUTIONS.md](../ATTRIBUTIONS.md).
+Reviewed on 2026-10-09. This register distinguishes selected M2/M3 dependencies from future candidates. Cloud2BIM geometry helpers are included as source; NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57, pyquaternion, psutil, threadpoolctl and pyopencl are external Python dependencies. pye57 compiles libE57Format and links or bundles Xerces-C++; libE57Format vendors CRC++. Exact direct versions are pinned in pyproject.toml; requirements-core.txt records the tested runtime dependencies. No model weights are bundled. Linux and exact Windows wheel notices are retained; the final installer audit remains M4. The machine-readable source is [dependency-inventory.json](../dependency-inventory.json). Component credits and notices are in [ATTRIBUTIONS.md](../ATTRIBUTIONS.md).
 
 Top-level review identifies published licence evidence, not all-file/transitive clearance. `pending` means the component's terms still need inspection; it is not approved for inclusion. Source links with a commit identify the inspected upstream revision. All chosen package versions must be pinned during implementation.
 
@@ -15,7 +15,10 @@ Top-level review identifies published licence evidence, not all-file/transitive 
 | [pyquaternion](https://github.com/KieranWynn/pyquaternion/tree/v0.9.9) | code: Quaternion handling used by pye57 | MIT | selected_runtime_reviewed | 0.9.9 |
 | [Apache Xerces-C++](https://github.com/apache/xerces-c/tree/v3.2.3) | native library: E57 XML parsing | Apache-2.0 | selected_runtime_reviewed | 3.2.3 |
 | [CRC++](https://github.com/asmaloney/libE57Format/tree/1914b8ea972251d3bb49a33828497dde683205d9/extern/CRCpp) | native header code: E57 checksums | BSD-3-Clause | selected_runtime_reviewed | vendored with libE57Format 3.1.1 |
-| [Open3D](https://github.com/isl-org/Open3D/blob/main/LICENSE) | code: Surface fitting and cloud processing | MIT | top_level_reviewed | Future candidate |
+| [Open3D](https://github.com/isl-org/Open3D/blob/main/LICENSE) | code: Optional CUDA voxel arithmetic and cloud processing | MIT | optional_runtime_reviewed | CUDA wheel, not bundled |
+| [pyopencl](https://github.com/inducer/pyopencl) | code: Optional bounded OpenCL voxel arithmetic | MIT | optional_runtime_reviewed | 2026.1.4 |
+| [psutil](https://github.com/giampaolo/psutil) | code: Process/system telemetry | BSD-3-Clause | selected_runtime_reviewed | 7.2.2 |
+| [threadpoolctl](https://github.com/joblib/threadpoolctl) | code: BLAS thread-pool coordination | BSD-3-Clause | selected_runtime_reviewed | 3.6.0 |
 | [IfcOpenShell library](https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.8.0/src/ifcopenshell-python/ifcopenshell/__init__.py) | code: IFC4 authoring and validation | LGPL-3.0-or-later | installed_source_header_reviewed | 0.8.3 |
 | [PDAL](https://github.com/PDAL/PDAL/blob/master/LICENSE.txt) | code: Optional additional formats and chunk processing | BSD-3-Clause; bundled components have additional terms | top_level_reviewed | Future candidate |
 | [numpy](https://github.com/numpy/numpy/blob/main/LICENSE.txt) | code: Numerical arrays | BSD-3-Clause; wheel contains additional terms | installed_license_reviewed | 2.3.5 |
@@ -67,7 +70,7 @@ The released SpatialLM1.1-Qwen-0.5B checkpoint remains CC-BY-NC-4.0 according to
 
 ## Incorporation decisions
 
-Cloud2BIM, NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57, pyquaternion, libE57Format, Xerces-C++ and CRC++ are selected for the current core. Open3D remains a candidate. Avalonia 12.1.3 and .NET 10.0.0 are now selected for the M3 desktop. PDAL is optional and is not part of direct E57 import.
+Cloud2BIM, NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57, pyquaternion, libE57Format, Xerces-C++, CRC++, psutil and threadpoolctl are selected for the current core. pyopencl is included as the optional GPU arithmetic path when a compatible driver is installed. Open3D CUDA is an optional NVIDIA-only path and is not bundled in the default package. Avalonia 12.1.3 and .NET 10.0.0 are now selected for the M3 desktop. PDAL is optional and is not part of direct E57 import.
 
 SpatialLM can inform an independently written element/proposal contract now, but its source-code terms are not assumed permissive. Pointcept's reviewed MIT root licence does not cover every associated pretrained asset. Model weights and datasets remain separate inventory entries.
 
@@ -75,8 +78,9 @@ The ACM and May 2026 arXiv references are recorded together as PointLLM-R, not c
 
 ## M3 desktop dependencies
 
-[Desktop runtime notices](WINDOWS_RUNTIME_NOTICES.md) list Avalonia, ANGLE, SkiaSharp, HarfBuzzSharp, MicroCom, build services, Linux DBus, .NET and CPython versions, attributions and complete retained texts. `desktop/packages.lock.json` pins the NuGet graph; `desktop/windows-wheel-hashes.json` pins the Windows worker wheels. No additional AI component is incorporated.
+[Desktop runtime notices](WINDOWS_RUNTIME_NOTICES.md) list Avalonia, ANGLE, SkiaSharp, HarfBuzzSharp, MicroCom, build services, Linux DBus, .NET and CPython versions, attributions and complete retained texts. `desktop/packages.lock.json` pins the NuGet graph; `desktop/windows-wheel-hashes.json` pins the Windows worker wheels. No additional AI component is incorporated. See [High Performance reconstruction](HIGH_PERFORMANCE.md) for backend selection and measurement scope.
 
 ## IFC validation runtime
 
 IfcOpenShell 0.8.3 EXPRESS rule execution requires pytest 8.4.2 and its assertion-rewriting dependencies (iniconfig 2.3.1, packaging 26.3, pluggy 1.6.0, pygments 2.21.0 and Windows colorama 0.4.6). They are pinned in `requirements-core.txt`, included in the worker package, and attributed with full wheel notices in [ATTRIBUTIONS.md](../ATTRIBUTIONS.md). Validation remains enabled.
+

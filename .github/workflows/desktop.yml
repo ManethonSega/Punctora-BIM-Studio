@@ -60,3 +60,4 @@ jobs:
           path: artifacts/Punctora-BIM-Studio-M3-win-x64.zip
           retention-days: 7
           if-no-files-found: error
+
