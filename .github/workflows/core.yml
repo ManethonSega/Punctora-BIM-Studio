@@ -27,7 +27,9 @@ jobs:
       - run: python -m punctora_core demo --settings docs/region-growing-settings.json --output-dir outputs/region-demo
       - run: python -m punctora_core.benchmark --cases clean rotated thin_partition --check --output-dir outputs/benchmarks
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        continue-on-error: true
         with:
           name: m2-benchmark-${{ matrix.os }}-py${{ matrix.python }}
           path: outputs/benchmarks/benchmark.json
+          retention-days: 7

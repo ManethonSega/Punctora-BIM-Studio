@@ -44,6 +44,7 @@ jobs:
         run: python scripts/package_desktop.py
       - uses: actions/upload-artifact@v4
         if: always()
+        continue-on-error: true
         with:
           name: m3-desktop-checks-${{ matrix.os }}
           path: |
@@ -51,9 +52,11 @@ jobs:
             outputs/m3-*/ui-error.txt
             outputs/m3-*/desktop.png
             outputs/m3-*/viewport-gl.png
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows'
         with:
           name: Punctora-BIM-Studio-M3-win-x64
           path: artifacts/Punctora-BIM-Studio-M3-win-x64.zip
+          retention-days: 7
           if-no-files-found: error
