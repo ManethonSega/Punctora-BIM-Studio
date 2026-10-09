@@ -101,7 +101,22 @@ def test_large_cloud_preview_uses_gpu_friendly_display_budget(tmp_path):
     assert manifest["point_count"] == projects.PREVIEW_LIMIT == 500_000
     assert manifest["source_point_count"] == count
     assert manifest["sampling"].endswith("display only")
+    assert "spatial-cell" in manifest["sampling"]
     assert (tmp_path / "preview.bin").stat().st_size == projects.PREVIEW_LIMIT * 24
+
+
+def test_spatial_preview_prefers_occupied_cells_and_is_repeatable():
+    cluster = np.zeros((900, 3), dtype=np.float64)
+    distributed = np.column_stack((np.arange(100), np.arange(100) % 10,
+                                   np.arange(100) // 10)).astype(np.float64)
+    points = np.vstack((distributed, cluster))
+    first = projects.spatial_preview_indices(points, limit=100)
+    second = projects.spatial_preview_indices(points, limit=100)
+    assert np.array_equal(first, second)
+    assert len(first) == len(np.unique(first)) == 100
+    # A 100-row source sample would retain only about ten distinct positions.
+    # The wider candidate pass keeps spatial cells before filling duplicates.
+    assert len(np.unique(points[first], axis=0)) >= 35
 
 
 def test_storey_correction_shifts_dependents_and_rejects_overlap(project):

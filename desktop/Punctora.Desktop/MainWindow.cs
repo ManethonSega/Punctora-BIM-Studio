@@ -34,6 +34,8 @@ public sealed class MainWindow : Window
     readonly CheckBox zUp=new(){Content="Z is up (confirm before fitting)"};
     readonly CheckBox compareBudgets=new(){Content="Compare 250k–5M budgets"};
     readonly Slider section=new(){Minimum=0,Maximum=10,Value=10};
+    readonly ComboBox cloudColor=new(){ItemsSource=new[]{"Height","Original","Monochrome"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
+    readonly Slider pointSize=new(){Minimum=1,Maximum=8,Value=2.5,TickFrequency=.5};
     readonly ProgressBar progress=new(){Minimum=0,Maximum=100,Height=4};
     readonly List<Button> projectActions=[];
     readonly Button save,apply,cancel,undoButton,mergeButton,splitButton;
@@ -47,7 +49,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a8 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
+        Title="Punctora BIM Studio | 0.3.0a9 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -56,7 +58,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a8",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a9",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -70,6 +72,10 @@ public sealed class MainWindow : Window
         var cloud=new CheckBox{Content="Point cloud",IsChecked=true};var model=new CheckBox{Content="Model candidates",IsChecked=true};
         cloud.IsCheckedChanged+=(_,_)=>{viewport.View.Cloud=cloud.IsChecked==true;viewport.Redraw();};
         model.IsCheckedChanged+=(_,_)=>{viewport.View.Model=model.IsChecked==true;viewport.Redraw();};options.Children.Add(cloud);options.Children.Add(model);
+        options.Children.Add(Text("Point cloud colours",11));options.Children.Add(cloudColor);
+        cloudColor.SelectionChanged+=(_,_)=>{viewport.View.CloudColor=cloudColor.SelectedIndex switch{1=>CloudColorMode.Original,2=>CloudColorMode.Monochrome,_=>CloudColorMode.Height};viewport.Redraw();};
+        var pointSizeLabel=Text("Point size: 2.5 px",11);options.Children.Add(pointSizeLabel);options.Children.Add(pointSize);
+        pointSize.PropertyChanged+=(_,e)=>{if(e.Property==Slider.ValueProperty){viewport.View.PointSize=(float)pointSize.Value;pointSizeLabel.Text=$"Point size: {pointSize.Value:F1} px";viewport.Redraw();}};
         options.Children.Add(Button("Fit view",()=>{viewport.View.Camera.Fit(viewport.View.Scene);viewport.Redraw();return Task.CompletedTask;}));
         options.Children.Add(Text("Model opacity",11));var opacity=new Slider{Minimum=.05,Maximum=1,Value=1};opacity.PropertyChanged+=(_,e)=>{if(e.Property==Slider.ValueProperty){viewport.View.Opacity=(float)opacity.Value;viewport.Redraw();}};options.Children.Add(opacity);
         options.Children.Add(Text("Section: visible below height",11));options.Children.Add(section);
@@ -354,6 +360,8 @@ public sealed class MainWindow : Window
         {
             var path=Path.Combine(output,"walkthrough.punctora");var result=await RunAsync("demo",path,new JsonObject{["two_storeys"]=true});if(result==null)throw new Exception(status.Text);
             await PresentAsync(path,result,true);
+            foreach(var index in new[]{1,0,2}){cloudColor.SelectedIndex=index;viewport.Redraw();await Task.Delay(30);}
+            pointSize.Value=5;if(viewport.View.CloudColor!=CloudColorMode.Monochrome||Math.Abs(viewport.View.PointSize-5)>.001)throw new Exception("Point-cloud display controls did not reach the viewport");
             var sample=state!["model"]!["walls"]![0]!;
             // Explicit synthetic candidates exercise new preview/edit/save/IFC
             // plumbing independently of the detector's geometry regressions.

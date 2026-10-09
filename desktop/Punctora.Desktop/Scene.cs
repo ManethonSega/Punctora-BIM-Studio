@@ -14,6 +14,8 @@ public sealed class SceneData
     public long TotalPoints { get; init; }
     public Vector3 Minimum { get; init; } = new(-1);
     public Vector3 Maximum { get; init; } = new(1);
+    public Vector3 PointMinimum { get; init; } = new(-1);
+    public Vector3 PointMaximum { get; init; } = new(1);
     public static SceneData Load(string projectPath, JsonObject state)
     {
         var assets = Path.Combine(Path.GetDirectoryName(projectPath)!, state["assets_directory"]!.GetValue<string>());
@@ -39,6 +41,7 @@ public sealed class SceneData
             var position = new Vector3(points[i*7], points[i*7+1], points[i*7+2]);
             minimum = Vector3.Min(minimum, position); maximum = Vector3.Max(maximum, position);
         }
+        var pointMinimum=minimum;var pointMaximum=maximum;
         var elements = new List<SceneElement>();
         if (state["model"] is JsonObject model)
         {
@@ -101,6 +104,7 @@ public sealed class SceneData
             for(var i=0;i<element.Triangles.Length;i+=7)
             {var position=Camera.Position(element.Triangles,i);minimum=Vector3.Min(minimum,position);maximum=Vector3.Max(maximum,position);}
         return new SceneData { Points = points, Elements = elements, Minimum = minimum, Maximum = maximum,
+            PointMinimum=pointMinimum,PointMaximum=pointMaximum,
             TotalPoints = state["preview"]!["source_point_count"]!.GetValue<long>() };
     }
 

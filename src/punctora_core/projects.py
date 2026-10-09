@@ -24,6 +24,57 @@ from .wall_editing import merge_walls, split_wall
 # the immutable working cloud (12 MB on disk, 14 MB in the GPU vertex buffer)
 # while giving large surveys enough visual density for element review.
 PREVIEW_LIMIT = 500_000
+PREVIEW_CANDIDATE_MULTIPLIER = 4
+PREVIEW_GRID_BINS = 1024
+
+
+def _mix64(values):
+    """Deterministic vectorised SplitMix64, used only to thin display samples."""
+    values = np.asarray(values, dtype=np.uint64).copy()
+    with np.errstate(over="ignore"):
+        values += np.uint64(0x9E3779B97F4A7C15)
+        values = (values ^ (values >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9)
+        values = (values ^ (values >> np.uint64(27))) * np.uint64(0x94D049BB133111EB)
+    return values ^ (values >> np.uint64(31))
+
+
+def spatial_preview_indices(points, limit=PREVIEW_LIMIT):
+    """Choose a repeatable, spatially balanced display-only subset.
+
+    At most four preview budgets are read from evenly distributed source rows.
+    One representative from each occupied 3D display cell is preferred before
+    remaining capacity is filled. This prevents source-record order from making
+    one scan station dominate the viewport without scanning or sorting the full
+    source cloud in memory.
+    """
+    count = len(points)
+    if count <= limit:
+        return np.arange(count, dtype=np.int64)
+    candidate_count = min(count, limit * PREVIEW_CANDIDATE_MULTIPLIER)
+    positions = np.arange(candidate_count, dtype=np.uint64)
+    ids = (positions * np.uint64(count - 1) // np.uint64(candidate_count - 1)).astype(np.int64)
+    sample = np.asarray(points[ids], dtype=np.float64)
+    minimum = np.min(sample, axis=0)
+    span = np.max(sample, axis=0) - minimum
+    keys = np.zeros(candidate_count, dtype=np.uint64)
+    for axis, shift in enumerate((0, 10, 20)):
+        if span[axis] > 0:
+            cells = np.floor((sample[:, axis] - minimum[axis]) / span[axis]
+                             * (PREVIEW_GRID_BINS - 1)).astype(np.uint64)
+            keys |= np.minimum(cells, PREVIEW_GRID_BINS - 1) << np.uint64(shift)
+    unique_keys, first = np.unique(keys, return_index=True)
+    if len(first) >= limit:
+        scores = _mix64(unique_keys)
+        chosen = first[np.argpartition(scores, limit - 1)[:limit]]
+    else:
+        selected = np.zeros(candidate_count, dtype=bool)
+        selected[first] = True
+        remaining = np.flatnonzero(~selected)
+        needed = limit - len(first)
+        scores = _mix64(ids[remaining].astype(np.uint64) ^ keys[remaining])
+        fill = remaining[np.argpartition(scores, needed - 1)[:needed]]
+        chosen = np.concatenate((first, fill))
+    return np.sort(ids[chosen])
 
 
 def read_json(path):
@@ -179,7 +230,7 @@ def load_cloud(path, state):
 
 def write_preview(cloud, directory, generation):
     count = min(PREVIEW_LIMIT, len(cloud.points))
-    ids = np.linspace(0, len(cloud.points)-1, count, dtype=np.int64)
+    ids = spatial_preview_indices(cloud.points, count)
     preview = np.empty((count, 6), dtype="<f4")
     preview[:, :3] = cloud.points[ids]
     preview[:, 3:] = [.45, .65, .72]
@@ -192,7 +243,8 @@ def write_preview(cloud, directory, generation):
     preview.tofile(directory / "preview.bin")
     return {"format": "xyzrgb-f32-le", "path": f"generations/{generation}/preview.bin",
             "point_count": count, "source_point_count": len(cloud.points),
-            "sampling": "deterministic evenly spaced source rows; display only",
+            "sampling": ("deterministic spatial-cell sample from up to "
+                         f"{count * PREVIEW_CANDIDATE_MULTIPLIER:,} distributed source rows; display only"),
             "color_scaling": "sample-range normalization; original channels unchanged"}
 
 

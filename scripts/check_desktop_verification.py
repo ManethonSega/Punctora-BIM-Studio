@@ -10,6 +10,8 @@ for argument in sys.argv[1:]:
     report = json.loads((directory / "ui-verification.json").read_text())
     assert report["edit_survived_reopen"] and report["ifc_exists"], report
     assert report["graphics"]["render_callbacks"] > 0, report
+    assert report["graphics"]["cloud_color_mode"] == "Monochrome", report
+    assert report["graphics"]["point_size_px"] == 5, report
     assert (directory / "desktop.png").stat().st_size > 1000
     model = ifcopenshell.open(str(directory / "edited.ifc"))
     assert validate_ifc(model)["valid"]

@@ -12,6 +12,20 @@ using Avalonia.Threading;
 
 namespace Punctora.Desktop;
 
+public enum CloudColorMode { Original, Height, Monochrome }
+
+public static class PointCloudPalette
+{
+    public static Vector3 Color(CloudColorMode mode,float red,float green,float blue,float z,float minimum,float maximum)
+    {
+        if(mode==CloudColorMode.Original)return new Vector3(red,green,blue);
+        if(mode==CloudColorMode.Monochrome)return new Vector3(.82f,.87f,.92f);
+        var t=Math.Clamp((z-minimum)/Math.Max(1e-6f,maximum-minimum),0,1);
+        return t<.33f?Vector3.Lerp(new Vector3(.08f,.32f,.9f),new Vector3(.08f,.86f,.78f),t/.33f)
+            :t<.66f?Vector3.Lerp(new Vector3(.08f,.86f,.78f),new Vector3(1,.83f,.2f),(t-.33f)/.33f)
+            :Vector3.Lerp(new Vector3(1,.83f,.2f),new Vector3(.95f,.23f,.28f),(t-.66f)/.34f);
+    }
+}
 public sealed class ViewSettings
 {
     public SceneData Scene { get; set; }=new();
@@ -21,10 +35,11 @@ public sealed class ViewSettings
     public float Opacity { get; set; }=1;
     public float ZMin { get; set; }=-1e20f;
     public float ZMax { get; set; }=1e20f;
+    public CloudColorMode CloudColor { get; set; }=CloudColorMode.Height;
+    public float PointSize { get; set; }=2.5f;
     public string? Storey { get; set; }
     public string? Selected { get; set; }
 }
-
 public sealed class SceneViewport : Grid
 {
     public ViewSettings View { get; }=new();
@@ -99,6 +114,7 @@ public sealed class SceneViewport : Grid
         ["cpu_render_submission_mean_ms"]=Mean(SoftwareMode?software.RenderTimes:gpu.RenderTimes),
         ["point_buffer_bytes"]=SoftwareMode?0:View.Scene.Points.Length*4,
         ["mesh_buffer_bytes"]=SoftwareMode?0:View.Scene.Elements.Sum(e=>e.Triangles.Length)*4,
+        ["cloud_color_mode"]=View.CloudColor.ToString(),["point_size_px"]=View.PointSize,
         ["timing_scope"]="CPU drawing/submission callbacks; excludes GPU completion and compositor; not FPS"};
     static double Mean(List<double> values)=>values.Count==0?0:values.Average();
 }
@@ -124,7 +140,9 @@ public sealed class SoftwareViewport(ViewSettings view) : Control
                 if(pos.Z<view.ZMin||pos.Z>view.ZMax)continue;
                 var p=view.Camera.Project(pos,Bounds.Size);
                 if(p is not { } projected||projected.Z is <0 or >1||projected.X<0||projected.X>Bounds.Width||projected.Y<0||projected.Y>Bounds.Height)continue;
-                var color=Color.FromRgb(Channel(scene.Points[offset+3]),Channel(scene.Points[offset+4]),Channel(scene.Points[offset+5]));
+                var rgb=PointCloudPalette.Color(view.CloudColor,scene.Points[offset+3],scene.Points[offset+4],scene.Points[offset+5],
+                    pos.Z,scene.PointMinimum.Z,scene.PointMaximum.Z);
+                var color=Color.FromRgb(Channel(rgb.X),Channel(rgb.Y),Channel(rgb.Z));
                 paints.Add(new Paint(projected.Z,[new Point(projected.X,projected.Y)],color,false));
             }
         }
@@ -144,7 +162,7 @@ public sealed class SoftwareViewport(ViewSettings view) : Control
         foreach(var paint in paints.OrderByDescending(p=>p.Depth))
         {
             var brush=new SolidColorBrush(paint.Color);
-            if(!paint.Triangle){context.DrawEllipse(brush,null,paint.Points[0],1.25,1.25);continue;}
+            if(!paint.Triangle){var radius=Math.Max(.5,view.PointSize/2);context.DrawEllipse(brush,null,paint.Points[0],radius,radius);continue;}
             var geometry=new StreamGeometry();
             using(var drawing=geometry.Open()){drawing.BeginFigure(paint.Points[0],true);foreach(var p in paint.Points.Skip(1))drawing.LineTo(p);drawing.EndFigure(true);}
             context.DrawGeometry(brush,new Pen(brush,.3),geometry);
@@ -174,7 +192,7 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
     public Action<string>? Ready,Failed;
     public string? CapturePath;
     int program,vertexShader,fragmentShader,pointBuffer,modelBuffer,vao,depth,width,height;
-    int matrixUniform,opacityUniform,zMinUniform,zMaxUniform,highlightUniform;
+    int matrixUniform,opacityUniform,zMinUniform,zMaxUniform,highlightUniform,pointSizeUniform,colorModeUniform,cloudMinUniform,cloudMaxUniform;
     bool dirty=true;
     List<(SceneElement Element,int Offset,int Count)> ranges=[];
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void BlendFunction(int source,int destination);
@@ -188,10 +206,10 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
             var es=(gl.Version??"").Contains("OpenGL ES");
             var header=es?"#version 300 es\nprecision highp float;\n":"#version 330 core\n";
             vertexShader=gl.CreateShader(0x8B31);
-            var error=gl.CompileShaderAndGetError(vertexShader,header+"in vec3 aPosition; in vec4 aColor; uniform mat4 uMatrix; out vec4 vColor; out float vZ; void main(){gl_Position=uMatrix*vec4(aPosition,1.0);gl_PointSize=2.5;vColor=aColor;vZ=aPosition.z;}");
+            var error=gl.CompileShaderAndGetError(vertexShader,header+"in vec3 aPosition; in vec4 aColor; uniform mat4 uMatrix; uniform float uPointSize; out vec4 vColor; out float vZ; void main(){gl_Position=uMatrix*vec4(aPosition,1.0);gl_PointSize=uPointSize;vColor=aColor;vZ=aPosition.z;}");
             if(!string.IsNullOrEmpty(error))throw new InvalidOperationException(error);
             fragmentShader=gl.CreateShader(0x8B30);
-            error=gl.CompileShaderAndGetError(fragmentShader,header+"in vec4 vColor; in float vZ; uniform float uOpacity; uniform float uZMin; uniform float uZMax; uniform int uHighlight; out vec4 color; void main(){if(vZ<uZMin||vZ>uZMax)discard;vec3 c=vColor.rgb;if(uHighlight==1)c=mix(c,vec3(1.0,.86,.25),.8);color=vec4(c,vColor.a*uOpacity);}");
+            error=gl.CompileShaderAndGetError(fragmentShader,header+"in vec4 vColor; in float vZ; uniform float uOpacity; uniform float uZMin; uniform float uZMax; uniform float uCloudMin; uniform float uCloudMax; uniform int uHighlight; uniform int uColorMode; out vec4 color; vec3 heightColor(float t){if(t<.33)return mix(vec3(.08,.32,.9),vec3(.08,.86,.78),t/.33);if(t<.66)return mix(vec3(.08,.86,.78),vec3(1.0,.83,.2),(t-.33)/.33);return mix(vec3(1.0,.83,.2),vec3(.95,.23,.28),(t-.66)/.34);} void main(){if(vZ<uZMin||vZ>uZMax)discard;vec3 c=vColor.rgb;if(uColorMode==1)c=heightColor(clamp((vZ-uCloudMin)/max(.000001,uCloudMax-uCloudMin),0.0,1.0));else if(uColorMode==2)c=vec3(.82,.87,.92);if(uHighlight==1)c=mix(c,vec3(1.0,.86,.25),.8);color=vec4(c,vColor.a*uOpacity);}");
             if(!string.IsNullOrEmpty(error))throw new InvalidOperationException(error);
             program=gl.CreateProgram();gl.AttachShader(program,vertexShader);gl.AttachShader(program,fragmentShader);
             gl.BindAttribLocationString(program,0,"aPosition");gl.BindAttribLocationString(program,1,"aColor");
@@ -199,6 +217,8 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
             pointBuffer=gl.GenBuffer();modelBuffer=gl.GenBuffer();vao=gl.GenVertexArray();depth=gl.GenRenderbuffer();
             matrixUniform=gl.GetUniformLocationString(program,"uMatrix");opacityUniform=gl.GetUniformLocationString(program,"uOpacity");
             zMinUniform=gl.GetUniformLocationString(program,"uZMin");zMaxUniform=gl.GetUniformLocationString(program,"uZMax");highlightUniform=gl.GetUniformLocationString(program,"uHighlight");
+            pointSizeUniform=gl.GetUniformLocationString(program,"uPointSize");colorModeUniform=gl.GetUniformLocationString(program,"uColorMode");
+            cloudMinUniform=gl.GetUniformLocationString(program,"uCloudMin");cloudMaxUniform=gl.GetUniformLocationString(program,"uCloudMax");
             blend=Marshal.GetDelegateForFunctionPointer<BlendFunction>(gl.GetProcAddress("glBlendFunc"));
             readPixels=Marshal.GetDelegateForFunctionPointer<ReadPixelsFunction>(gl.GetProcAddress("glReadPixels"));
             var renderer=gl.Renderer??"Unknown adapter";
@@ -237,20 +257,21 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
             var matrix=view.Camera.Matrix(Bounds.Size);
             gl.UniformMatrix4fv(matrixUniform,1,false,&matrix);
             gl.Uniform1f(zMinUniform,view.ZMin);gl.Uniform1f(zMaxUniform,view.ZMax);
+            gl.Uniform1f(pointSizeUniform,view.PointSize);gl.Uniform1f(cloudMinUniform,view.Scene.PointMinimum.Z);gl.Uniform1f(cloudMaxUniform,view.Scene.PointMaximum.Z);
             gl.Uniform1i(highlightUniform,0);gl.Uniform1f(opacityUniform,1);
             gl.DepthMask(0);
             if(view.Model)
             {
-                Bind(gl,modelBuffer);gl.Uniform1f(opacityUniform,view.Opacity);
+                Bind(gl,modelBuffer);gl.Uniform1f(opacityUniform,view.Opacity);gl.Uniform1i(colorModeUniform,0);
                 foreach(var range in ranges.Where(r=>view.Storey==null||r.Element.StoreyId==view.Storey))
                 {gl.Uniform1i(highlightUniform,range.Element.Id==view.Selected?1:0);gl.DrawArrays(4,range.Offset,(IntPtr)range.Count);}
             }
             gl.DepthMask(1);
             // Overlay observed points on translucent candidates; depth still resolves points against points.
-            if(view.Cloud){gl.Uniform1i(highlightUniform,0);gl.Uniform1f(opacityUniform,1);Bind(gl,pointBuffer);gl.DrawArrays(0,0,(IntPtr)(view.Scene.Points.Length/7));}
+            if(view.Cloud){gl.Uniform1i(highlightUniform,0);gl.Uniform1f(opacityUniform,1);gl.Uniform1i(colorModeUniform,(int)view.CloudColor);Bind(gl,pointBuffer);gl.DrawArrays(0,0,(IntPtr)(view.Scene.Points.Length/7));}
             if(view.Model&&view.Selected!=null)
             {
-                gl.Disable(0x0B71);Bind(gl,modelBuffer);gl.Uniform1i(highlightUniform,1);gl.Uniform1f(opacityUniform,view.Opacity*.7f);
+                gl.Disable(0x0B71);Bind(gl,modelBuffer);gl.Uniform1i(highlightUniform,1);gl.Uniform1f(opacityUniform,view.Opacity*.7f);gl.Uniform1i(colorModeUniform,0);
                 foreach(var range in ranges.Where(r=>r.Element.Id==view.Selected&&(view.Storey==null||r.Element.StoreyId==view.Storey)))
                     gl.DrawArrays(4,range.Offset,(IntPtr)range.Count);
                 gl.Enable(0x0B71);
