@@ -44,7 +44,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a2 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
+        Title="Punctora BIM Studio | 0.3.0a3 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -53,7 +53,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a2",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a3",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -152,15 +152,15 @@ public sealed class MainWindow : Window
             var levels=model?["storeys"]?.AsArray()??[];
             storeys.ItemsSource=new[]{"All storeys"}.Concat(levels.Select(s=>s!["name"]!.GetValue<string>())).ToArray();
             storeys.SelectedIndex=priorStorey==null?0:Math.Max(0,levels.ToList().FindIndex(s=>s!["id"]!.GetValue<string>()==priorStorey)+1);
-            var nodes=model==null?new List<(string Kind,JsonObject Node)>():new[]{"storeys","walls","slabs"}.SelectMany(kind=>model[kind]!.AsArray().Select(n=>(Kind:kind,Node:n!.AsObject()))).ToList();
+            var nodes=model==null?new List<(string Kind,JsonObject Node)>():new[]{"storeys","walls","slabs","openings","stairs"}.SelectMany(kind=>(model[kind]?.AsArray()??[]).Select(n=>(Kind:kind,Node:n!.AsObject()))).ToList();
             elementIds=nodes.Select(n=>n.Node["id"]!.GetValue<string>()).ToArray();
-            elements.ItemsSource=nodes.Select(n=>$"{(n.Kind=="storeys"?"Storey":n.Kind=="walls"?"Wall":"Slab")} · {n.Node["id"]}\n{n.Node["review_state"]?.GetValue<string>()??"levels / inferred outline"}").ToArray();
+            elements.ItemsSource=nodes.Select(n=>$"{n.Kind} · {n.Node["id"]}\n{n.Node["review_state"]?.GetValue<string>()??"levels / inferred outline"}").ToArray();
             elements.SelectedIndex=Array.IndexOf(elementIds,selectedId);
             zUp.IsChecked=state["coordinate_confirmation"]!["z_up"]!.GetValue<bool>();
             section.Minimum=scene.Minimum.Z-.5;section.Maximum=scene.Maximum.Z+.5;
             if(fit)section.Value=section.Maximum;else section.Value=Math.Clamp(section.Value,section.Minimum,section.Maximum);
             warnings.Text=string.Join("\n\n",state["warnings"]!.AsArray().Select(n=>n!.GetValue<string>()).Concat(model?["warnings"]?.AsArray().Select(n=>n!.GetValue<string>())??[]).Distinct());
-            counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {scene.Elements.Count} wall/slab candidates · local metres";
+            counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {model?["walls"]?.AsArray().Count??0} walls, {model?["slabs"]?.AsArray().Count??0} slabs, {model?["openings"]?.AsArray().Count??0} openings, {model?["stairs"]?.AsArray().Count??0} stairs · local metres";
         }
         finally{refreshing=false;}
         ShowProperties();FilterStorey();UpdateActions();
@@ -181,14 +181,14 @@ public sealed class MainWindow : Window
     (string Kind,JsonObject Node)? Selected()
     {
         if(state?["model"] is not JsonObject model||selectedId==null)return null;
-        foreach(var kind in new[]{"storeys","walls","slabs"})
-            foreach(var node in model[kind]!.AsArray())if(node!["id"]!.GetValue<string>()==selectedId)return(kind,node.AsObject());
+        foreach(var kind in new[]{"storeys","walls","slabs","openings","stairs"})
+            foreach(var node in model[kind]?.AsArray()??[])if(node!["id"]!.GetValue<string>()==selectedId)return(kind,node.AsObject());
         return null;
     }
     void ShowProperties()
     {
         fields.Clear();initialFields.Clear();fieldsPanel.Children.Clear();var selection=Selected();
-        if(selection==null){selectedTitle.Text="Element properties";evidence.Text="Select a wall, slab or storey.";UpdateActions();return;}
+        if(selection==null){selectedTitle.Text="Element properties";evidence.Text="Select a wall, slab, opening, stair or storey.";UpdateActions();return;}
         var (kind,obj)=selection.Value;selectedTitle.Text=obj["id"]!.GetValue<string>();
         void Field(string key,string label,string value)
         {
@@ -201,11 +201,23 @@ public sealed class MainWindow : Window
             Number("base","Base (m)");Number("height","Height (m)");Number("thickness","Thickness (m)");
         }
         else if(kind=="slabs"){Number("base","Base (m)");Number("thickness","Thickness (m)");}
+        else if(kind=="openings")
+        {
+            Field("kind","Kind (door / window)",obj["kind"]!.GetValue<string>());
+            foreach(var key in new[]{"offset","sill","width","height"})Number(key,key+" (m)");
+        }
+        else if(kind=="stairs")
+        {
+            for(var j=0;j<2;j++)foreach(var key in new[]{"start","end"})Field(key+j,key+" "+(j==0?"X":"Y")+" (m)",obj[key]![j]!.GetValue<double>().ToString("G10",CultureInfo.InvariantCulture));
+            foreach(var key in new[]{"base","width","rise","going","tread_thickness"})Number(key,key+" (m)");
+            Field("steps","Number of treads",obj["steps"]!.GetValue<int>().ToString(CultureInfo.InvariantCulture));
+        }
         else{Field("name","Storey name",obj["name"]!.GetValue<string>());Number("elevation","Floor level (m)");Number("ceiling","Ceiling level (m)");}
         review.SelectedItem=obj["review_state"]?.GetValue<string>()??"unreviewed";review.IsVisible=kind!="storeys";
         classification.SelectedItem=obj["classification"]?.GetValue<string>()??"unclassified";classification.IsVisible=kind=="walls";
         var provenance=obj["provenance"]?.AsObject().Select(p=>$"{p.Key}: {p.Value}")??[];
         evidence.Text=(kind=="walls"?$"Supporting original points: {obj["evidence_count"]}\nObserved-face fit RMSE: {obj["fit_rmse_m"]?.ToJsonString()??"unknown"} m\n\n":"")+string.Join("\n",provenance)+"\n\nObserved faces and fit statistics refer to the original fit. Corrections are recorded as user supplied.";
+        if(kind=="openings"||kind=="stairs")evidence.Text=$"Geometric support score: {obj["confidence"]?.ToJsonString()??"unknown"} (not an accuracy probability)\n{obj["evidence"]?["scope"]?.GetValue<string>()??"Caller-supplied geometry"}\n\n"+evidence.Text;
         UpdateActions();
     }
     static double Parse(string text)
@@ -221,10 +233,10 @@ public sealed class MainWindow : Window
         {
             if(box.Text==initialFields[key])continue;
             if(key.StartsWith("start")||key.StartsWith("end"))continue;
-            JsonNode value=key=="name"?JsonValue.Create(box.Text?.Trim()??"")!:JsonValue.Create(Parse(box.Text??""))!;
+            JsonNode value=key=="name"||key=="kind"?JsonValue.Create(box.Text?.Trim()??"")!:key=="steps"?JsonValue.Create(int.Parse(box.Text??"",CultureInfo.InvariantCulture))!:JsonValue.Create(Parse(box.Text??""))!;
             if(value.ToJsonString()!=obj[key]!.ToJsonString())changes[key]=value;
         }
-        if(kind=="walls")foreach(var key in new[]{"start","end"})
+        if(kind=="walls"||kind=="stairs")foreach(var key in new[]{"start","end"})
         {
             if(fields[key+0].Text==initialFields[key+0]&&fields[key+1].Text==initialFields[key+1])continue;
             var array=new JsonArray(Enumerable.Range(0,2).Select(j=>fields[key+j].Text==initialFields[key+j]?obj[key]![j]!.DeepClone():JsonValue.Create(Parse(fields[key+j].Text??""))).ToArray());
@@ -297,6 +309,14 @@ public sealed class MainWindow : Window
             var path=Path.Combine(output,"walkthrough.punctora");var result=await RunAsync("demo",path,new JsonObject{["two_storeys"]=true});if(result==null)throw new Exception(status.Text);
             await PresentAsync(path,result,true);
             var sample=state!["model"]!["walls"]![0]!;
+            // Explicit synthetic candidates exercise new preview/edit/save/IFC
+            // plumbing independently of the detector's geometry regressions.
+            var opening=new JsonObject{["id"]="ui-window",["host_wall_id"]=sample["id"]!.DeepClone(),["kind"]="window",["offset"]=.2,["sill"]=.8,["width"]=.6,["height"]=.8,["provenance"]=new JsonObject{["dimensions"]="user_supplied"},["review_state"]="unreviewed"};
+            state["model"]!["openings"]!.AsArray().Add(opening);
+            var sx=sample["start"]![0]!.GetValue<double>();var sy=sample["start"]![1]!.GetValue<double>();
+            state["model"]!["stairs"]!.AsArray().Add(new JsonObject{["id"]="ui-stair",["storey_id"]=sample["storey_id"]!.DeepClone(),["start"]=new JsonArray(sx,sy),["end"]=new JsonArray(sx+2,sy),["base"]=sample["base"]!.DeepClone(),["width"]=.9,["rise"]=.17,["going"]=.25,["steps"]=8,["tread_thickness"]=.06,["provenance"]=new JsonObject{["treads"]="user_supplied"},["review_state"]="unreviewed"});
+            await PresentAsync(path,state,false);
+            if(!viewport.View.Scene.Elements.Any(e=>e.Kind=="window")||!viewport.View.Scene.Elements.Any(e=>e.Kind=="Stair"))throw new Exception("Feature preview missing");
             var target=new System.Numerics.Vector3((float)((sample["start"]![0]!.GetValue<double>()+sample["end"]![0]!.GetValue<double>())/2),
                 (float)((sample["start"]![1]!.GetValue<double>()+sample["end"]![1]!.GetValue<double>())/2),
                 (float)(sample["base"]!.GetValue<double>()+sample["height"]!.GetValue<double>()/2));
@@ -306,7 +326,10 @@ public sealed class MainWindow : Window
             if(selectedId!=hit)throw new Exception("3D selection did not reach inspector");
             selectedId=sample["id"]!.GetValue<string>();ShowProperties();
             fields["thickness"].Text="0.27";review.SelectedItem="reviewed";await ApplyAsync();if(!dirty)throw new Exception("Correction did not enter draft state");
+            selectedId="ui-window";ShowProperties();fields["width"].Text="0.65";review.SelectedItem="reviewed";await ApplyAsync();
+            selectedId="ui-stair";ShowProperties();fields["going"].Text="0.28";review.SelectedItem="reviewed";await ApplyAsync();
             await SaveAsync();await LoadAsync(path);if(Math.Abs(state!["model"]!["walls"]![0]!["thickness"]!.GetValue<double>()-.27)>1e-10)throw new Exception("Edit was lost on reopening");
+            if(Math.Abs(state!["model"]!["openings"]![0]!["width"]!.GetValue<double>()-.65)>1e-10||Math.Abs(state["model"]!["stairs"]![0]!["going"]!.GetValue<double>()-.28)>1e-10)throw new Exception("Feature edit lost on reopening");
             selectedId=state["model"]!["walls"]![0]!["id"]!.GetValue<string>();ShowProperties();viewport.View.Selected=selectedId;viewport.Redraw();
             await ExportToAsync(Path.Combine(output,"edited.ifc"));
             await Task.Delay(1800);for(var i=0;i<30;i++){viewport.View.Camera.Yaw+=.008f;viewport.Redraw();await Task.Delay(20);}viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(700);

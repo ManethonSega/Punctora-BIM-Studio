@@ -320,22 +320,35 @@ def draft_model(state, data):
 
 def edit_model(state, data, element_id, changes):
     model = draft_model(state, data)
-    element = next((obj for obj in model.walls + model.slabs + model.storeys if obj.id == element_id), None)
+    element = next((obj for obj in model.walls + model.slabs + model.storeys + model.openings + model.stairs if obj.id == element_id), None)
     if element is None:
         raise ValueError("Select a supported element")
     allowed = ({"start", "end", "base", "height", "thickness", "classification", "review_state"} if element in model.walls
-               else {"base", "thickness", "review_state"} if element in model.slabs else {"name", "elevation", "ceiling"})
+               else {"base", "thickness", "review_state"} if element in model.slabs
+               else {"kind", "offset", "sill", "width", "height", "review_state"} if element in model.openings
+               else {"start", "end", "base", "width", "rise", "going", "steps", "tread_thickness", "review_state"} if element in model.stairs
+               else {"name", "elevation", "ceiling"})
     if not isinstance(changes, dict) or not changes or set(changes)-allowed:
         raise ValueError("Unsupported element correction")
     old = deepcopy(element.__dict__)
     for field, value in changes.items():
         if field == "name" and (not isinstance(value, str) or not value.strip()):
             raise ValueError("Storey name cannot be empty")
-        if field in {"base", "height", "thickness", "elevation", "ceiling"} and (isinstance(value, bool) or not isinstance(value, (float, int))):
+        if field in {"base", "height", "thickness", "elevation", "ceiling", "offset", "sill", "width", "rise", "going", "steps", "tread_thickness"} and (isinstance(value, bool) or not isinstance(value, (float, int))):
             raise ValueError("Dimensions must be numbers in metres")
         setattr(element, field, value)
         if field not in {"name", "review_state"}:
             element.provenance[field] = "user_supplied"
+    if element in model.stairs:
+        import numpy as np
+        direction = np.asarray(old["end"], dtype=float)-np.asarray(old["start"], dtype=float)
+        direction /= np.linalg.norm(direction)
+        if "end" in changes or "start" in changes:
+            element.going = float(np.linalg.norm(np.asarray(element.end)-element.start))/element.steps
+            element.provenance["going"] = "user_supplied"
+        elif "going" in changes or "steps" in changes:
+            element.end = tuple(np.asarray(element.start)+direction*element.going*element.steps)
+            element.provenance["end"] = "user_supplied"
     if element in model.storeys:
         shift = element.elevation-old["elevation"]
         height_shift = (element.ceiling-element.elevation)-(old["ceiling"]-old["elevation"])
@@ -348,6 +361,10 @@ def edit_model(state, data, element_id, changes):
             if slab.storey_id == element.id:
                 slab.base += element.ceiling-old["ceiling"] if slab.id == "top-slab" else shift
                 slab.provenance["base"] = "user_supplied"
+        for stair in model.stairs:
+            if stair.storey_id == element.id:
+                stair.base += shift
+                stair.provenance["base"] = "user_supplied"
         levels = sorted(model.storeys, key=lambda obj: obj.elevation)
         if any(a.ceiling > b.elevation+1e-8 for a, b in zip(levels, levels[1:])):
             raise ValueError("Edited storey intervals overlap")
@@ -411,8 +428,9 @@ def export_project(path, request, progress=lambda *_: None):
         rejected = {w.id for w in model.walls if w.review_state == "rejected"}
         model.walls = [w for w in model.walls if w.id not in rejected]
         model.slabs = [s for s in model.slabs if s.review_state != "rejected"]
-        model.openings = [o for o in model.openings if o.host_wall_id not in rejected]
-        unresolved = sum(obj.review_state in {"unreviewed", "flagged"} for obj in model.walls + model.slabs)
+        model.openings = [o for o in model.openings if o.host_wall_id not in rejected and o.review_state != "rejected"]
+        model.stairs = [s for s in model.stairs if s.review_state != "rejected"]
+        unresolved = sum(obj.review_state in {"unreviewed", "flagged"} for obj in model.walls + model.slabs + model.openings + model.stairs)
         if unresolved:
             model.warnings.append(f"Export includes {unresolved} unreviewed or flagged elements; review state does not establish acceptance.")
         if model.metadata.get("geometry_edited"):

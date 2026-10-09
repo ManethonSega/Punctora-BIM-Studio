@@ -11,7 +11,11 @@ for argument in sys.argv[1:]:
     assert report["edit_survived_reopen"] and report["ifc_exists"], report
     assert report["graphics"]["render_callbacks"] > 0, report
     assert (directory / "desktop.png").stat().st_size > 1000
-    assert validate_ifc(ifcopenshell.open(str(directory / "edited.ifc")))["valid"]
+    model = ifcopenshell.open(str(directory / "edited.ifc"))
+    assert validate_ifc(model)["valid"]
+    assert len(model.by_type("IfcWindow")) == 1
+    assert len(model.by_type("IfcStairFlight")) == 1
+    assert model.by_type("IfcStairFlight")[0].TreadLength == .28
     if "OpenGL" in report["viewport_backend"]:
         assert (directory / "viewport-gl.png").stat().st_size > 1000
     print(directory, report["viewport_backend"])

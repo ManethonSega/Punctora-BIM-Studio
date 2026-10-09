@@ -45,13 +45,47 @@ public sealed class SceneData
             {
                 var wall = node!.AsObject();
                 var a = XY(wall["start"]!); var b = XY(wall["end"]!);
-                var side = Vector2.Normalize(new Vector2(-(b-a).Y, (b-a).X)) * Number(wall, "thickness")/2;
-                Add(elements, wall, "Wall", [a-side,b-side,b+side,a+side], Number(wall,"base"),Number(wall,"height"));
+                var direction=Vector2.Normalize(b-a);var length=Vector2.Distance(a,b);
+                var side = new Vector2(-direction.Y,direction.X) * Number(wall, "thickness")/2;
+                var openings=(model["openings"]?.AsArray()??[]).Where(o=>o!["host_wall_id"]!.GetValue<string>()==wall["id"]!.GetValue<string>()&&o["review_state"]?.GetValue<string>()!="rejected").Select(o=>o!.AsObject()).ToList();
+                var cuts=new[]{0f,length}.Concat(openings.SelectMany(o=>new[]{Number(o,"offset"),Number(o,"offset")+Number(o,"width")})).Distinct().Order().ToArray();
+                for(var c=0;c<cuts.Length-1;c++)
+                {
+                    var low=cuts[c];var high=cuts[c+1];var middle=(low+high)/2;
+                    var voids=openings.Where(o=>middle>Number(o,"offset")&&middle<Number(o,"offset")+Number(o,"width")).OrderBy(o=>Number(o,"sill")).ToList();
+                    var z=0f;
+                    void WallPart(float bottom,float top)
+                    {
+                        if(top-bottom<=1e-6)return;
+                        var p=a+direction*low;var q=a+direction*high;
+                        Add(elements,wall,"Wall",[p-side,q-side,q+side,p+side],Number(wall,"base")+bottom,top-bottom);
+                    }
+                    foreach(var opening in voids){WallPart(z,Number(opening,"sill"));z=Math.Max(z,Number(opening,"sill")+Number(opening,"height"));}
+                    WallPart(z,Number(wall,"height"));
+                }
             }
             foreach (var node in model["slabs"]!.AsArray())
             {
                 var slab = node!.AsObject();
                 Add(elements, slab, "Slab", slab["footprint"]!.AsArray().Select(p=>XY(p!)).ToArray(), Number(slab,"base"),Number(slab,"thickness"));
+            }
+            foreach(var node in model["openings"]?.AsArray()??[])
+            {
+                var opening=node!.AsObject();var wall=model["walls"]!.AsArray().First(w=>w!["id"]!.GetValue<string>()==opening["host_wall_id"]!.GetValue<string>())!.AsObject();
+                var direction=Vector2.Normalize(XY(wall["end"]!)-XY(wall["start"]!));
+                var a=XY(wall["start"]!)+direction*Number(opening,"offset");var b=a+direction*Number(opening,"width");
+                var side=new Vector2(-direction.Y,direction.X)*Number(wall,"thickness")/8;
+                Add(elements,opening,opening["kind"]!.GetValue<string>(),[a-side,b-side,b+side,a+side],Number(wall,"base")+Number(opening,"sill"),Number(opening,"height"),wall["storey_id"]!.GetValue<string>());
+            }
+            foreach(var node in model["stairs"]?.AsArray()??[])
+            {
+                var stair=node!.AsObject();var direction=Vector2.Normalize(XY(stair["end"]!)-XY(stair["start"]!));
+                var side=new Vector2(-direction.Y,direction.X)*Number(stair,"width")/2;
+                for(var i=0;i<stair["steps"]!.GetValue<int>();i++)
+                {
+                    var a=XY(stair["start"]!)+direction*Number(stair,"going")*i;var b=a+direction*Number(stair,"going");
+                    Add(elements,stair,"Stair",[a-side,b-side,b+side,a+side],Number(stair,"base")+(i+1)*Number(stair,"rise")-Number(stair,"tread_thickness"),Number(stair,"tread_thickness"));
+                }
             }
         }
         foreach(var element in elements)
@@ -63,11 +97,11 @@ public sealed class SceneData
 
     public static float Number(JsonObject obj, string key) => (float)obj[key]!.GetValue<double>();
     static Vector2 XY(JsonNode p) => new((float)p[0]!.GetValue<double>(), (float)p[1]!.GetValue<double>());
-    static void Add(List<SceneElement> elements, JsonObject obj, string kind, Vector2[] polygon, float z, float height)
+    static void Add(List<SceneElement> elements, JsonObject obj, string kind, Vector2[] polygon, float z, float height, string? storeyId=null)
     {
         var review = obj["review_state"]?.GetValue<string>() ?? "unreviewed";
         var color = review switch { "reviewed" => new Vector4(.18f,.82f,.54f,.5f), "flagged"=>new Vector4(1,.68f,.15f,.55f),
-            "rejected"=>new Vector4(.9f,.25f,.35f,.16f), _=>kind=="Wall"?new Vector4(.43f,.62f,1,.4f):new Vector4(.64f,.68f,.78f,.3f) };
+            "rejected"=>new Vector4(.9f,.25f,.35f,.16f), _=>kind switch {"Wall"=>new Vector4(.43f,.62f,1,.4f),"Stair"=>new Vector4(.9f,.45f,.72f,.7f),"door"=>new Vector4(.95f,.65f,.25f,.5f),"window"=>new Vector4(.2f,.85f,.9f,.35f),_=>new Vector4(.64f,.68f,.78f,.3f)} };
         var vertices = new List<float>();
         void Vertex(Vector2 p,float h) { vertices.AddRange([p.X,p.Y,h,color.X,color.Y,color.Z,color.W]); }
         foreach (var tri in Triangulate(polygon))
@@ -81,7 +115,7 @@ public sealed class SceneData
             Vertex(a,z); Vertex(b,z); Vertex(b,z+height);
             Vertex(a,z); Vertex(b,z+height); Vertex(a,z+height);
         }
-        elements.Add(new SceneElement(obj["id"]!.GetValue<string>(),kind,obj["storey_id"]!.GetValue<string>(),review,vertices.ToArray()));
+        elements.Add(new SceneElement(obj["id"]!.GetValue<string>(),kind,storeyId??obj["storey_id"]!.GetValue<string>(),review,vertices.ToArray()));
     }
     public static List<int[]> Triangulate(Vector2[] polygon)
     {

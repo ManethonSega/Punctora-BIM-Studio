@@ -85,7 +85,7 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         pset = api("pset.add_pset", product=product, name="Punctora_Reconstruction")
         api("pset.edit_pset", pset=pset, properties=properties)
 
-    def solid(product, vertices, depth, matrix):
+    def solid(product, vertices, depth, matrix, append=False, local_z=0.0):
         # Explicit closed planar footprint and metre-valued extrusion.
         vertices = [tuple(map(float, point)) for point in vertices]
         if vertices[0] == vertices[-1]:
@@ -94,11 +94,15 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         curve = file.create_entity("IfcPolyline", Points=points+[points[0]])
         profile = file.create_entity("IfcArbitraryClosedProfileDef", ProfileType="AREA", OuterCurve=curve)
         position = file.create_entity("IfcAxis2Placement3D",
-                                      Location=file.create_entity("IfcCartesianPoint", Coordinates=(0.0, 0.0, 0.0)))
+                                      Location=file.create_entity("IfcCartesianPoint", Coordinates=(0.0, 0.0, float(local_z))))
         extrusion = geom.create_extruded_solid(profile, position,
                     file.create_entity("IfcDirection", DirectionRatios=(0.0, 0.0, 1.0)), float(depth))
-        representation = geom.create_shape_representation(body_context, "Body", "SweptSolid", [extrusion])
-        api("geometry.assign_representation", product=product, representation=representation)
+        if append and product.Representation is not None:
+            representation = product.Representation.Representations[0]
+            representation.Items = tuple(representation.Items)+(extrusion,)
+        else:
+            representation = geom.create_shape_representation(body_context, "Body", "SweptSolid", [extrusion])
+            api("geometry.assign_representation", product=product, representation=representation)
         api("geometry.edit_object_placement", product=product, matrix=matrix)
 
     def wall_frame(wall):
@@ -150,7 +154,7 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         void = root("IfcOpeningElement", opening.id+"-void", predefined="OPENING")
         solid(void, rectangle(opening.width, host.thickness+0.02), opening.height, frame)
         api("feature.add_feature", feature=void, element=host_entity)
-        provenance(void, opening.id+"-void", opening.provenance)
+        provenance(void, opening.id+"-void", opening.provenance, {"ReviewState": opening.review_state})
         class_name = "IfcDoor" if opening.kind == "door" else "IfcWindow"
         filling = root(class_name, opening.id, predefined="NOTDEFINED")
         filling.OverallWidth, filling.OverallHeight = opening.width, opening.height
@@ -166,7 +170,30 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         api("type.assign_type", related_objects=[filling], relating_type=kind)
         api("feature.add_filling", opening=void, element=filling)
         provenance(filling, opening.id, {**opening.provenance, "filling_depth": "inferred", "material": "unknown"},
-                   {"RepresentationScope": "simple filling envelope; sash/leaf construction unknown"})
+                   {"RepresentationScope": "simple filling envelope; sash/leaf construction unknown",
+                    "ReviewState": opening.review_state, "GeometricSupportScore": opening.confidence})
+
+    for stair in model.stairs:
+        parent = root("IfcStair", stair.id, predefined="STRAIGHT_RUN_STAIR")
+        api("spatial.assign_container", products=[parent], relating_structure=storeys[stair.storey_id])
+        flight = root("IfcStairFlight", stair.id+"-flight", predefined="STRAIGHT")
+        api("aggregate.assign_object", products=[flight], relating_object=parent)
+        flight.NumberOfRisers = stair.steps
+        flight.NumberOfTreads = stair.steps
+        flight.RiserHeight = stair.rise
+        flight.TreadLength = stair.going
+        direction = (np.asarray(stair.end)-np.asarray(stair.start))/(stair.steps*stair.going)
+        dx, dy = direction
+        frame = np.array([[dx, -dy, 0, stair.start[0]], [dy, dx, 0, stair.start[1]],
+                          [0, 0, 1, stair.base], [0, 0, 0, 1]], dtype=float)
+        for index in range(stair.steps):
+            vertices = [(x+index*stair.going, y) for x, y in rectangle(stair.going, stair.width)]
+            solid(flight, vertices, stair.tread_thickness, frame, append=True,
+                  local_z=(index+1)*stair.rise-stair.tread_thickness)
+        extra = {"ReviewState": stair.review_state, "GeometricSupportScore": stair.confidence,
+                 "RepresentationScope": "observed tread envelopes; landings, railings and support structure unknown"}
+        provenance(parent, stair.id, stair.provenance, extra)
+        provenance(flight, stair.id+"-flight", stair.provenance, extra)
 
     file.header.file_name.originating_system = f"Punctora BIM Studio core {__version__}"
     file.header.file_name.preprocessor_version = f"IfcOpenShell {ifcopenshell.version}"

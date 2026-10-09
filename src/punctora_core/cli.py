@@ -111,7 +111,8 @@ def main(argv=None):
         if args.command == "demo":
             write_xyz(cloud, args.output_dir/"source.xyz")
         print(json.dumps({"version": __version__, "storeys": len(model.storeys), "walls": len(model.walls),
-                          "slabs": len(model.slabs), "spaces": len(model.spaces), "ifc_valid": report["valid"],
+                          "slabs": len(model.slabs), "spaces": len(model.spaces), "openings": len(model.openings),
+                          "stairs": len(model.stairs), "ifc_valid": report["valid"],
                           "output": str(args.output_dir), "warnings": model.warnings}, indent=2))
         return 0
     except (ValueError, TypeError, OSError, json.JSONDecodeError) as exc:

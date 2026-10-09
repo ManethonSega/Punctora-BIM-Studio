@@ -51,10 +51,12 @@ class ReconstructionSettings:
     region_vertical_tolerance_deg: float = 3.0
     region_minimum_wall_height_fraction: float = 0.6
     region_adaptive: bool = False
+    detect_openings_enabled: bool = True
+    detect_stairs_enabled: bool = True
 
     def validate(self):
         for name, value in asdict(self).items():
-            if name in {"surface_method", "region_adaptive"}:
+            if name in {"surface_method", "region_adaptive", "detect_openings_enabled", "detect_stairs_enabled"}:
                 continue
             if not isfinite(value) or value <= 0:
                 raise ValueError(f"{name} must be finite and positive")
@@ -62,6 +64,8 @@ class ReconstructionSettings:
             raise ValueError("surface_method must be contour or region_growing")
         if not isinstance(self.region_adaptive, bool):
             raise ValueError("region_adaptive must be a boolean")
+        if not isinstance(self.detect_openings_enabled, bool) or not isinstance(self.detect_stairs_enabled, bool):
+            raise ValueError("Feature detection switches must be booleans")
         for name in ["maximum_detection_points", "processing_chunk_points", "region_neighbours", "region_minimum_points"]:
             if not isinstance(getattr(self, name), int) or isinstance(getattr(self, name), bool):
                 raise ValueError(f"{name} must be an integer")
@@ -437,12 +441,16 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
     model.slabs.append(Slab("top-slab", last.id, last.footprint, last.ceiling,
                             settings.assumed_slab_thickness_m, "NOTDEFINED",
                             {"thickness": "inferred", "footprint": "inferred", "material": "unknown"}))
+    from .features import detect_openings, detect_stairs
+    model.openings = detect_openings(cloud, model.walls, settings) if settings.detect_openings_enabled else []
+    model.stairs = detect_stairs(cloud, sorted_levels, settings) if settings.detect_stairs_enabled else []
     model.warnings.extend([
         "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
         "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
         "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
-        "Automatic opening detection is not enabled in this core milestone; explicit openings can be exported.",
-        "No desktop review or whole-cloud deviation report is implemented yet.",
+        "Openings are empty wall-gap proposals; glazing, closed doors and occlusion require manual review.",
+        "Stairs are straight-flight tread envelopes; landings, railings and support structure are not reconstructed.",
+        "Candidate scores are geometric support indicators, not calibrated accuracy probabilities. No whole-cloud deviation report is implemented.",
     ])
     model.metadata = {"engine": settings.surface_method, "settings": asdict(settings),
                       "source_points": len(cloud.points),

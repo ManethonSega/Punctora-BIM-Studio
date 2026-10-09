@@ -83,6 +83,27 @@ class Opening:
     width: float
     height: float
     provenance: dict[str, str] = field(default_factory=dict)
+    review_state: str = "unreviewed"
+    confidence: float | None = None
+    evidence: dict = field(default_factory=dict)
+
+
+@dataclass
+class Stair:
+    id: str
+    storey_id: str
+    start: tuple[float, float]
+    end: tuple[float, float]
+    base: float
+    width: float
+    rise: float
+    going: float
+    steps: int
+    tread_thickness: float = 0.06
+    provenance: dict[str, str] = field(default_factory=dict)
+    review_state: str = "unreviewed"
+    confidence: float | None = None
+    evidence: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -95,6 +116,7 @@ class BuildingModel:
     openings: list[Opening] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
+    stairs: list[Stair] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> "BuildingModel":
@@ -105,7 +127,7 @@ class BuildingModel:
         if set(data) - allowed:
             raise ValueError("Unknown element-model fields")
         parts = {}
-        for key, kind in [("storeys", Storey), ("walls", Wall), ("slabs", Slab), ("spaces", Space), ("openings", Opening)]:
+        for key, kind in [("storeys", Storey), ("walls", Wall), ("slabs", Slab), ("spaces", Space), ("openings", Opening), ("stairs", Stair)]:
             values = data.get(key, [])
             if not isinstance(values, list):
                 raise ValueError(f"{key} must be a list")
@@ -129,7 +151,7 @@ class BuildingModel:
             raise ValueError("Model requires a name and metadata object")
         if not isinstance(self.warnings, list) or any(not isinstance(w, str) for w in self.warnings):
             raise ValueError("Warnings must be a list of strings")
-        objects = self.storeys + self.walls + self.slabs + self.spaces + self.openings
+        objects = self.storeys + self.walls + self.slabs + self.spaces + self.openings + self.stairs
         ids = [obj.id for obj in objects]
         if any(not isinstance(value, str) or not value for value in ids) or len(set(ids)) != len(ids):
             raise ValueError("Element IDs must be nonempty and unique")
@@ -176,7 +198,23 @@ class BuildingModel:
                 raise ValueError("Opening offset and sill must be finite and nonnegative")
             if opening.offset + opening.width > dist(host.start, host.end) + 1e-8 or opening.sill + opening.height > host.height + 1e-8:
                 raise ValueError("Opening exceeds its host wall")
-        for obj in self.storeys + self.walls + self.slabs + self.spaces + self.openings:
+        for stair in self.stairs:
+            if stair.storey_id not in storeys or not isfinite(stair.base):
+                raise ValueError("Stair requires a known storey and finite base")
+            if len(stair.start) != 2 or len(stair.end) != 2 or not all(isfinite(x) for x in (*stair.start, *stair.end)):
+                raise ValueError("Stair endpoints must be finite 2D points")
+            positive(dist(stair.start, stair.end), "Stair length")
+            for key in ["width", "rise", "going", "tread_thickness"]:
+                positive(getattr(stair, key), "Stair " + key)
+            if not isinstance(stair.steps, int) or isinstance(stair.steps, bool) or not 2 <= stair.steps <= 100:
+                raise ValueError("Stair steps must be an integer between 2 and 100")
+            if abs(dist(stair.start, stair.end)-stair.going*stair.steps) > 1e-6:
+                raise ValueError("Stair run must equal steps times going")
+        for obj in objects:
+            if hasattr(obj, "confidence") and obj.confidence is not None and (not isfinite(obj.confidence) or not 0 <= obj.confidence <= 1):
+                raise ValueError("Candidate confidence must lie between zero and one")
+            if hasattr(obj, "evidence") and not isinstance(obj.evidence, dict):
+                raise ValueError("Element evidence must be an object")
             if hasattr(obj, "review_state") and obj.review_state not in {"unreviewed", "reviewed", "flagged", "rejected"}:
                 raise ValueError("Unknown review state")
             if any(state not in PROVENANCE_STATES for state in obj.provenance.values()):

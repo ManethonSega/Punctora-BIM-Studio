@@ -21,7 +21,7 @@ The application automatically attempts an OpenGL cloud/model renderer. On Window
 
 The OpenGL preview is capped at 100,000 deterministic source samples, held in batched XYZ/RGBA buffers. Camera transformations, section clipping and point depth run in the graphics context. Canonical fitting coordinates remain double precision; preview floats never overwrite scan data. Transparent candidate meshes and observed points form an inspection overlay. The preview is not an exact hidden-surface rendering or a deviation report.
 
-This first preview uses a fixed sample rather than view-dependent streaming/LOD. It provides a vertical section and storey filtering; arbitrary box crops, more editing tools and large-scene picking indexes are follow-up work. Explicit opening geometry can export through the core, but the desktop preview/editor currently handles walls and slabs; automatic door/window detection is absent.
+This preview uses a fixed sample rather than view-dependent streaming/LOD. It provides a vertical section and storey filtering; arbitrary box crops and large-scene picking indexes are follow-up work. Version 0.3.0a3 adds geometric opening-gap and straight-stair candidates, parameter editing, review states and IFC export. Opening candidates cut the host wall in the preview; stair candidates display tread envelopes. See [feature detection and limits](FEATURE_DETECTION.md).
 
 **Point-cloud-to-IFC conversion still uses the CPU.** GPU rendering does not accelerate E57 decoding, reconstruction or IFC writing. Coordinated multicore reconstruction and a GPU compute backend need separate profiling and numerical verification. Existing native NumPy/OpenCV routines may use threads internally.
 
