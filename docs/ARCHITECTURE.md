@@ -56,6 +56,8 @@ An element carries its stable ID, class, storey ID, geometry parameters, source 
 
 Element JSON schema 2 records wall observed faces, deterministic evidence selectors, per-scan counts and bounded record examples. CLI exports full N x 3 int64 wall references (working-cloud row, scan index, original scan record) and region-patch representative IDs to generation-specific NPY files. Paths are relative to the output/project directory. An identifier absent from the source is -1, never a fabricated scan record. Surface proposals remain separate from IFC elements. Slab footprints and unseen thicknesses remain inferred; wall reference files do not validate those properties.
 
+After face fitting, a conservative topology pass joins same-storey wall fragments only when their direction, lateral offset, height, thickness and projected gap satisfy configured limits. It runs before source-record evidence attachment and opening detection. Explicit desktop merges keep the first wall ID, retain source evidence, and project hosted openings into the combined wall frame. Explicit splits keep the original ID for the first segment, create a deterministic second ID, and reassign openings by local offset. A split through an opening is rejected. Both operations invalidate derived spaces until boundary regeneration is implemented.
+
 Use explicit parameter states: `measured`, `inferred`, `user_supplied`, `unknown`. A fitted wall surface does not establish its hidden thickness, material or load-bearing status. Unknown values remain unknown unless an export representation requires an assumption; that assumption is shown and recorded. Do not assign an uncalibrated number as a probability of correctness.
 
 ## Research resources in the foundation

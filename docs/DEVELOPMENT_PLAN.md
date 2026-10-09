@@ -16,6 +16,8 @@ IFC validation starts in M1 and evolves throughout; M4 makes it user-facing and 
 
 The [M3 implementation plan](M3_IMPLEMENTATION_PLAN.md) records the desktop sequence and the user's automatic-GPU requirement. Viewport rendering and reconstruction computation are separate backends; M2 processing is currently CPU-only.
 
+Accuracy run 1 is implemented in 0.3.0a4: conservative collinear wall consolidation, desktop multi-wall merge and wall split, hosted-opening reassignment, undo/save/reopen persistence, and validated IFC regression coverage. Real-scan threshold tuning remains part of the annotated field benchmark rather than a synthetic accuracy claim.
+
 ## First usable release acceptance
 
 - Import a supported registered E57 without altering it or duplicating cached points on rerun.

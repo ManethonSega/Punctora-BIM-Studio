@@ -19,6 +19,7 @@ from .cloud2bim_geometry import (
 from .model import BuildingModel, Slab, Space, Storey, Wall
 from .sampling import voxel_sample
 from .surfaces import region_growing
+from .wall_editing import consolidate_walls
 
 
 @dataclass(frozen=True)
@@ -53,10 +54,15 @@ class ReconstructionSettings:
     region_adaptive: bool = False
     detect_openings_enabled: bool = True
     detect_stairs_enabled: bool = True
+    consolidate_walls_enabled: bool = True
+    wall_merge_angle_deg: float = 2.0
+    wall_merge_lateral_tolerance_m: float = 0.08
+    wall_merge_gap_m: float = 0.35
+    wall_merge_thickness_tolerance_m: float = 0.08
 
     def validate(self):
         for name, value in asdict(self).items():
-            if name in {"surface_method", "region_adaptive", "detect_openings_enabled", "detect_stairs_enabled"}:
+            if name in {"surface_method", "region_adaptive", "detect_openings_enabled", "detect_stairs_enabled", "consolidate_walls_enabled"}:
                 continue
             if not isfinite(value) or value <= 0:
                 raise ValueError(f"{name} must be finite and positive")
@@ -64,7 +70,8 @@ class ReconstructionSettings:
             raise ValueError("surface_method must be contour or region_growing")
         if not isinstance(self.region_adaptive, bool):
             raise ValueError("region_adaptive must be a boolean")
-        if not isinstance(self.detect_openings_enabled, bool) or not isinstance(self.detect_stairs_enabled, bool):
+        if (not isinstance(self.detect_openings_enabled, bool) or not isinstance(self.detect_stairs_enabled, bool)
+                or not isinstance(self.consolidate_walls_enabled, bool)):
             raise ValueError("Feature detection switches must be booleans")
         for name in ["maximum_detection_points", "processing_chunk_points", "region_neighbours", "region_minimum_points"]:
             if not isinstance(getattr(self, name), int) or isinstance(getattr(self, name), bool):
@@ -395,7 +402,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
     sorted_levels = sorted(levels, key=lambda s: s.elevation)
     if any(a.ceiling > b.elevation + 1e-8 for a, b in zip(sorted_levels, sorted_levels[1:])):
         raise ValueError("Storey clear-height intervals overlap")
-    detection, proposals = [], []
+    detection, proposals, consolidation = [], [], []
     for index, level in enumerate(sorted_levels):
         if settings.surface_method == "region_growing":
             local_walls, patches, statistics = _region_walls(cloud, level, settings)
@@ -409,6 +416,15 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
             local_walls = detect_walls(sample.points, level, settings)
             statistics = {"sample_points": len(sample.points), "source_point_count": sample.source_point_count,
                           "voxel_size_m": sample.voxel_size_m}
+        if settings.consolidate_walls_enabled:
+            local_walls, report = consolidate_walls(
+                local_walls, angle_deg=settings.wall_merge_angle_deg,
+                lateral_m=settings.wall_merge_lateral_tolerance_m,
+                gap_m=settings.wall_merge_gap_m,
+                thickness_m=settings.wall_merge_thickness_tolerance_m)
+        else:
+            report = {"input_walls": len(local_walls), "output_walls": len(local_walls), "groups": []}
+        consolidation.append({"storey_id": level.id, **report})
         detection.append({"storey_id": level.id, **statistics})
         if statistics.get("voxel_size_m", settings.detection_voxel_size_m) > settings.detection_voxel_size_m:
             model.warnings.append(f"{level.id}: detection voxels enlarged to {statistics['voxel_size_m']:.6g} m to respect the point budget; small features may be missed")
@@ -457,6 +473,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                       "coordinate_frame": cloud.metadata.get("coordinate_frame", "caller-supplied metres, Z up"),
                       "fit_rmse_scope": "original points selected near observed wall faces, not whole-cloud deviation",
                       "detection": detection, "surface_proposals": proposals,
+                      "wall_consolidation": consolidation,
                       "level_detection": None if level_sample is None else {
                           "sample_points": len(level_sample.points), "voxel_size_m": level_sample.voxel_size_m},
                       "element_schema_version": 2}

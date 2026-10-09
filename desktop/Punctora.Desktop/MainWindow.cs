@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Selection;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -25,16 +26,17 @@ public sealed class MainWindow : Window
     readonly StackPanel fieldsPanel=new(){Spacing=8};
     readonly Dictionary<string,TextBox> fields=[];
     readonly Dictionary<string,string> initialFields=[];
-    readonly ListBox elements=new();
+    readonly ListBox elements=new(){SelectionMode=SelectionMode.Multiple};
     readonly ComboBox storeys=new(){HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly ComboBox method=new(){ItemsSource=new[]{"Contours","Region growing"},SelectedIndex=0};
     readonly ComboBox review=new(){ItemsSource=new[]{"unreviewed","reviewed","flagged","rejected"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
-    readonly ComboBox classification=new(){ItemsSource=new[]{"unclassified","paired_faces","exterior_candidate","interior","exterior"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
+    readonly ComboBox classification=new(){ItemsSource=new[]{"unclassified","paired_faces","single_face_candidate","exterior_candidate","consolidated_candidate","interior","exterior"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly CheckBox zUp=new(){Content="Z is up (confirm before fitting)"};
     readonly Slider section=new(){Minimum=0,Maximum=10,Value=10};
     readonly ProgressBar progress=new(){Minimum=0,Maximum=100,Height=4};
     readonly List<Button> projectActions=[];
-    readonly Button save,apply,cancel,undoButton;
+    readonly Button save,apply,cancel,undoButton,mergeButton,splitButton;
+    readonly TextBox splitOffset=new(){Watermark="Distance from wall start (m)"};
     readonly Stack<JsonNode> undo=[];
     CancellationTokenSource? jobCancellation;
     JsonObject? state;
@@ -44,7 +46,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a3 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
+        Title="Punctora BIM Studio | 0.3.0a4 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -53,7 +55,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a3",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a4",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -80,7 +82,12 @@ public sealed class MainWindow : Window
         center.Children.Add(new Border{Child=viewport,CornerRadius=new CornerRadius(10),ClipToBounds=true});
         var viewFooter=new StackPanel{Spacing=4,Margin=new Thickness(8,8,8,0)};viewFooter.Children.Add(counts);viewFooter.Children.Add(Text("Drag: orbit  ·  Right-drag: pan  ·  Wheel: zoom  ·  Click model: select",11));viewFooter.Children.Add(backend);Grid.SetRow(viewFooter,1);center.Children.Add(viewFooter);
         var inspector=new StackPanel{Spacing=10,Margin=new Thickness(14)};inspector.Children.Add(selectedTitle);inspector.Children.Add(fieldsPanel);inspector.Children.Add(Text("Review state",11));inspector.Children.Add(review);inspector.Children.Add(Text("Wall classification",11));inspector.Children.Add(classification);
-        apply=Button("Apply correction",ApplyAsync);inspector.Children.Add(apply);inspector.Children.Add(Text("SCAN EVIDENCE & ASSUMPTIONS",11));inspector.Children.Add(evidence);inspector.Children.Add(Text("PROJECT FINDINGS",11));inspector.Children.Add(warnings);
+        apply=Button("Apply correction",ApplyAsync);inspector.Children.Add(apply);
+        inspector.Children.Add(Text("WALL TOPOLOGY",11));
+        mergeButton=Button("Merge selected wall fragments",()=>MergeWallsAsync());inspector.Children.Add(mergeButton);
+        inspector.Children.Add(splitOffset);splitButton=Button("Split selected wall",SplitWallAsync);inspector.Children.Add(splitButton);
+        inspector.Children.Add(Text("Ctrl-click wall rows to select fragments for merging. Split distance is measured from the selected wall start.",11));
+        inspector.Children.Add(Text("SCAN EVIDENCE & ASSUMPTIONS",11));inspector.Children.Add(evidence);inspector.Children.Add(Text("PROJECT FINDINGS",11));inspector.Children.Add(warnings);
         var right=Panel(new ScrollViewer{Content=inspector,HorizontalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled});Grid.SetColumn(right,4);body.Children.Add(right);
         var footer=new StackPanel{Spacing=7,Margin=new Thickness(0,12,0,0)};footer.Children.Add(progress);footer.Children.Add(status);Grid.SetRow(footer,3);root.Children.Add(footer);Content=root;
         storeys.SelectionChanged+=(_,_)=>FilterStorey();
@@ -107,6 +114,7 @@ public sealed class MainWindow : Window
     {
         foreach(var button in projectActions)button.IsEnabled=!busy;
         cancel.IsEnabled=busy;apply.IsEnabled=!busy&&selectedId!=null;save.IsEnabled=!busy&&dirty&&state?["model"]!=null;undoButton.IsEnabled=!busy&&undo.Count>0;
+        var selectedWalls=SelectedWallIds();var selected=Selected();mergeButton.IsEnabled=!busy&&selectedWalls.Length>=2;splitButton.IsEnabled=!busy&&selected!=null&&selected.Value.Kind=="walls";splitOffset.IsEnabled=splitButton.IsEnabled;
         method.IsEnabled=zUp.IsEnabled=!busy;
         foreach(var field in fields.Values)field.IsEnabled=!busy;
         review.IsEnabled=classification.IsEnabled=!busy&&selectedId!=null;
@@ -185,6 +193,12 @@ public sealed class MainWindow : Window
             foreach(var node in model[kind]?.AsArray()??[])if(node!["id"]!.GetValue<string>()==selectedId)return(kind,node.AsObject());
         return null;
     }
+    string[] SelectedWallIds()
+    {
+        if(state?["model"] is not JsonObject model)return [];
+        var walls=(model["walls"]?.AsArray()??[]).Select(node=>node!["id"]!.GetValue<string>()).ToHashSet();
+        return elements.Selection.SelectedIndexes.Where(index=>index>=0&&index<elementIds.Length).Select(index=>elementIds[index]).Where(walls.Contains).Distinct().ToArray();
+    }
     void ShowProperties()
     {
         fields.Clear();initialFields.Clear();fieldsPanel.Children.Clear();var selection=Selected();
@@ -199,6 +213,8 @@ public sealed class MainWindow : Window
         {
             for(var j=0;j<2;j++)foreach(var key in new[]{"start","end"})Field(key+j,key+" "+(j==0?"X":"Y")+" (m)",obj[key]![j]!.GetValue<double>().ToString("G10",CultureInfo.InvariantCulture));
             Number("base","Base (m)");Number("height","Height (m)");Number("thickness","Thickness (m)");
+            var dx=obj["end"]![0]!.GetValue<double>()-obj["start"]![0]!.GetValue<double>();var dy=obj["end"]![1]!.GetValue<double>()-obj["start"]![1]!.GetValue<double>();
+            splitOffset.Text=(Math.Sqrt(dx*dx+dy*dy)/2).ToString("G10",CultureInfo.InvariantCulture);
         }
         else if(kind=="slabs"){Number("base","Base (m)");Number("thickness","Thickness (m)");}
         else if(kind=="openings")
@@ -253,6 +269,21 @@ public sealed class MainWindow : Window
     async Task UndoAsync()
     {if(state==null||projectPath==null||undo.Count==0)return;state["model"]=undo.Pop();dirty=true;await PresentAsync(projectPath,state,false);status.Text="Edit undone. Save to keep this version.";}
     async Task RevertAsync(){if(projectPath==null)return;dirty=false;undo.Clear();await LoadAsync(projectPath);}
+    async Task MergeWallsAsync(string[]? requested=null)
+    {
+        if(state==null||projectPath==null||busy)return;var ids=requested??SelectedWallIds();
+        if(ids.Length<2){status.Text="Ctrl-click at least two collinear wall rows to merge.";return;}
+        var previous=state["model"]!.DeepClone();var request=ModelRequest();request["wall_ids"]=new JsonArray(ids.Select(id=>(JsonNode?)JsonValue.Create(id)).ToArray());
+        var result=await RunAsync("merge_walls",projectPath,request);if(result==null)return;
+        undo.Push(previous);dirty=true;selectedId=ids[0];await PresentAsync(projectPath,result,false);status.Text=$"Merged {ids.Length} wall fragments. Save to keep this version.";
+    }
+    async Task SplitWallAsync()
+    {
+        var selection=Selected();if(state==null||projectPath==null||busy||selection==null||selection.Value.Kind!="walls")return;
+        var previous=state["model"]!.DeepClone();var request=ModelRequest();request["wall_id"]=selection.Value.Node["id"]!.GetValue<string>();request["offset"]=Parse(splitOffset.Text??"");
+        var result=await RunAsync("split_wall",projectPath,request);if(result==null)return;
+        undo.Push(previous);dirty=true;selectedId=selection.Value.Node["id"]!.GetValue<string>();await PresentAsync(projectPath,result,false);status.Text="Wall split and hosted openings reassigned. Save to keep this version.";
+    }
     async Task<string?> PickProjectAsync(string title)
     {
         var file=await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions{Title=title,SuggestedFileName="Punctora-project.punctora",DefaultExtension="punctora",FileTypeChoices=[new FilePickerFileType("Punctora project"){Patterns=["*.punctora"]}]});
@@ -328,13 +359,18 @@ public sealed class MainWindow : Window
             fields["thickness"].Text="0.27";review.SelectedItem="reviewed";await ApplyAsync();if(!dirty)throw new Exception("Correction did not enter draft state");
             selectedId="ui-window";ShowProperties();fields["width"].Text="0.65";review.SelectedItem="reviewed";await ApplyAsync();
             selectedId="ui-stair";ShowProperties();fields["going"].Text="0.28";review.SelectedItem="reviewed";await ApplyAsync();
+            var wallId=sample["id"]!.GetValue<string>();var currentWall=state!["model"]!["walls"]!.AsArray().First(node=>node!["id"]!.GetValue<string>()==wallId)!;
+            var dx=currentWall["end"]![0]!.GetValue<double>()-currentWall["start"]![0]!.GetValue<double>();var dy=currentWall["end"]![1]!.GetValue<double>()-currentWall["start"]![1]!.GetValue<double>();
+            selectedId=wallId;ShowProperties();splitOffset.Text=(Math.Sqrt(dx*dx+dy*dy)/2).ToString(CultureInfo.InvariantCulture);await SplitWallAsync();
+            var splitId=wallId+"-split-2";if(!state!["model"]!["walls"]!.AsArray().Any(node=>node!["id"]!.GetValue<string>()==splitId))throw new Exception("Wall split was not applied");
+            await MergeWallsAsync([wallId,splitId]);if(state!["model"]!["walls"]!.AsArray().Any(node=>node!["id"]!.GetValue<string>()==splitId))throw new Exception("Wall merge was not applied");
             await SaveAsync();await LoadAsync(path);if(Math.Abs(state!["model"]!["walls"]![0]!["thickness"]!.GetValue<double>()-.27)>1e-10)throw new Exception("Edit was lost on reopening");
             if(Math.Abs(state!["model"]!["openings"]![0]!["width"]!.GetValue<double>()-.65)>1e-10||Math.Abs(state["model"]!["stairs"]![0]!["going"]!.GetValue<double>()-.28)>1e-10)throw new Exception("Feature edit lost on reopening");
             selectedId=state["model"]!["walls"]![0]!["id"]!.GetValue<string>();ShowProperties();viewport.View.Selected=selectedId;viewport.Redraw();
             await ExportToAsync(Path.Combine(output,"edited.ifc"));
             await Task.Delay(1800);for(var i=0;i<30;i++){viewport.View.Camera.Yaw+=.008f;viewport.Redraw();await Task.Delay(20);}viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(700);
             using(var bitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96))){bitmap.Render(this);using var outputStream=File.Create(Path.Combine(output,"desktop.png"));bitmap.Save(outputStream,PngBitmapEncoderOptions.Default);}
-            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["edit_survived_reopen"]=true,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="CPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
+            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="CPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
             dirty=false;Environment.ExitCode=0;Close();
         }
         catch(Exception e){File.WriteAllText(Path.Combine(output,"ui-error.txt"),e.ToString());dirty=false;Environment.ExitCode=1;Close();}

@@ -17,6 +17,7 @@ from .fixtures import demo_cloud
 from .ifc_export import write_ifc
 from .model import BuildingModel
 from .reconstruction import ReconstructionSettings, reconstruct
+from .wall_editing import merge_walls, split_wall
 
 PREVIEW_LIMIT = 100000
 
@@ -375,6 +376,18 @@ def edit_model(state, data, element_id, changes):
                             "quality_scope": "Observed faces and evidence describe the original fit, not the corrected geometry"})
     model.validate()
     return model.to_dict()
+
+
+def merge_model_walls(state, data, wall_ids):
+    """Apply an explicit draft-only wall merge and preserve hosted openings."""
+    model = draft_model(state, data)
+    return merge_walls(model, wall_ids).to_dict()
+
+
+def split_model_wall(state, data, wall_id, offset):
+    """Split one draft wall at a measured local offset from its start point."""
+    model = draft_model(state, data)
+    return split_wall(model, wall_id, offset).to_dict()
 
 
 def save_project(path, request):

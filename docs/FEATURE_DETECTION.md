@@ -8,6 +8,8 @@ The detector projects bounded source-cloud chunks into each reconstructed wall's
 
 Edit kind (door/window), offset from the wall start, sill, width and height. The preview cuts accepted candidate geometry out of the wall and shows a simple coloured filling envelope. IFC exports IfcOpeningElement with IfcRelVoidsElement and an IfcDoor/IfcWindow filling, including type and IfcRelFillsElement. Rejected openings do not cut exported walls. Rejecting a host wall also excludes its openings.
 
+Wall fragments are conservatively consolidated before this detector runs so an opening can be evaluated in one continuous host frame. A manual wall merge reprojects existing opening bounds onto the merged axis. A manual split assigns each opening to the correct segment and refuses a split plane that intersects an opening.
+
 Missing scan returns can still imitate an opening. Closed doors, reflective glazing, cluttered gaps, arches and gaps outside the size limits can be missed. Confirm candidates against the original scan. No frame, leaf or sash construction is inferred.
 
 ## Stairs

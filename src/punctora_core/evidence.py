@@ -93,7 +93,7 @@ def attach_evidence(cloud, walls, chunk_points=100_000, endpoint_margin=0.04, ra
             continue
         first = wall.observed_faces[0]
         a, b = np.asarray(first["start"]), np.asarray(first["end"])
-        if len(wall.observed_faces) == 2:
+        if len(wall.observed_faces) == 2 and wall.classification == "paired_faces":
             from .reconstruction import _paired_axis
             second = wall.observed_faces[1]
             axis, thickness = _paired_axis([a, b], [second["start"], second["end"]])
@@ -107,7 +107,7 @@ def attach_evidence(cloud, walls, chunk_points=100_000, endpoint_margin=0.04, ra
             if normal @ (old_midpoint-(a+b)/2) < 0:
                 normal *= -1
             wall.start, wall.end = tuple(a+normal*wall.thickness/2), tuple(b+normal*wall.thickness/2)
-        else:
+        elif wall.classification != "consolidated_candidate":
             wall.start, wall.end = tuple(a), tuple(b)
         wall.evidence = {"schema_version": 1, "scope": "observed face support, excludes unseen geometry",
                          "selector": {"radius_m": radius, "endpoint_margin_m": endpoint_margin,
