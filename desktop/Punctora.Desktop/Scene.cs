@@ -177,6 +177,19 @@ public sealed class Camera
         if(p.W<=0) return null;
         return new Vector3((p.X/p.W+1)*(float)size.Width/2,(1-p.Y/p.W)*(float)size.Height/2,p.Z/p.W);
     }
+    public Vector3? IntersectZ(Point location,Size size,float z)
+    {
+        if(size.Width<=0||size.Height<=0||!Matrix4x4.Invert(Matrix(size),out var inverse))return null;
+        Vector3 Unproject(float depth)
+        {
+            var p=Vector4.Transform(new Vector4((float)(2*location.X/size.Width-1),(float)(1-2*location.Y/size.Height),depth,1),inverse);
+            return new Vector3(p.X,p.Y,p.Z)/p.W;
+        }
+        var origin=Unproject(0);var direction=Unproject(1)-origin;
+        if(Math.Abs(direction.Z)<1e-8)return null;
+        var distance=(z-origin.Z)/direction.Z;
+        return distance>0?origin+direction*distance:null;
+    }
     public string? Pick(SceneData scene,Point location,Size size,string? storey,float zMin,float zMax)
     {
         if(!Matrix4x4.Invert(Matrix(size),out var inverse)) return null;

@@ -37,18 +37,38 @@ public sealed class ViewSettings
     public float ZMax { get; set; }=1e20f;
     public CloudColorMode CloudColor { get; set; }=CloudColorMode.Height;
     public float PointSize { get; set; }=2.5f;
+    public List<Vector2>? CropPolygon { get; set; }
+    public float? CropBottom { get; set; }
+    public float? CropTop { get; set; }
     public string? Storey { get; set; }
     public string? Selected { get; set; }
+    public bool InsideCrop(Vector3 point)
+    {
+        if(CropBottom is { } bottom&&point.Z<bottom||CropTop is { } top&&point.Z>top)return false;
+        if(CropPolygon is not { Count:>=3 } polygon)return true;
+        var inside=false;var previous=polygon[^1];
+        foreach(var current in polygon)
+        {
+            if(((previous.Y>point.Y)!=(current.Y>point.Y))
+                &&point.X<(current.X-previous.X)*(point.Y-previous.Y)/(current.Y-previous.Y)+previous.X)inside=!inside;
+            previous=current;
+        }
+        return inside;
+    }
 }
 public sealed class SceneViewport : Grid
 {
     public ViewSettings View { get; }=new();
     readonly GpuViewport gpu;
     readonly SoftwareViewport software;
+    readonly CropOverlay cropOverlay;
     public Action<string>? BackendChanged;
     public Action<string?>? ElementSelected;
     Point press,last;
     bool dragging,pan;
+    readonly List<Vector2> cropDraft=[];
+    public bool CropDrawing { get; private set; }
+    public int CropDraftCount=>cropDraft.Count;
     public bool SoftwareMode { get; private set; }
     public string Backend { get; private set; }="Initializing graphics";
     public SceneViewport(bool forceSoftware=false)
@@ -56,7 +76,8 @@ public sealed class SceneViewport : Grid
         ClipToBounds=true; Background=Brushes.Transparent;
         software=new SoftwareViewport(View){IsHitTestVisible=false};
         gpu=new GpuViewport(View){IsHitTestVisible=false};
-        Children.Add(software); Children.Add(gpu);
+        cropOverlay=new CropOverlay(View,cropDraft,()=>CropDrawing){IsHitTestVisible=false};
+        Children.Add(software); Children.Add(gpu); Children.Add(cropOverlay);
         gpu.Ready=backend=>Dispatcher.UIThread.Post(()=>{if(SoftwareMode)return;software.IsVisible=false;Backend=backend; BackendChanged?.Invoke(backend);});
         gpu.Failed=reason=>Dispatcher.UIThread.Post(()=>UseSoftware(reason));
         if(forceSoftware) UseSoftware("Selected in settings");
@@ -67,7 +88,18 @@ public sealed class SceneViewport : Grid
             AttachedToVisualTree+=(_,_)=>timer.Start();
             DetachedFromVisualTree+=(_,_)=>timer.Stop();
         }
-        PointerPressed+=(_,e)=>{press=last=e.GetPosition(this); pan=e.GetCurrentPoint(this).Properties.IsRightButtonPressed; dragging=true; e.Pointer.Capture(this);};
+        PointerPressed+=(_,e)=>
+        {
+            if(CropDrawing)
+            {
+                var properties=e.GetCurrentPoint(this).Properties;
+                if(properties.IsRightButtonPressed&&cropDraft.Count>0)cropDraft.RemoveAt(cropDraft.Count-1);
+                else if(properties.IsLeftButtonPressed&&View.Camera.IntersectZ(e.GetPosition(this),Bounds.Size,(View.Scene.PointMinimum.Z+View.Scene.PointMaximum.Z)/2) is { } point)
+                    cropDraft.Add(new Vector2(point.X,point.Y));
+                cropOverlay.InvalidateVisual();e.Handled=true;return;
+            }
+            press=last=e.GetPosition(this); pan=e.GetCurrentPoint(this).Properties.IsRightButtonPressed; dragging=true; e.Pointer.Capture(this);
+        };
         PointerMoved+=(_,e)=>
         {
             if(!dragging)return; var current=e.GetPosition(this); var delta=current-last; last=current;
@@ -83,6 +115,7 @@ public sealed class SceneViewport : Grid
         };
         PointerReleased+=(_,e)=>
         {
+            if(CropDrawing){e.Handled=true;return;}
             var location=e.GetPosition(this);
             if(dragging&&!pan&&Math.Sqrt(Math.Pow(location.X-press.X,2)+Math.Pow(location.Y-press.Y,2))<4&&View.Model)
                 ElementSelected?.Invoke(View.Camera.Pick(View.Scene,location,Bounds.Size,View.Storey,View.ZMin,View.ZMax));
@@ -107,16 +140,60 @@ public sealed class SceneViewport : Grid
     {
         View.Scene=scene; if(fit)View.Camera.Fit(scene); gpu.MarkDirty(); Redraw();
     }
-    public void Redraw(){software.InvalidateVisual(); if(!SoftwareMode)gpu.RequestNextFrameRendering();}
+    public void SetCrop(IEnumerable<Vector2>? polygon,float? bottom,float? top)
+    {
+        View.CropPolygon=polygon?.ToList();View.CropBottom=bottom;View.CropTop=top;
+        gpu.MarkDirty();cropOverlay.InvalidateVisual();Redraw();
+    }
+    public void FitVisible()
+    {
+        var points=View.Scene.Points;var minimum=new Vector3(float.PositiveInfinity);var maximum=new Vector3(float.NegativeInfinity);var found=false;
+        for(var offset=0;offset<points.Length;offset+=7)
+        {
+            var point=Camera.Position(points,offset);if(!View.InsideCrop(point))continue;
+            minimum=Vector3.Min(minimum,point);maximum=Vector3.Max(maximum,point);found=true;
+        }
+        if(!found)View.Camera.Fit(View.Scene);
+        else{View.Camera.Target=(minimum+maximum)/2;View.Camera.Span=Math.Max(1,Vector3.Distance(minimum,maximum));}
+        Redraw();
+    }
+    public void BeginCropDrawing()
+    {
+        cropDraft.Clear();CropDrawing=true;View.Camera.Pitch=1.35f;View.Camera.Fit(View.Scene);cropOverlay.InvalidateVisual();Redraw();
+    }
+    public Vector2[] FinishCropDrawing()
+    {
+        if(cropDraft.Count<3)throw new InvalidOperationException("Add at least three crop vertices before applying the crop.");
+        var result=cropDraft.ToArray();cropDraft.Clear();CropDrawing=false;cropOverlay.InvalidateVisual();return result;
+    }
+    public void CancelCropDrawing(){cropDraft.Clear();CropDrawing=false;cropOverlay.InvalidateVisual();}
+    public void Redraw(){software.InvalidateVisual();cropOverlay.InvalidateVisual();if(!SoftwareMode)gpu.RequestNextFrameRendering();}
     public void CaptureGpu(string path){if(SoftwareMode)return;gpu.CapturePath=path;gpu.RequestNextFrameRendering();}
     public JsonObject Diagnostics()=>new(){["backend"]=Backend,["viewport_width"]=Bounds.Width,["viewport_height"]=Bounds.Height,
         ["render_callbacks"]=SoftwareMode?software.RenderTimes.Count:gpu.RenderTimes.Count,
         ["cpu_render_submission_mean_ms"]=Mean(SoftwareMode?software.RenderTimes:gpu.RenderTimes),
-        ["point_buffer_bytes"]=SoftwareMode?0:View.Scene.Points.Length*4,
+        ["point_buffer_bytes"]=SoftwareMode?0:gpu.VisiblePointCount*7*4,
         ["mesh_buffer_bytes"]=SoftwareMode?0:View.Scene.Elements.Sum(e=>e.Triangles.Length)*4,
         ["cloud_color_mode"]=View.CloudColor.ToString(),["point_size_px"]=View.PointSize,
         ["timing_scope"]="CPU drawing/submission callbacks; excludes GPU completion and compositor; not FPS"};
     static double Mean(List<double> values)=>values.Count==0?0:values.Average();
+}
+
+public sealed class CropOverlay(ViewSettings view,List<Vector2> draft,Func<bool> drawing) : Control
+{
+    public override void Render(DrawingContext context)
+    {
+        var polygon=drawing()?draft:view.CropPolygon;
+        if(polygon is not { Count:>0 })return;
+        var z=(view.Scene.PointMinimum.Z+view.Scene.PointMaximum.Z)/2;
+        var points=polygon.Select(p=>view.Camera.Project(new Vector3(p,z),Bounds.Size)).Where(p=>p!=null)
+            .Select(p=>new Point(p!.Value.X,p.Value.Y)).ToArray();
+        if(points.Length==0)return;
+        var brush=new SolidColorBrush(drawing()?Color.Parse("#FBBF24"):Color.Parse("#22D3EE"));var pen=new Pen(brush,2);
+        for(var i=1;i<points.Length;i++)context.DrawLine(pen,points[i-1],points[i]);
+        if(!drawing()&&points.Length>=3)context.DrawLine(pen,points[^1],points[0]);
+        foreach(var point in points)context.DrawEllipse(brush,new Pen(Brushes.Black,1),point,4,4);
+    }
 }
 
 public sealed class SoftwareViewport(ViewSettings view) : Control
@@ -133,9 +210,11 @@ public sealed class SoftwareViewport(ViewSettings view) : Control
         if(view.Cloud)
         {
             var count=scene.Points.Length/7;
-            var stride=Math.Max(1,(int)Math.Ceiling(count/5000.0));
-            for(var i=0;i<count;i+=stride)
+            var visible=Enumerable.Range(0,count).Where(i=>view.InsideCrop(Camera.Position(scene.Points,i*7))).ToArray();
+            var stride=Math.Max(1,(int)Math.Ceiling(visible.Length/5000.0));
+            for(var item=0;item<visible.Length;item+=stride)
             {
+                var i=visible[item];
                 var offset=i*7; var pos=Camera.Position(scene.Points,offset);
                 if(pos.Z<view.ZMin||pos.Z>view.ZMax)continue;
                 var p=view.Camera.Project(pos,Bounds.Size);
@@ -191,6 +270,7 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
     public string Backend{get;private set;}="Initializing graphics";
     public Action<string>? Ready,Failed;
     public string? CapturePath;
+    public int VisiblePointCount{get;private set;}
     int program,vertexShader,fragmentShader,pointBuffer,modelBuffer,vao,depth,width,height;
     int matrixUniform,opacityUniform,zMinUniform,zMaxUniform,highlightUniform,pointSizeUniform,colorModeUniform,cloudMinUniform,cloudMaxUniform;
     bool dirty=true;
@@ -249,7 +329,8 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
             gl.BindVertexArray(vao);gl.UseProgram(program);
             if(dirty)
             {
-                Upload(gl,pointBuffer,view.Scene.Points);
+                var visiblePoints=VisiblePoints(view.Scene.Points,view);VisiblePointCount=visiblePoints.Length/7;
+                Upload(gl,pointBuffer,visiblePoints);
                 ranges=[];var data=new List<float>();
                 foreach(var element in view.Scene.Elements){ranges.Add((element,data.Count/7,element.Triangles.Length/7));data.AddRange(element.Triangles);}
                 Upload(gl,modelBuffer,data.ToArray());dirty=false;
@@ -268,7 +349,7 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
             }
             gl.DepthMask(1);
             // Overlay observed points on translucent candidates; depth still resolves points against points.
-            if(view.Cloud){gl.Uniform1i(highlightUniform,0);gl.Uniform1f(opacityUniform,1);gl.Uniform1i(colorModeUniform,(int)view.CloudColor);Bind(gl,pointBuffer);gl.DrawArrays(0,0,(IntPtr)(view.Scene.Points.Length/7));}
+            if(view.Cloud){gl.Uniform1i(highlightUniform,0);gl.Uniform1f(opacityUniform,1);gl.Uniform1i(colorModeUniform,(int)view.CloudColor);Bind(gl,pointBuffer);gl.DrawArrays(0,0,(IntPtr)VisiblePointCount);}
             if(view.Model&&view.Selected!=null)
             {
                 gl.Disable(0x0B71);Bind(gl,modelBuffer);gl.Uniform1i(highlightUniform,1);gl.Uniform1f(opacityUniform,view.Opacity*.7f);gl.Uniform1i(colorModeUniform,0);
@@ -291,6 +372,15 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
     }
     static void Upload(GlInterface gl,int buffer,float[] data)
     {gl.BindBuffer(0x8892,buffer);fixed(float* p=data)gl.BufferData(0x8892,(IntPtr)(data.Length*4),(IntPtr)p,0x88E4);}
+    static float[] VisiblePoints(float[] source,ViewSettings settings)
+    {
+        if(settings.CropPolygon==null&&settings.CropBottom==null&&settings.CropTop==null)return source;
+        var result=new float[source.Length];var cursor=0;
+        for(var offset=0;offset<source.Length;offset+=7)
+            if(settings.InsideCrop(Camera.Position(source,offset)))
+            {Array.Copy(source,offset,result,cursor,7);cursor+=7;}
+        Array.Resize(ref result,cursor);return result;
+    }
     static void Bind(GlInterface gl,int buffer)
     {gl.BindBuffer(0x8892,buffer);gl.EnableVertexAttribArray(0);gl.EnableVertexAttribArray(1);gl.VertexAttribPointer(0,3,0x1406,0,28,IntPtr.Zero);gl.VertexAttribPointer(1,4,0x1406,0,28,(IntPtr)12);}
     protected override void OnOpenGlDeinit(GlInterface gl)

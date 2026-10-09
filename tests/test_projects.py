@@ -55,6 +55,52 @@ def test_edit_save_reopen_copy_and_ifc_identity(project, tmp_path):
     assert ifcopenshell.util.element.get_psets(second.by_type("IfcSlab")[0])["Punctora_Reconstruction"]["ReviewState"] == "reviewed"
 
 
+def test_crop_is_draft_only_until_save_and_survives_reopen_and_copy(project, tmp_path):
+    path, state = project
+    crop = {"polygon": [[0, 0], [4, 0], [4, 3], [0, 3]], "z_min": .2, "z_max": 2.8}
+    saved = path.read_bytes()
+    draft = projects.edit_crop(state, crop)
+    assert path.read_bytes() == saved
+    assert draft["crop"] == crop
+    assert draft["model_crop_stale"]
+    state = projects.save_project(path, request(state, crop=draft["crop"], model_crop_stale=True))
+    assert projects.load_project(path)["crop"] == crop
+    with pytest.raises(ValueError, match="Detect elements"):
+        projects.export_project(path, request(state, output=str(tmp_path / "stale.ifc")))
+    destination = tmp_path / "crop-copy.punctora"
+    copied = projects.save_copy(path, destination, request(state, crop=state["crop"]))
+    assert copied["crop"] == projects.load_project(destination)["crop"] == crop
+
+
+def test_old_project_without_crop_opens_with_inactive_crop(project):
+    path, state = project
+    del state["crop"]
+    del state["model_crop"]
+    del state["model_crop_stale"]
+    projects.atomic_json(path, state)
+    assert projects.load_project(path)["crop"] == {"polygon": None, "z_min": None, "z_max": None}
+
+
+def test_reconstruction_uses_saved_crop_without_altering_source(project):
+    path, state = project
+    source_path = projects.assets_for(path) / "generations" / state["cloud"]["generation"] / "points.npy"
+    source_before = source_path.read_bytes()
+    crop = {"polygon": [[-.1, -.1], [6.1, -.1], [6.1, 4.1], [-.1, 4.1]],
+            "z_min": -.1, "z_max": 3.05}
+    draft = projects.edit_crop(state, crop)
+    state = projects.save_project(path, request(state, crop=crop, model_crop=state["model_crop"],
+                                                 model_crop_stale=draft["model_crop_stale"]))
+    result = projects.reconstruct_project(path, {"expected_revision": state["revision"],
+        "confirm_z_up": True, "job_id": token(), "settings": {}})
+    assert len(result["model"]["storeys"]) == 1
+    assert result["model"]["metadata"]["crop"]["active"]
+    assert result["model"]["metadata"]["crop"]["selected_points"] < result["model"]["metadata"]["crop"]["source_points"]
+    assert result["model_crop"] == crop and not result["model_crop_stale"]
+    assert source_path.read_bytes() == source_before
+    generation = projects.assets_for(path) / "generations" / result["generations"][-1]
+    assert not (generation / "crop-working").exists()
+
+
 @pytest.mark.parametrize("changes", [{"thickness": -1}, {"height": float("nan")}, {"start": [0, 0, 0]}, {"review_state": "approved"}, {"thickness": True}])
 def test_invalid_correction_cannot_change_saved_model(project, changes):
     path, state = project

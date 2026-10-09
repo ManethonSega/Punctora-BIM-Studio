@@ -11,6 +11,7 @@ import uuid
 import numpy as np
 
 from .cloud_io import CloudData
+from .cropping import EMPTY_CROP, crop_active, materialize_crop, validate_crop
 from .e57_io import read_e57
 from .evidence import write_wall_evidence
 from .fixtures import demo_cloud
@@ -169,6 +170,11 @@ def load_project(path):
     state = read_json(path)
     if state.get("schema_version") != 1 or state.get("assets_directory") != assets_for(path).name:
         raise ValueError("Unsupported project schema or data folder")
+    state["crop"] = validate_crop(state.get("crop"))
+    state["model_crop"] = validate_crop(state.get("model_crop"))
+    if not isinstance(state.get("model_crop_stale", False), bool):
+        raise ValueError("Invalid crop/model state")
+    state["model_crop_stale"] = state.get("model") is not None and state["crop"] != state["model_crop"]
     uuid.UUID(hex=state["project_id"])
     uuid.UUID(hex=state["revision"])
     root = assets_for(path)
@@ -250,7 +256,7 @@ def write_preview(cloud, directory, generation):
 
 def close_cloud(cloud):
     """Release cached file mappings before directory publication on Windows."""
-    for name in ("points", "colors", "intensity", "color_valid", "intensity_valid", "scan_index", "source_record_index"):
+    for name in ("points", "colors", "intensity", "color_valid", "intensity_valid", "scan_index", "source_record_index", "working_index"):
         channel = getattr(cloud, name, None)
         while channel is not None:
             mapping = getattr(channel, "_mmap", None)
@@ -311,6 +317,7 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
                      "name": path.stem, "assets_directory": assets_for(path).name,
                      "generations": [job_id], "cloud": {"kind": kind, "generation": job_id},
                      "preview": preview, "import_manifest": manifest, "model": model,
+                     "crop": dict(EMPTY_CROP), "model_crop": dict(EMPTY_CROP), "model_crop_stale": False,
                      "coordinate_confirmation": {"z_up": not bool(source), "crs": "unconfirmed", "vertical_datum": "unconfirmed"},
                      "warnings": manifest["warnings"] if manifest else ["Generated example, not a survey."],
                      "processing_backend": candidate.metadata.get("performance", {}).get(
@@ -332,49 +339,70 @@ def reconstruct_project(path, request, progress=lambda *_: None):
         token = request["job_id"]
         with generation_stage(path, state["project_id"], token) as stage:
             progress(5, "Opening working cloud")
-            cloud = load_cloud(path, state)
+            source_cloud = load_cloud(path, state)
+            cloud = source_cloud
             settings = ReconstructionSettings(**request.get("settings", {}))
-            progress(20, "Finding surfaces and fitting elements")
-            performance_path = assets_for(path) / "last-performance.json"
-            save_performance = lambda report: atomic_json(performance_path, report)
-            if request.get("compare_budgets"):
-                model, budget_report = compare_budgets(
-                    cloud, settings, progress=progress, diagnostics=save_performance)
-                atomic_json(assets_for(path) / "budget-comparison.json", budget_report)
-                model.metadata["budget_comparison"] = budget_report
-            else:
-                model = reconstruct(cloud, settings, name=state["name"],
-                                     progress=progress, diagnostics=save_performance)
-            model.metadata["project_id"] = state["project_id"]
-            if state["import_manifest"]:
-                manifest = state["import_manifest"]
-                model.metadata["source"] = manifest["source"]
-                model.metadata["coordinate_mapping"] = manifest["coordinate_mapping"]
-                model.metadata["e57"] = {"coordinate_metadata": manifest["coordinate_metadata"],
-                                          "coordinate_metadata_status": manifest["coordinate_metadata_status"]}
-                model.warnings.extend(manifest["warnings"])
-            progress(80, "Retaining source evidence")
-            evidence = stage / "evidence" / "records"
-            evidence.parent.mkdir()
-            write_wall_evidence(cloud, model.walls, evidence, settings.processing_chunk_points,
-                                model.metadata.get("surface_proposals"))
-            for wall in model.walls:
-                record = wall.evidence.get("records")
-                if record:
-                    record["path"] = f"generations/{token}/{record['path']}"
-            for proposal in model.metadata.get("surface_proposals", []):
-                record = proposal.get("representative_cloud_records")
-                if record:
-                    record["path"] = f"generations/{token}/{record['path']}"
-            model.warnings = [w for w in model.warnings if "No desktop review" not in w]
-            model.warnings.append("Whole-cloud deviation reporting remains pending; review observed and inferred geometry separately.")
-            state["model"] = model.to_dict()
-            state["generations"] = list(dict.fromkeys([state["cloud"]["generation"], token]))
-            state["coordinate_confirmation"]["z_up"] = True
-            state["revision"] = uuid.uuid4().hex
-            state["processing_backend"] = model.metadata.get("performance", {}).get(
-                "compute_backend", "CPU")
-            close_cloud(cloud)
+            crop_directory = stage / "crop-working"
+            try:
+                if crop_active(state["crop"]):
+                    progress(10, "Applying non-destructive project crop")
+                    cloud, crop_report = materialize_crop(
+                        source_cloud, state["crop"], crop_directory, settings.processing_chunk_points)
+                else:
+                    crop_report = {"active": False, "source_points": len(source_cloud.points),
+                                   "selected_points": len(source_cloud.points), "crop": state["crop"]}
+                progress(20, "Finding surfaces and fitting elements")
+                performance_path = assets_for(path) / "last-performance.json"
+                save_performance = lambda report: atomic_json(performance_path, report)
+                if request.get("compare_budgets"):
+                    model, budget_report = compare_budgets(
+                        cloud, settings, progress=progress, diagnostics=save_performance)
+                    atomic_json(assets_for(path) / "budget-comparison.json", budget_report)
+                    model.metadata["budget_comparison"] = budget_report
+                else:
+                    model = reconstruct(cloud, settings, name=state["name"],
+                                        progress=progress, diagnostics=save_performance)
+                model.metadata["project_id"] = state["project_id"]
+                model.metadata["crop"] = crop_report
+                if crop_report["active"]:
+                    model.warnings.append(
+                        f"Reconstruction used {crop_report['selected_points']:,} of "
+                        f"{crop_report['source_points']:,} source points inside the saved project crop.")
+                if state["import_manifest"]:
+                    manifest = state["import_manifest"]
+                    model.metadata["source"] = manifest["source"]
+                    model.metadata["coordinate_mapping"] = manifest["coordinate_mapping"]
+                    model.metadata["e57"] = {"coordinate_metadata": manifest["coordinate_metadata"],
+                                              "coordinate_metadata_status": manifest["coordinate_metadata_status"]}
+                    model.warnings.extend(manifest["warnings"])
+                progress(80, "Retaining source evidence")
+                evidence = stage / "evidence" / "records"
+                evidence.parent.mkdir()
+                write_wall_evidence(cloud, model.walls, evidence, settings.processing_chunk_points,
+                                    model.metadata.get("surface_proposals"))
+                for wall in model.walls:
+                    record = wall.evidence.get("records")
+                    if record:
+                        record["path"] = f"generations/{token}/{record['path']}"
+                for proposal in model.metadata.get("surface_proposals", []):
+                    record = proposal.get("representative_cloud_records")
+                    if record:
+                        record["path"] = f"generations/{token}/{record['path']}"
+                model.warnings = [w for w in model.warnings if "No desktop review" not in w]
+                model.warnings.append("Whole-cloud deviation reporting remains pending; review observed and inferred geometry separately.")
+                state["model"] = model.to_dict()
+                state["model_crop"] = deepcopy(state["crop"])
+                state["model_crop_stale"] = False
+                state["generations"] = list(dict.fromkeys([state["cloud"]["generation"], token]))
+                state["coordinate_confirmation"]["z_up"] = True
+                state["revision"] = uuid.uuid4().hex
+                state["processing_backend"] = model.metadata.get("performance", {}).get(
+                    "compute_backend", "CPU")
+            finally:
+                if cloud is not source_cloud:
+                    close_cloud(cloud)
+                close_cloud(source_cloud)
+                shutil.rmtree(crop_directory, ignore_errors=True)
             publish_generation(path, token, stage)
             atomic_json(path, state)
             progress(100, "Candidates ready for review")
@@ -386,6 +414,14 @@ def draft_model(state, data):
     if model.metadata.get("project_id") != state["project_id"]:
         raise ValueError("Model identity differs from the opened project")
     return model
+
+
+def apply_draft_context(state, request):
+    result = deepcopy(state)
+    result["crop"] = validate_crop(request.get("crop", result["crop"]))
+    result["model_crop"] = validate_crop(request.get("model_crop", result["model_crop"]))
+    result["model_crop_stale"] = result.get("model") is not None and result["crop"] != result["model_crop"]
+    return result
 
 
 def edit_model(state, data, element_id, changes):
@@ -472,16 +508,30 @@ def split_model_wall(state, data, wall_id, offset):
     return split_wall(model, wall_id, offset).to_dict()
 
 
+def edit_crop(state, crop):
+    result = deepcopy(state)
+    updated = validate_crop(crop)
+    if updated != result["crop"]:
+        result["crop"] = updated
+        result["model_crop_stale"] = result.get("model") is not None and updated != result["model_crop"]
+    return result
+
+
 def save_project(path, request):
     with project_lock(path):
         state = load_project(path)
         check_revision(state, request["expected_revision"])
-        model = draft_model(state, request["model"])
+        model = draft_model(state, request["model"]) if request.get("model") is not None else None
         name = request.get("name", state["name"])
         if not isinstance(name, str) or not name.strip():
             raise ValueError("Project name cannot be empty")
-        model.name = state["name"] = name
-        state["model"] = model.to_dict()
+        state["name"] = name
+        if model is not None:
+            model.name = name
+            state["model"] = model.to_dict()
+        state["crop"] = validate_crop(request.get("crop", state["crop"]))
+        state["model_crop"] = validate_crop(request.get("model_crop", state["model_crop"]))
+        state["model_crop_stale"] = state.get("model") is not None and state["crop"] != state["model_crop"]
         state["revision"] = uuid.uuid4().hex
         atomic_json(path, state)
         return state
@@ -498,6 +548,9 @@ def save_copy(path, destination, request):
             raise ValueError("Choose a new filename for the project copy")
         if request.get("model"):
             state["model"] = draft_model(state, request["model"]).to_dict()
+        state["crop"] = validate_crop(request.get("crop", state["crop"]))
+        state["model_crop"] = validate_crop(request.get("model_crop", state["model_crop"]))
+        state["model_crop_stale"] = state.get("model") is not None and state["crop"] != state["model_crop"]
         root = ensure_assets(destination, state["project_id"])
         try:
             for token in state["generations"]:
@@ -519,6 +572,10 @@ def export_project(path, request, progress=lambda *_: None):
     with project_lock(path):
         state = load_project(path)
         check_revision(state, request["expected_revision"])
+        requested_crop = validate_crop(request.get("crop", state["crop"]))
+        requested_model_crop = validate_crop(request.get("model_crop", state["model_crop"]))
+        if state["model_crop_stale"] or requested_crop != requested_model_crop:
+            raise ValueError("The saved crop changed after detection; run Detect elements again before IFC conversion")
         model = draft_model(state, request.get("model") or state["model"])
         rejected = {w.id for w in model.walls if w.review_state == "rejected"}
         rejected_slabs = {s.id for s in model.slabs if s.review_state == "rejected"}

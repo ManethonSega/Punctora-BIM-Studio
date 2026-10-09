@@ -22,6 +22,7 @@ class CloudData:
     scan_index: np.ndarray | None = None
     metadata: dict = field(default_factory=dict)
     source_record_index: np.ndarray | None = None
+    working_index: np.ndarray | None = None
 
     def __post_init__(self):
         self.points = np.asarray(self.points, dtype=np.float64)
@@ -56,6 +57,11 @@ class CloudData:
             if (self.source_record_index.shape != (len(self.points),)
                     or self.source_record_index.dtype.kind not in "iu"):
                 raise ValueError("source_record_index must contain one integer per point")
+        if self.working_index is not None:
+            self.working_index = np.asarray(self.working_index)
+            if (self.working_index.shape != (len(self.points),)
+                    or self.working_index.dtype.kind not in "iu"):
+                raise ValueError("working_index must contain one integer per point")
         if not isinstance(self.metadata, dict):
             raise ValueError("metadata must be a dictionary")
 

@@ -23,18 +23,28 @@ def dispatch(request, progress):
     if command == "edit":
         state = projects.load_project(path)
         projects.check_revision(state, request["expected_revision"])
+        state = projects.apply_draft_context(state, request)
         state["model"] = projects.edit_model(state, request["model"], request["element_id"], request["changes"])
         return state
     if command == "merge_walls":
         state = projects.load_project(path)
         projects.check_revision(state, request["expected_revision"])
+        state = projects.apply_draft_context(state, request)
         state["model"] = projects.merge_model_walls(state, request["model"], request["wall_ids"])
         return state
     if command == "split_wall":
         state = projects.load_project(path)
         projects.check_revision(state, request["expected_revision"])
+        state = projects.apply_draft_context(state, request)
         state["model"] = projects.split_model_wall(state, request["model"], request["wall_id"], request["offset"])
         return state
+    if command == "edit_crop":
+        state = projects.load_project(path)
+        projects.check_revision(state, request["expected_revision"])
+        state = projects.apply_draft_context(state, request)
+        if request.get("model") is not None:
+            state["model"] = projects.draft_model(state, request["model"]).to_dict()
+        return projects.edit_crop(state, request["crop"])
     if command == "save":
         return projects.save_project(path, request)
     if command == "save_copy":

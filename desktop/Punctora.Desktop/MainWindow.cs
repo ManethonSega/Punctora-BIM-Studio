@@ -36,9 +36,11 @@ public sealed class MainWindow : Window
     readonly Slider section=new(){Minimum=0,Maximum=10,Value=10};
     readonly ComboBox cloudColor=new(){ItemsSource=new[]{"Height","Original","Monochrome"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly Slider pointSize=new(){Minimum=1,Maximum=8,Value=2.5,TickFrequency=.5};
+    readonly TextBox cropBottom=new(){PlaceholderText="Unbounded bottom (m)"};
+    readonly TextBox cropTop=new(){PlaceholderText="Unbounded top (m)"};
     readonly ProgressBar progress=new(){Minimum=0,Maximum=100,Height=4};
     readonly List<Button> projectActions=[];
-    readonly Button save,apply,cancel,undoButton,mergeButton,splitButton;
+    readonly Button save,apply,cancel,undoButton,mergeButton,splitButton,cropDraw,cropApply,cropClear,cropCancel;
     readonly TextBox splitOffset=new(){Watermark="Distance from wall start (m)"};
     readonly Stack<JsonNode> undo=[];
     CancellationTokenSource? jobCancellation;
@@ -49,7 +51,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a9 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
+        Title="Punctora BIM Studio | 0.3.0a10 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -58,7 +60,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a9",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a10",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -76,7 +78,13 @@ public sealed class MainWindow : Window
         cloudColor.SelectionChanged+=(_,_)=>{viewport.View.CloudColor=cloudColor.SelectedIndex switch{1=>CloudColorMode.Original,2=>CloudColorMode.Monochrome,_=>CloudColorMode.Height};viewport.Redraw();};
         var pointSizeLabel=Text("Point size: 2.5 px",11);options.Children.Add(pointSizeLabel);options.Children.Add(pointSize);
         pointSize.PropertyChanged+=(_,e)=>{if(e.Property==Slider.ValueProperty){viewport.View.PointSize=(float)pointSize.Value;pointSizeLabel.Text=$"Point size: {pointSize.Value:F1} px";viewport.Redraw();}};
-        options.Children.Add(Button("Fit view",()=>{viewport.View.Camera.Fit(viewport.View.Scene);viewport.Redraw();return Task.CompletedTask;}));
+        options.Children.Add(Text("PROJECT CROP",12));options.Children.Add(cropBottom);options.Children.Add(cropTop);
+        cropDraw=Button("Draw polygon",()=>{if(state==null)return Task.CompletedTask;viewport.BeginCropDrawing();UpdateActions();status.Text="Crop drawing: left-click vertices, right-click removes the last vertex, then choose Apply crop.";return Task.CompletedTask;});
+        cropApply=Button("Apply crop",()=>Guard(ApplyCropAsync));cropClear=Button("Clear crop",()=>Guard(ClearCropAsync));
+        cropCancel=Button("Cancel polygon",()=>{viewport.CancelCropDrawing();UpdateActions();status.Text="Crop drawing cancelled.";return Task.CompletedTask;});
+        foreach(var button in new[]{cropDraw,cropApply,cropClear,cropCancel}){options.Children.Add(button);projectActions.Add(button);}
+        options.Children.Add(Text("Crop is non-destructive. Save it, then run Detect elements to restrict reconstruction.",11));
+        options.Children.Add(Button("Fit view",()=>{viewport.FitVisible();return Task.CompletedTask;}));
         options.Children.Add(Text("Model opacity",11));var opacity=new Slider{Minimum=.05,Maximum=1,Value=1};opacity.PropertyChanged+=(_,e)=>{if(e.Property==Slider.ValueProperty){viewport.View.Opacity=(float)opacity.Value;viewport.Redraw();}};options.Children.Add(opacity);
         options.Children.Add(Text("Section: visible below height",11));options.Children.Add(section);
         section.PropertyChanged+=(_,e)=>{if(e.Property==Slider.ValueProperty)FilterStorey();};
@@ -123,9 +131,12 @@ public sealed class MainWindow : Window
     void UpdateActions()
     {
         foreach(var button in projectActions)button.IsEnabled=!busy;
-        cancel.IsEnabled=busy;apply.IsEnabled=!busy&&selectedId!=null;save.IsEnabled=!busy&&dirty&&state?["model"]!=null;undoButton.IsEnabled=!busy&&undo.Count>0;
+        cancel.IsEnabled=busy;apply.IsEnabled=!busy&&selectedId!=null;save.IsEnabled=!busy&&dirty;undoButton.IsEnabled=!busy&&undo.Count>0;
         var selectedWalls=SelectedWallIds();var selected=Selected();mergeButton.IsEnabled=!busy&&selectedWalls.Length>=2;splitButton.IsEnabled=!busy&&selected!=null&&selected.Value.Kind=="walls";splitOffset.IsEnabled=splitButton.IsEnabled;
         method.IsEnabled=zUp.IsEnabled=!busy;
+        cropBottom.IsEnabled=cropTop.IsEnabled=!busy&&state!=null;
+        cropDraw.IsEnabled=cropApply.IsEnabled=cropClear.IsEnabled=!busy&&state!=null;
+        cropCancel.IsEnabled=!busy&&viewport.CropDrawing;
         foreach(var field in fields.Values)field.IsEnabled=!busy;
         review.IsEnabled=classification.IsEnabled=!busy&&selectedId!=null;
         projectTitle.Text=state==null?"No project open":state["name"]!.GetValue<string>()+(dirty?"  * unsaved corrections":"");
@@ -161,13 +172,25 @@ public sealed class MainWindow : Window
         catch(Exception e){status.Text="Job failed: "+e.Message;return null;}
         finally{busy=false;progress.IsIndeterminate=false;jobCancellation.Dispose();jobCancellation=null;UpdateActions();}
     }
-    JsonObject ModelRequest()=>new(){["expected_revision"]=state!["revision"]!.DeepClone(),["model"]=state["model"]?.DeepClone()};
+    JsonObject ModelRequest()=>new(){["expected_revision"]=state!["revision"]!.DeepClone(),["model"]=state["model"]?.DeepClone(),
+        ["crop"]=state["crop"]!.DeepClone(),["model_crop"]=state["model_crop"]!.DeepClone(),["model_crop_stale"]=state["model_crop_stale"]!.DeepClone()};
+    JsonObject DraftSnapshot()=>new(){["model"]=state!["model"]?.DeepClone(),["crop"]=state["crop"]!.DeepClone(),
+        ["model_crop"]=state["model_crop"]!.DeepClone(),["model_crop_stale"]=state["model_crop_stale"]!.DeepClone()};
     async Task PresentAsync(string path,JsonObject value,bool fit)
     {
+        viewport.CancelCropDrawing();
         var scene=await Task.Run(()=>SceneData.Load(path,value));
         state=value;projectPath=path;viewport.SetScene(scene,fit);refreshing=true;
         try
         {
+            var crop=state["crop"]!.AsObject();
+            var cropPolygon=crop["polygon"] is JsonArray polygon?polygon.Select(p=>new System.Numerics.Vector2(
+                (float)p![0]!.GetValue<double>(),(float)p[1]!.GetValue<double>())).ToList():null;
+            float? cropLow=crop["z_min"] is { } low?(float)low.GetValue<double>():null;
+            float? cropHigh=crop["z_max"] is { } high?(float)high.GetValue<double>():null;
+            viewport.SetCrop(cropPolygon,cropLow,cropHigh);
+            cropBottom.Text=cropLow?.ToString("G10",CultureInfo.InvariantCulture)??"";
+            cropTop.Text=cropHigh?.ToString("G10",CultureInfo.InvariantCulture)??"";
             var priorStorey=viewport.View.Storey;
             var model=state["model"] as JsonObject;
             var levels=model?["storeys"]?.AsArray()??[];
@@ -184,7 +207,9 @@ public sealed class MainWindow : Window
             var performance=model?["metadata"]?["performance"] as JsonObject;
             var computeBackend=performance?["compute_backend"]?.GetValue<string>();
             if(computeBackend!=null)backend.Text=$"Geometry backend: {computeBackend} · {performance?["cpu_workers"]?.GetValue<int>()??0} CPU workers";
-            counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {model?["walls"]?.AsArray().Count??0} walls, {model?["slabs"]?.AsArray().Count??0} slabs, {model?["slab_openings"]?.AsArray().Count??0} slab openings, {model?["openings"]?.AsArray().Count??0} wall openings, {model?["stairs"]?.AsArray().Count??0} stairs · local metres";
+            var cropState=cropPolygon!=null||cropLow!=null||cropHigh!=null
+                ?(state["model_crop_stale"]!.GetValue<bool>()?" · crop changed, detection required":" · crop active"):"";
+            counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {model?["walls"]?.AsArray().Count??0} walls, {model?["slabs"]?.AsArray().Count??0} slabs, {model?["slab_openings"]?.AsArray().Count??0} slab openings, {model?["openings"]?.AsArray().Count??0} wall openings, {model?["stairs"]?.AsArray().Count??0} stairs · local metres{cropState}";
         }
         finally{refreshing=false;}
         ShowProperties();FilterStorey();UpdateActions();
@@ -282,26 +307,57 @@ public sealed class MainWindow : Window
         if(kind!="storeys"&&review.SelectedItem is string r&&r!=obj["review_state"]!.GetValue<string>())changes["review_state"]=r;
         if(kind=="walls"&&classification.SelectedItem is string c&&c!=obj["classification"]!.GetValue<string>())changes["classification"]=c;
         if(changes.Count==0){status.Text="No parameters changed.";return;}
-        var previous=state["model"]!.DeepClone();var request=ModelRequest();request["element_id"]=selectedId;request["changes"]=changes;
+        var previous=DraftSnapshot();var request=ModelRequest();request["element_id"]=selectedId;request["changes"]=changes;
         var result=await RunAsync("edit",projectPath,request);
         if(result==null)return;
         undo.Push(previous);dirty=true;await PresentAsync(projectPath,result,false);status.Text="Correction applied. Save to keep it.";
     });
     async Task UndoAsync()
-    {if(state==null||projectPath==null||undo.Count==0)return;state["model"]=undo.Pop();dirty=true;await PresentAsync(projectPath,state,false);status.Text="Edit undone. Save to keep this version.";}
+    {
+        if(state==null||projectPath==null||undo.Count==0)return;var snapshot=undo.Pop().AsObject();
+        state["model"]=snapshot["model"]?.DeepClone();state["crop"]=snapshot["crop"]!.DeepClone();state["model_crop"]=snapshot["model_crop"]!.DeepClone();state["model_crop_stale"]=snapshot["model_crop_stale"]!.DeepClone();
+        dirty=true;await PresentAsync(projectPath,state,false);status.Text="Edit undone. Save to keep this version.";
+    }
+    async Task ApplyCropAsync()
+    {
+        if(state==null||projectPath==null||busy)return;
+        JsonNode? polygon=state["crop"]!["polygon"]?.DeepClone();
+        if(viewport.CropDrawing)
+        {
+            var vertices=viewport.FinishCropDrawing();
+            polygon=new JsonArray(vertices.Select(p=>(JsonNode?)new JsonArray((double)p.X,(double)p.Y)).ToArray());
+        }
+        JsonNode? Height(TextBox box)=>string.IsNullOrWhiteSpace(box.Text)?null:JsonValue.Create(Parse(box.Text!));
+        var crop=new JsonObject{["polygon"]=polygon,["z_min"]=Height(cropBottom),["z_max"]=Height(cropTop)};
+        await ApplyCropValueAsync(crop,"Crop applied. Save it, then run Detect elements to rebuild candidates inside it.");
+    }
+    async Task ClearCropAsync()
+    {
+        if(state==null||projectPath==null||busy)return;viewport.CancelCropDrawing();
+        var crop=new JsonObject{["polygon"]=null,["z_min"]=null,["z_max"]=null};
+        await ApplyCropValueAsync(crop,"Crop cleared. Save, then run Detect elements to rebuild the full model.");
+    }
+    async Task ApplyCropValueAsync(JsonObject crop,string message)
+    {
+        if(state==null||projectPath==null||busy)return;
+        if(crop.ToJsonString()==state["crop"]!.ToJsonString()){status.Text="Crop is unchanged.";return;}
+        var previous=DraftSnapshot();var request=ModelRequest();request["crop"]=crop;
+        var result=await RunAsync("edit_crop",projectPath,request);if(result==null)return;
+        undo.Push(previous);dirty=true;await PresentAsync(projectPath,result,false);viewport.FitVisible();status.Text=message;
+    }
     async Task RevertAsync(){if(projectPath==null)return;dirty=false;undo.Clear();await LoadAsync(projectPath);}
     async Task MergeWallsAsync(string[]? requested=null)
     {
         if(state==null||projectPath==null||busy)return;var ids=requested??SelectedWallIds();
         if(ids.Length<2){status.Text="Ctrl-click at least two collinear wall rows to merge.";return;}
-        var previous=state["model"]!.DeepClone();var request=ModelRequest();request["wall_ids"]=new JsonArray(ids.Select(id=>(JsonNode?)JsonValue.Create(id)).ToArray());
+        var previous=DraftSnapshot();var request=ModelRequest();request["wall_ids"]=new JsonArray(ids.Select(id=>(JsonNode?)JsonValue.Create(id)).ToArray());
         var result=await RunAsync("merge_walls",projectPath,request);if(result==null)return;
         undo.Push(previous);dirty=true;selectedId=ids[0];await PresentAsync(projectPath,result,false);status.Text=$"Merged {ids.Length} wall fragments. Save to keep this version.";
     }
     async Task SplitWallAsync()
     {
         var selection=Selected();if(state==null||projectPath==null||busy||selection==null||selection.Value.Kind!="walls")return;
-        var previous=state["model"]!.DeepClone();var request=ModelRequest();request["wall_id"]=selection.Value.Node["id"]!.GetValue<string>();request["offset"]=Parse(splitOffset.Text??"");
+        var previous=DraftSnapshot();var request=ModelRequest();request["wall_id"]=selection.Value.Node["id"]!.GetValue<string>();request["offset"]=Parse(splitOffset.Text??"");
         var result=await RunAsync("split_wall",projectPath,request);if(result==null)return;
         undo.Push(previous);dirty=true;selectedId=selection.Value.Node["id"]!.GetValue<string>();await PresentAsync(projectPath,result,false);status.Text="Wall split and hosted openings reassigned. Save to keep this version.";
     }
@@ -328,7 +384,7 @@ public sealed class MainWindow : Window
     async Task LoadAsync(string path)
     {var result=await RunAsync("open",path);if(result!=null){dirty=false;undo.Clear();await PresentAsync(path,result,true);await RunAsync("cleanup",path);}}
     async Task SaveAsync()
-    {if(state==null||projectPath==null||state["model"]==null)return;var result=await RunAsync("save",projectPath,ModelRequest());if(result!=null){dirty=false;await PresentAsync(projectPath,result,false);status.Text="Project saved.";}}
+    {if(state==null||projectPath==null)return;var result=await RunAsync("save",projectPath,ModelRequest());if(result!=null){dirty=false;await PresentAsync(projectPath,result,false);status.Text="Project saved.";}}
     async Task CopyAsync()
     {
         if(state==null||projectPath==null)return;var destination=await PickProjectAsync("Save project and its data as a new copy");if(destination==null)return;
@@ -344,7 +400,7 @@ public sealed class MainWindow : Window
     async Task ExportAsync()
     {
         if(state==null||projectPath==null)return;
-        if(state["model"]==null){await ReconstructAsync();if(state?["model"]==null)return;}
+        if(state["model"]==null||state["model_crop_stale"]!.GetValue<bool>()){await ReconstructAsync();if(state?["model"]==null||state["model_crop_stale"]!.GetValue<bool>())return;}
         var file=await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions{Title="Export reviewed IFC4",SuggestedFileName=state["name"]!.GetValue<string>()+".ifc",DefaultExtension="ifc",FileTypeChoices=[new FilePickerFileType("IFC4 model"){Patterns=["*.ifc"]}]});
         if(file?.TryGetLocalPath() is { } path)await ExportToAsync(path);
     }
@@ -362,6 +418,18 @@ public sealed class MainWindow : Window
             await PresentAsync(path,result,true);
             foreach(var index in new[]{1,0,2}){cloudColor.SelectedIndex=index;viewport.Redraw();await Task.Delay(30);}
             pointSize.Value=5;if(viewport.View.CloudColor!=CloudColorMode.Monochrome||Math.Abs(viewport.View.PointSize-5)>.001)throw new Exception("Point-cloud display controls did not reach the viewport");
+            var bounds=viewport.View.Scene;var insetX=(bounds.PointMaximum.X-bounds.PointMinimum.X)*.1;var insetY=(bounds.PointMaximum.Y-bounds.PointMinimum.Y)*.1;
+            var testCrop=new JsonObject{["polygon"]=new JsonArray(
+                new JsonArray((double)(bounds.PointMinimum.X+insetX),(double)(bounds.PointMinimum.Y+insetY)),
+                new JsonArray((double)(bounds.PointMaximum.X-insetX),(double)(bounds.PointMinimum.Y+insetY)),
+                new JsonArray((double)(bounds.PointMaximum.X-insetX),(double)(bounds.PointMaximum.Y-insetY)),
+                new JsonArray((double)(bounds.PointMinimum.X+insetX),(double)(bounds.PointMaximum.Y-insetY))),
+                ["z_min"]=(double)(bounds.PointMinimum.Z+.05f),["z_max"]=(double)(bounds.PointMaximum.Z-.05f)};
+            await ApplyCropValueAsync(testCrop,"verification crop");if(state!["model_crop_stale"]!.GetValue<bool>()!=true||viewport.View.CropPolygon?.Count!=4)throw new Exception("Crop did not reach project and viewport");
+            await UndoAsync();var cropUndoRestored=state!["crop"]!["polygon"]==null&&!state["model_crop_stale"]!.GetValue<bool>();if(!cropUndoRestored)throw new Exception("Crop undo failed");
+            await ApplyCropValueAsync(testCrop,"verification crop");await SaveAsync();await LoadAsync(path);
+            var cropSurvivedReopen=state!["crop"]!["polygon"]?.AsArray().Count==4&&state["model_crop_stale"]!.GetValue<bool>();if(!cropSurvivedReopen)throw new Exception("Crop was lost on reopening");
+            await ClearCropAsync();await SaveAsync();if(state!["model_crop_stale"]!.GetValue<bool>())throw new Exception("Clearing crop did not restore model/crop alignment");
             var sample=state!["model"]!["walls"]![0]!;
             // Explicit synthetic candidates exercise new preview/edit/save/IFC
             // plumbing independently of the detector's geometry regressions.
@@ -398,7 +466,7 @@ public sealed class MainWindow : Window
             await ExportToAsync(Path.Combine(output,"edited.ifc"));
             await Task.Delay(1800);for(var i=0;i<30;i++){viewport.View.Camera.Yaw+=.008f;viewport.Redraw();await Task.Delay(20);}viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(700);
             using(var bitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96))){bitmap.Render(this);using var outputStream=File.Create(Path.Combine(output,"desktop.png"));bitmap.Save(outputStream,PngBitmapEncoderOptions.Default);}
-            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
+            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["crop_undo_restored"]=cropUndoRestored,["crop_survived_reopen"]=cropSurvivedReopen,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
             dirty=false;Environment.ExitCode=0;Close();
         }
         catch(Exception e){File.WriteAllText(Path.Combine(output,"ui-error.txt"),e.ToString());dirty=false;Environment.ExitCode=1;Close();}

@@ -5,6 +5,10 @@ import numpy as np
 from .sampling import point_batches
 
 
+def _working_rows(cloud, indices):
+    return cloud.working_index[indices] if cloud.working_index is not None else indices
+
+
 def face_selection(points, face, radius, endpoint_margin):
     a, b = np.asarray(face["start"]), np.asarray(face["end"])
     length = np.linalg.norm(b-a)
@@ -127,7 +131,8 @@ def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=
             remaining = 32-len(wall.evidence["record_examples"])
             for row, scan in zip(ids[:remaining], scans[:remaining]):
                 wall.evidence["record_examples"].append({
-                    "cloud_index": int(row), "scan_index": int(scan) if scan >= 0 else None,
+                    "cloud_index": int(_working_rows(cloud, np.asarray([row]))[0]),
+                    "scan_index": int(scan) if scan >= 0 else None,
                     "source_record_index": int(cloud.source_record_index[row]) if cloud.source_record_index is not None else None})
         wall.evidence_count = count
         wall.fit_rmse_m = float(np.sqrt(squared/count)) if count else None
@@ -160,7 +165,7 @@ def write_wall_evidence(cloud, walls, directory, chunk_points=100_000, surface_p
         cursor = 0
         for ids, _ in wall_batches(cloud, wall, chunk_points):
             end = cursor+len(ids)
-            records[cursor:end, 0] = ids
+            records[cursor:end, 0] = _working_rows(cloud, ids)
             records[cursor:end, 1] = cloud.scan_index[ids] if cloud.scan_index is not None else -1
             records[cursor:end, 2] = cloud.source_record_index[ids] if cloud.source_record_index is not None else -1
             cursor = end
@@ -172,7 +177,8 @@ def write_wall_evidence(cloud, walls, directory, chunk_points=100_000, surface_p
                                     "columns": ["cloud_index", "scan_index", "source_record_index"],
                                     "count": cursor, "dtype": "int64", "missing_identifier": -1}
     for index, proposal in enumerate(surface_proposals or []):
-        ids = np.asarray(proposal["representative_cloud_indices"], dtype="<i8")
+        local_ids = np.asarray(proposal["representative_cloud_indices"], dtype="<i8")
+        ids = np.asarray(_working_rows(cloud, local_ids), dtype="<i8")
         path = directory/f"patch-{index+1}.npy"
         np.save(path, ids, allow_pickle=False)
         proposal["representative_cloud_index_examples"] = ids[:32].tolist()
