@@ -69,3 +69,13 @@ The [desktop CI workflow](../.github/workflows/desktop.yml) builds on Linux/Wind
 The research-informed boundary is preserved: observations and original evidence are separate from edited/inferred proposals; explicit unknowns remain unknown; rejected proposals do not enter the reviewed export. SpatialLM/Pointcept/GPT4Point and other research code/weights are not integrated into M3.
 
 Windows CI identified an initial E57 publication failure caused by live NumPy views retaining mapped-file handles. The follow-up fix walks the array base chain to close the owning mapping before directory publication and adds a focused regression. The graphics depth buffer is also reallocated when a context is initialized again.
+
+## 0.3.0a2 export correction (2026-10-09)
+
+The user reported successful E57 import and wall/slab/storey detection, followed by `No module named _pytest` during immediate IFC export. This was reproduced in a core installation without test extras. IfcOpenShell 0.8.3 imports `_pytest.assertion` at runtime when executing EXPRESS rules, although its wheel metadata does not declare pytest. The previous bundled-worker check created a demo but did not export IFC; developer tests masked the missing dependency.
+
+The core now declares pytest 8.4.2 as a runtime dependency. Its transitive packages are pinned, hashed and attributed with complete wheel notices. Validation remains enabled. The package verification now uses the embedded interpreter in isolated mode, from outside the repository, to detect elements, export immediately, reopen the IFC and reject invalid space containment. Core CI also runs that workflow without installing test extras.
+
+The desktop buttons now read **Detect elements** and **Convert to IFC**. Conversion first detects elements if the project has no model, subject to the existing Z-up confirmation. Existing projects and their assets remain compatible. Automatic door/window detection and coordinated multicore/GPU conversion are still open work. A low overall CPU percentage does not by itself establish a bottleneck: sampling, storey processing and wall-evidence loops are sequential, and region-growing neighbour queries explicitly use one worker. Stage profiling is needed before selecting parallel work.
+
+The original 0.3.0a1 artifact above is historical and contains the reported export packaging defect. Use the corrected 0.3.0a2 artifact from its successful desktop workflow run.

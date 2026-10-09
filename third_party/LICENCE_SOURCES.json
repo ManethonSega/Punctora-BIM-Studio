@@ -1,5 +1,5 @@
 {
-  "review_date": "2026-10-08",
+  "review_date": "2026-10-09",
   "sources": [
     {
       "key": "ifco_lgpl",
@@ -524,6 +524,86 @@
       "archive_path": "typing_extensions-4.16.0.dist-info/licenses/LICENSE",
       "archive_sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
       "retained_sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+    },
+    {
+      "key": "runtime-wheel-colorama-LICENSE.txt",
+      "path": "third_party/licenses/colorama-0.4.6-wheel-LICENSE.txt.txt",
+      "source_url": "https://pypi.org/project/colorama/0.4.6/#files",
+      "source_blob_sha": null,
+      "archive_filename": "colorama-0.4.6-py2.py3-none-any.whl",
+      "archive_path": "colorama-0.4.6.dist-info/licenses/LICENSE.txt",
+      "archive_sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+      "retained_sha256": "cac35c02686e5d04a5a7140bfb3b36e73aed496656e891102e428886d7930318"
+    },
+    {
+      "key": "runtime-wheel-iniconfig-LICENSE",
+      "path": "third_party/licenses/iniconfig-2.3.1-wheel-LICENSE.txt",
+      "source_url": "https://pypi.org/project/iniconfig/2.3.1/#files",
+      "source_blob_sha": null,
+      "archive_filename": "iniconfig-2.3.1-py3-none-any.whl",
+      "archive_path": "iniconfig-2.3.1.dist-info/licenses/LICENSE",
+      "archive_sha256": "9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7",
+      "retained_sha256": "3409fa91f7ace557894632676656e32264fe5ef7581535725dc9a23774551bd4"
+    },
+    {
+      "key": "runtime-wheel-packaging-LICENSE",
+      "path": "third_party/licenses/packaging-26.3-wheel-LICENSE.txt",
+      "source_url": "https://pypi.org/project/packaging/26.3/#files",
+      "source_blob_sha": null,
+      "archive_filename": "packaging-26.3-py3-none-any.whl",
+      "archive_path": "packaging-26.3.dist-info/licenses/LICENSE",
+      "archive_sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "retained_sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+    },
+    {
+      "key": "runtime-wheel-packaging-LICENSE.APACHE",
+      "path": "third_party/licenses/packaging-26.3-wheel-LICENSE.APACHE.txt",
+      "source_url": "https://pypi.org/project/packaging/26.3/#files",
+      "source_blob_sha": null,
+      "archive_filename": "packaging-26.3-py3-none-any.whl",
+      "archive_path": "packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+      "archive_sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "retained_sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+    },
+    {
+      "key": "runtime-wheel-packaging-LICENSE.BSD",
+      "path": "third_party/licenses/packaging-26.3-wheel-LICENSE.BSD.txt",
+      "source_url": "https://pypi.org/project/packaging/26.3/#files",
+      "source_blob_sha": null,
+      "archive_filename": "packaging-26.3-py3-none-any.whl",
+      "archive_path": "packaging-26.3.dist-info/licenses/LICENSE.BSD",
+      "archive_sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "retained_sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+    },
+    {
+      "key": "runtime-wheel-pluggy-LICENSE",
+      "path": "third_party/licenses/pluggy-1.6.0-wheel-LICENSE.txt",
+      "source_url": "https://pypi.org/project/pluggy/1.6.0/#files",
+      "source_blob_sha": null,
+      "archive_filename": "pluggy-1.6.0-py3-none-any.whl",
+      "archive_path": "pluggy-1.6.0.dist-info/licenses/LICENSE",
+      "archive_sha256": "e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746",
+      "retained_sha256": "d6b65e6c213a5d0b577911d34d6e5949b9f59d76c238c5071a2f3fc16cfb2606"
+    },
+    {
+      "key": "runtime-wheel-pygments-LICENSE",
+      "path": "third_party/licenses/pygments-2.21.0-wheel-LICENSE.txt",
+      "source_url": "https://pypi.org/project/pygments/2.21.0/#files",
+      "source_blob_sha": null,
+      "archive_filename": "pygments-2.21.0-py3-none-any.whl",
+      "archive_path": "pygments-2.21.0.dist-info/licenses/LICENSE",
+      "archive_sha256": "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9",
+      "retained_sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17"
+    },
+    {
+      "key": "runtime-wheel-pytest-LICENSE",
+      "path": "third_party/licenses/pytest-8.4.2-wheel-LICENSE.txt",
+      "source_url": "https://pypi.org/project/pytest/8.4.2/#files",
+      "source_blob_sha": null,
+      "archive_filename": "pytest-8.4.2-py3-none-any.whl",
+      "archive_path": "pytest-8.4.2.dist-info/licenses/LICENSE",
+      "archive_sha256": "872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79",
+      "retained_sha256": "ca836a5f9ecca3b2f350230faa20a48fb8b145653b5568d784862df864706b9b"
     }
   ],
   "external_licence_urls": [

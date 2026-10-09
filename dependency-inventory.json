@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "review_date": "2026-10-08",
+  "review_date": "2026-10-09",
   "phase": "M3 desktop implementation and preview verification; Windows hardware acceptance pending",
   "inventory_type": "selected source/runtime dependencies plus future candidates; not a binary SBOM",
   "entries": [
@@ -835,6 +835,134 @@
       ],
       "action_required": "Retain supplied runtime notices and byte-identical DLL; final installer audit remains M4.",
       "attribution_register": "third_party/NOTICE_REGISTER.json#msvc-runtime"
+    },
+    {
+      "id": "colorama",
+      "name": "colorama",
+      "kind": "code",
+      "role": "runtime; dependency of the IfcOpenShell validation assertion rewriter",
+      "license": "BSD-3-Clause",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://pypi.org/project/colorama/0.4.6/#files"
+      ],
+      "reviewed_revision": "0.4.6",
+      "selected_version": "0.4.6",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Retain the exact wheel notices with the replaceable worker runtime.",
+      "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts.",
+      "notice_files": [
+        "third_party/licenses/colorama-0.4.6-wheel-LICENSE.txt.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#colorama"
+    },
+    {
+      "id": "iniconfig",
+      "name": "iniconfig",
+      "kind": "code",
+      "role": "runtime; dependency of the IfcOpenShell validation assertion rewriter",
+      "license": "MIT",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://pypi.org/project/iniconfig/2.3.1/#files"
+      ],
+      "reviewed_revision": "2.3.1",
+      "selected_version": "2.3.1",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Retain the exact wheel notices with the replaceable worker runtime.",
+      "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts.",
+      "notice_files": [
+        "third_party/licenses/iniconfig-2.3.1-wheel-LICENSE.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#iniconfig"
+    },
+    {
+      "id": "packaging",
+      "name": "packaging",
+      "kind": "code",
+      "role": "runtime; dependency of the IfcOpenShell validation assertion rewriter",
+      "license": "Apache-2.0 OR BSD-2-Clause",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://pypi.org/project/packaging/26.3/#files"
+      ],
+      "reviewed_revision": "26.3",
+      "selected_version": "26.3",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Retain the exact wheel notices with the replaceable worker runtime.",
+      "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts.",
+      "notice_files": [
+        "third_party/licenses/packaging-26.3-wheel-LICENSE.txt",
+        "third_party/licenses/packaging-26.3-wheel-LICENSE.APACHE.txt",
+        "third_party/licenses/packaging-26.3-wheel-LICENSE.BSD.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#packaging"
+    },
+    {
+      "id": "pluggy",
+      "name": "pluggy",
+      "kind": "code",
+      "role": "runtime; dependency of the IfcOpenShell validation assertion rewriter",
+      "license": "MIT",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://pypi.org/project/pluggy/1.6.0/#files"
+      ],
+      "reviewed_revision": "1.6.0",
+      "selected_version": "1.6.0",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Retain the exact wheel notices with the replaceable worker runtime.",
+      "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts.",
+      "notice_files": [
+        "third_party/licenses/pluggy-1.6.0-wheel-LICENSE.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#pluggy"
+    },
+    {
+      "id": "pygments",
+      "name": "pygments",
+      "kind": "code",
+      "role": "runtime; dependency of the IfcOpenShell validation assertion rewriter",
+      "license": "BSD-2-Clause",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://pypi.org/project/pygments/2.21.0/#files"
+      ],
+      "reviewed_revision": "2.21.0",
+      "selected_version": "2.21.0",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Retain the exact wheel notices with the replaceable worker runtime.",
+      "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts.",
+      "notice_files": [
+        "third_party/licenses/pygments-2.21.0-wheel-LICENSE.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#pygments"
+    },
+    {
+      "id": "pytest",
+      "name": "pytest",
+      "kind": "code",
+      "role": "runtime; assertion rewriting for IfcOpenShell EXPRESS validation",
+      "license": "MIT",
+      "review_status": "versioned_notices_retained",
+      "evidence": [
+        "https://pypi.org/project/pytest/8.4.2/#files"
+      ],
+      "reviewed_revision": "8.4.2",
+      "selected_version": "8.4.2",
+      "incorporated": true,
+      "redistributed": true,
+      "action_required": "Retain the exact wheel notices with the replaceable worker runtime.",
+      "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts.",
+      "notice_files": [
+        "third_party/licenses/pytest-8.4.2-wheel-LICENSE.txt"
+      ],
+      "attribution_register": "third_party/NOTICE_REGISTER.json#pytest"
     }
   ]
 }

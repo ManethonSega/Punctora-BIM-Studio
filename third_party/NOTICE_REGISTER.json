@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "review_date": "2026-10-08",
+  "review_date": "2026-10-09",
   "intended_application_use": "noncommercial",
   "original_project_license": "Apache-2.0",
   "entries": [
@@ -645,67 +645,67 @@
       "id": "pytest",
       "name": "pytest",
       "version": "8.4.2",
-      "usage": "development",
+      "usage": "runtime; assertion rewriting for IfcOpenShell EXPRESS validation",
       "license": "MIT",
       "licence_files": [
-        "third_party/references/pytest-8.4.2-LICENSE.txt"
+        "third_party/licenses/pytest-8.4.2-wheel-LICENSE.txt"
       ],
       "source": "https://pypi.org/project/pytest/8.4.2/",
-      "changes": "None; external unmodified package.",
+      "changes": "None; unmodified wheel.",
       "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts."
     },
     {
       "id": "iniconfig",
       "name": "iniconfig",
       "version": "2.3.1",
-      "usage": "development",
+      "usage": "runtime; dependency of the IfcOpenShell validation assertion rewriter",
       "license": "MIT",
       "licence_files": [
-        "third_party/references/iniconfig-2.3.1-LICENSE.txt"
+        "third_party/licenses/iniconfig-2.3.1-wheel-LICENSE.txt"
       ],
       "source": "https://pypi.org/project/iniconfig/2.3.1/",
-      "changes": "None; external unmodified package.",
+      "changes": "None; unmodified wheel.",
       "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts."
     },
     {
       "id": "packaging",
       "name": "packaging",
       "version": "26.3",
-      "usage": "development",
+      "usage": "runtime; dependency of the IfcOpenShell validation assertion rewriter",
       "license": "Apache-2.0 OR BSD-2-Clause",
       "licence_files": [
-        "third_party/references/packaging-26.3-LICENSE.txt",
-        "third_party/references/packaging-26.3-LICENSE.APACHE.txt",
-        "third_party/references/packaging-26.3-LICENSE.BSD.txt"
+        "third_party/licenses/packaging-26.3-wheel-LICENSE.txt",
+        "third_party/licenses/packaging-26.3-wheel-LICENSE.APACHE.txt",
+        "third_party/licenses/packaging-26.3-wheel-LICENSE.BSD.txt"
       ],
       "source": "https://pypi.org/project/packaging/26.3/",
-      "changes": "None; external unmodified package.",
+      "changes": "None; unmodified wheel.",
       "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts."
     },
     {
       "id": "pluggy",
       "name": "pluggy",
       "version": "1.6.0",
-      "usage": "development",
+      "usage": "runtime; dependency of the IfcOpenShell validation assertion rewriter",
       "license": "MIT",
       "licence_files": [
-        "third_party/references/pluggy-1.6.0-LICENSE.txt"
+        "third_party/licenses/pluggy-1.6.0-wheel-LICENSE.txt"
       ],
       "source": "https://pypi.org/project/pluggy/1.6.0/",
-      "changes": "None; external unmodified package.",
+      "changes": "None; unmodified wheel.",
       "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts."
     },
     {
       "id": "pygments",
       "name": "pygments",
       "version": "2.21.0",
-      "usage": "development",
+      "usage": "runtime; dependency of the IfcOpenShell validation assertion rewriter",
       "license": "BSD-2-Clause",
       "licence_files": [
-        "third_party/references/pygments-2.21.0-LICENSE.txt"
+        "third_party/licenses/pygments-2.21.0-wheel-LICENSE.txt"
       ],
       "source": "https://pypi.org/project/pygments/2.21.0/",
-      "changes": "None; external unmodified package.",
+      "changes": "None; unmodified wheel.",
       "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts."
     },
     {
@@ -928,6 +928,19 @@
         "third_party/licenses/CPython-3.12.10-Windows-LICENSE.txt"
       ],
       "changes": "Byte-identical MSVCP140 from reviewed Shapely wheel copied to embedded Python directory under its standard DLL name."
+    },
+    {
+      "id": "colorama",
+      "name": "colorama",
+      "version": "0.4.6",
+      "usage": "runtime; dependency of the IfcOpenShell validation assertion rewriter",
+      "license": "BSD-3-Clause",
+      "licence_files": [
+        "third_party/licenses/colorama-0.4.6-wheel-LICENSE.txt.txt"
+      ],
+      "source": "https://pypi.org/project/colorama/0.4.6/",
+      "changes": "None; unmodified wheel.",
+      "attribution": "Copyright holders and contributors identified verbatim in the retained upstream licence texts."
     }
   ]
 }

@@ -19,7 +19,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-      - run: python -m pip install -e ".[test]"
+      - run: python -m pip install -e . -c requirements-core.txt
+      - name: Runtime detection and immediate IFC export without test extras
+        run: python scripts/verify_worker_runtime.py --output outputs/runtime
       - run: python -m pytest -q
       - run: python -m punctora_core demo --two-storeys --output-dir outputs/demo
       - run: python -m punctora_core demo --settings docs/region-growing-settings.json --output-dir outputs/region-demo

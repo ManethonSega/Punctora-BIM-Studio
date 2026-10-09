@@ -21,3 +21,5 @@ IfcOpenShell 0.8.3 is an external, unmodified LGPL-3.0-or-later library. The pac
 These libraries are not merged into a Punctora executable. Their Python packages/native binaries remain separate in `worker/packages`; replacing a compatible library does not require relinking original Punctora code. To use a replacement worker environment, install the core and compatible dependencies in Python 3.11/3.12 and set `PUNCTORA_PYTHON` to its executable. Changes made for debugging an LGPL library are not prohibited by Punctora's licence. The retained third-party licences remain authoritative.
 
 This document records the preview build's runtime/notices work. Clean-machine installation, independent IFC-viewer acceptance and the final installer audit remain M4 checks.
+
+IfcOpenShell EXPRESS validation uses the unmodified pytest 8.4.2 assertion rewriter at runtime. The Windows worker also retains its pinned iniconfig, packaging, pluggy, pygments and colorama dependencies, complete wheel-supplied notices and hashes. See the validation-runtime table in `ATTRIBUTIONS.md`; these are runtime dependencies, not optional test-only files.

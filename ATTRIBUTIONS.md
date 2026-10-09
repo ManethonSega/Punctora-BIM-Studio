@@ -25,15 +25,18 @@ This page maps credits and licence notices to the material or usage they cover. 
 | [six](https://pypi.org/project/six/1.17.0/) (runtime) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | MIT. [six-1.17.0-LICENSE.txt](third_party/licenses/six-1.17.0-LICENSE.txt) |
 | [typing-extensions](https://pypi.org/project/typing-extensions/4.16.0/) (runtime) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | PSF-2.0. [typing-extensions-4.16.0-LICENSE.txt](third_party/licenses/typing-extensions-4.16.0-LICENSE.txt) |
 
-## Development-only dependencies
+## IFC validation runtime dependencies
+
+IfcOpenShell 0.8.3 imports pytest assertion rewriting when executing EXPRESS rules. These unmodified packages are runtime dependencies and are included in the portable worker, as well as serving the test suite.
 
 | Component and scope | Attribution | Licence and retained notices |
 | --- | --- | --- |
-| [pytest](https://pypi.org/project/pytest/8.4.2/) (development) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | MIT. [pytest-8.4.2-LICENSE.txt](third_party/references/pytest-8.4.2-LICENSE.txt) |
-| [iniconfig](https://pypi.org/project/iniconfig/2.3.1/) (development) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | MIT. [iniconfig-2.3.1-LICENSE.txt](third_party/references/iniconfig-2.3.1-LICENSE.txt) |
-| [packaging](https://pypi.org/project/packaging/26.3/) (development) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | Apache-2.0 OR BSD-2-Clause. [packaging-26.3-LICENSE.txt](third_party/references/packaging-26.3-LICENSE.txt), [packaging-26.3-LICENSE.APACHE.txt](third_party/references/packaging-26.3-LICENSE.APACHE.txt), [packaging-26.3-LICENSE.BSD.txt](third_party/references/packaging-26.3-LICENSE.BSD.txt) |
-| [pluggy](https://pypi.org/project/pluggy/1.6.0/) (development) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | MIT. [pluggy-1.6.0-LICENSE.txt](third_party/references/pluggy-1.6.0-LICENSE.txt) |
-| [pygments](https://pypi.org/project/pygments/2.21.0/) (development) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | BSD-2-Clause. [pygments-2.21.0-LICENSE.txt](third_party/references/pygments-2.21.0-LICENSE.txt) |
+| [pytest](https://pypi.org/project/pytest/8.4.2/) 8.4.2 (validation runtime) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | MIT. [pytest-8.4.2-wheel-LICENSE.txt](third_party/licenses/pytest-8.4.2-wheel-LICENSE.txt) |
+| [iniconfig](https://pypi.org/project/iniconfig/2.3.1/) 2.3.1 (validation runtime) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | MIT. [iniconfig-2.3.1-wheel-LICENSE.txt](third_party/licenses/iniconfig-2.3.1-wheel-LICENSE.txt) |
+| [packaging](https://pypi.org/project/packaging/26.3/) 26.3 (validation runtime) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | Apache-2.0 OR BSD-2-Clause. [packaging-26.3-wheel-LICENSE.txt](third_party/licenses/packaging-26.3-wheel-LICENSE.txt), [packaging-26.3-wheel-LICENSE.APACHE.txt](third_party/licenses/packaging-26.3-wheel-LICENSE.APACHE.txt), [packaging-26.3-wheel-LICENSE.BSD.txt](third_party/licenses/packaging-26.3-wheel-LICENSE.BSD.txt) |
+| [pluggy](https://pypi.org/project/pluggy/1.6.0/) 1.6.0 (validation runtime) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | MIT. [pluggy-1.6.0-wheel-LICENSE.txt](third_party/licenses/pluggy-1.6.0-wheel-LICENSE.txt) |
+| [pygments](https://pypi.org/project/pygments/2.21.0/) 2.21.0 (validation runtime) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | BSD-2-Clause. [pygments-2.21.0-wheel-LICENSE.txt](third_party/licenses/pygments-2.21.0-wheel-LICENSE.txt) |
+| [colorama](https://pypi.org/project/colorama/0.4.6/) 0.4.6 (validation runtime) | Copyright holders and contributors identified verbatim in the retained upstream licence texts. | BSD-3-Clause. [colorama-0.4.6-wheel-LICENSE.txt.txt](third_party/licenses/colorama-0.4.6-wheel-LICENSE.txt.txt) |
 
 ## Candidate components and research references
 

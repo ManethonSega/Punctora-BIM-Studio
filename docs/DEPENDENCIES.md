@@ -76,3 +76,7 @@ The ACM and May 2026 arXiv references are recorded together as PointLLM-R, not c
 ## M3 desktop dependencies
 
 [Desktop runtime notices](WINDOWS_RUNTIME_NOTICES.md) list Avalonia, ANGLE, SkiaSharp, HarfBuzzSharp, MicroCom, build services, Linux DBus, .NET and CPython versions, attributions and complete retained texts. `desktop/packages.lock.json` pins the NuGet graph; `desktop/windows-wheel-hashes.json` pins the Windows worker wheels. No additional AI component is incorporated.
+
+## IFC validation runtime
+
+IfcOpenShell 0.8.3 EXPRESS rule execution requires pytest 8.4.2 and its assertion-rewriting dependencies (iniconfig 2.3.1, packaging 26.3, pluggy 1.6.0, pygments 2.21.0 and Windows colorama 0.4.6). They are pinned in `requirements-core.txt`, included in the worker package, and attributed with full wheel notices in [ATTRIBUTIONS.md](../ATTRIBUTIONS.md). Validation remains enabled.

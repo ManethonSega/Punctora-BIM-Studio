@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 import urllib.request
 import zipfile
 
@@ -76,21 +77,21 @@ def main():
     for file in sorted(packages.rglob("*")):
         if file.is_file() and any(word in file.name.lower() for word in ["license", "copying", "notice"]):
             license_files.append({"path": file.relative_to(output).as_posix(), "sha256": digest(file)})
-    manifest = {"package": "M3 Windows x64 preview", "dotnet_runtime": "10.0.0", "python": "3.12.10",
+    manifest = {"package": "M3 Windows x64 preview",
+                "core_version": tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"],
+                "dotnet_runtime": "10.0.0", "python": "3.12.10",
                 "python_archive_sha256": PYTHON_HASH, "windows_wheels": hashes["wheels"], "installed_license_files": license_files,
                 "reconstruction_backend": "CPU", "viewport": "automatic OpenGL/ANGLE with software fallback"}
     manifest["app_local_cpp_runtime"] = {"source": cpp_runtime.relative_to(output).as_posix(),
                                         "destination": "worker/python/msvcp140.dll", "sha256": digest(cpp_runtime)}
     (output / "package-manifest.json").write_text(json.dumps(manifest, indent=2)+"\n", encoding="utf-8")
     if os.name == "nt":
-        # Run from outside the repository with embedded Python's isolated search path.
-        destination = output / "verification"
-        process = subprocess.run([str(python / "python.exe"), "-m", "punctora_core.worker"], cwd=output, input=json.dumps({
-            "protocol_version": 1, "job_id": "0123456789abcdef0123456789abcdef", "command": "demo",
-            "project": str(destination / "bundle.punctora"), "two_storeys": True})+"\n", text=True, capture_output=True, timeout=120)
-        if process.returncode or '"type": "result"' not in process.stdout:
-            raise RuntimeError("Bundled worker verification failed: " + process.stderr)
-        shutil.rmtree(destination)
+        # Exercise reconstruction and IFC export with the actual packaged Python,
+        # outside the repository and without the developer Python search path.
+        from verify_worker_runtime import verify_runtime
+        manifest["runtime_verification"] = verify_runtime(python / "python.exe", output / "verification")
+        (output / "package-manifest.json").write_text(json.dumps(manifest, indent=2)+"\n", encoding="utf-8")
+        shutil.rmtree(output / "verification")
     archive = shutil.make_archive(str(output), "zip", root_dir=output.parent, base_dir=output.name)
     print("Preview package:", archive)
 

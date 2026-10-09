@@ -34,7 +34,7 @@ The adapted routines cover distances, collinearity, merging, parallel overlap, i
 | Apache Xerces-C++ | 3.2.3 in pye57 build scripts | [Apache-2.0](third_party/licenses/Xerces-C-Apache-2.0.txt), [NOTICE](third_party/licenses/Xerces-C-NOTICE.txt) |
 | CRC++ | vendored by libE57Format | [BSD-3-Clause](third_party/licenses/CRCpp-BSD-3-Clause.txt) |
 
-These are references from the tested Linux dependencies, not a completed Windows binary audit. `requirements-core.txt` records runtime versions including transitive Python dependencies. pytest is a test dependency. Platform-specific bundled/native terms and source/replacement information must be checked before distributing the standalone application.
+These are references from the tested Linux dependencies, not a completed Windows binary audit. `requirements-core.txt` records runtime versions including transitive Python dependencies. pytest and its dependencies are required at runtime by IfcOpenShell 0.8.3 EXPRESS validation; their exact wheel notices are retained in `third_party/licenses` and listed in `ATTRIBUTIONS.md`. Platform-specific bundled/native terms and source/replacement information must be checked before distributing the standalone application.
 
 ## Future distributions
 
