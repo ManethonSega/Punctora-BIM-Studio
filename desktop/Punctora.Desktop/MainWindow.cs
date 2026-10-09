@@ -341,7 +341,7 @@ public sealed class MainWindow : Window
     {
         if(state==null||projectPath==null||busy)return;
         if(crop.ToJsonString()==state["crop"]!.ToJsonString()){status.Text="Crop is unchanged.";return;}
-        var previous=DraftSnapshot();var request=ModelRequest();request["crop"]=crop;
+        var previous=DraftSnapshot();var request=ModelRequest();request["crop"]=crop.DeepClone();
         var result=await RunAsync("edit_crop",projectPath,request);if(result==null)return;
         undo.Push(previous);dirty=true;await PresentAsync(projectPath,result,false);viewport.FitVisible();status.Text=message;
     }
