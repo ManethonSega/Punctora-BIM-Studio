@@ -6,7 +6,9 @@ from shapely.geometry import Polygon
 
 from punctora_core.cloud_io import CloudData
 from punctora_core.fixtures import demo_cloud, room_cloud
-from punctora_core.reconstruction import ReconstructionSettings, detect_storeys, reconstruct, spaces_for_storey, streaming_level_sample
+from punctora_core.model import Storey, Wall
+from punctora_core.reconstruction import (_snap_walls, ReconstructionSettings, detect_storeys,
+                                          reconstruct, spaces_for_storey, streaming_level_sample)
 
 
 def test_one_floor_detects_walls_slabs_and_two_rooms():
@@ -70,6 +72,39 @@ def test_two_floors_do_not_leak_rooms_from_previous_floor():
     assert Polygon(fresh[0].footprint).area == pytest.approx(12.0, abs=0.01)
 
 
+def test_intersection_snapping_discards_an_axis_collapsed_to_one_point():
+    settings = ReconstructionSettings(minimum_wall_length_m=.5, maximum_wall_thickness_m=.6)
+    walls = [
+        Wall("short", "storey-1", (-.25, 0), (.25, 0), 0, 3, .2),
+        Wall("crossing", "storey-1", (0, -1), (0, 1), 0, 3, .2),
+    ]
+    _snap_walls(walls, settings)
+    assert [wall.id for wall in walls] == ["crossing"]
+
+
+def test_geos_space_topology_failure_is_nonfatal(monkeypatch):
+    from shapely.errors import GEOSException
+    import punctora_core.reconstruction as reconstruction
+
+    storey = Storey("storey-1", "Storey 1", 0, 3,
+                    [(0, 0), (4, 0), (4, 4), (0, 4)])
+    walls = [Wall(f"wall-{index}", storey.id, start, end, 0, 3, .2)
+             for index, (start, end) in enumerate([
+                 ((0, 0), (4, 0)), ((4, 0), (4, 4)),
+                 ((4, 4), (0, 4)), ((0, 4), (0, 0)),
+             ], 1)]
+    warnings = []
+
+    def rejected_overlay(*_args, **_kwargs):
+        raise GEOSException("Edge direction cannot be determined because endpoints are equal")
+
+    monkeypatch.setattr(reconstruction, "unary_union", rejected_overlay)
+    assert spaces_for_storey(storey, walls, warnings=warnings) == []
+    assert len(warnings) == 1
+    assert "room-space topology skipped" in warnings[0]
+    assert "endpoints are equal" in warnings[0]
+
+
 def test_configured_exterior_thickness_is_used_and_marked_as_assumed():
     settings = ReconstructionSettings(exterior_wall_thickness_m=0.42)
     model = reconstruct(demo_cloud(), settings)
@@ -126,3 +161,4 @@ def test_huge_contour_extent_is_rejected_before_allocating_grid():
     cloud.points[cloud.points[:, 0] == 6, 0] = 1e8
     with pytest.raises(ValueError, match="contour-grid"):
         reconstruct(cloud)
+

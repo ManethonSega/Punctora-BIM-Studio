@@ -12,6 +12,7 @@ import time
 import cv2
 import numpy as np
 from scipy.signal import find_peaks
+from shapely.errors import GEOSException
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
 from shapely.ops import polygonize, unary_union
 
@@ -505,10 +506,19 @@ def _walls_from_faces(faces, storey, settings, z_bounds):
 
 def _snap_walls(walls, settings):
     axes = adjust_intersections([[list(w.start), list(w.end)] for w in walls], settings.maximum_wall_thickness_m)
+    retained = []
     for wall, axis in zip(walls, axes):
+        # Two nearby junctions can snap both ends of a short candidate to the
+        # same coordinate.  Such an axis is not a wall and later GEOS overlay
+        # operations cannot assign it an edge direction.
+        if (not np.isfinite(np.asarray(axis, dtype=float)).all()
+                or distance_between_points(*axis) < settings.minimum_wall_length_m):
+            continue
         if not np.allclose(axis, [wall.start, wall.end], atol=1e-9):
             wall.provenance["axis"] = "inferred"  # Snapped junction, not an observed endpoint.
         wall.start, wall.end = tuple(axis[0]), tuple(axis[1])
+        retained.append(wall)
+    walls[:] = retained
 
 
 def _region_walls(cloud, storey, settings, backend=None):
@@ -544,28 +554,38 @@ def _region_walls(cloud, storey, settings, backend=None):
     return walls, [patch.to_dict() for patch in patches], statistics
 
 
-def spaces_for_storey(storey: Storey, walls: list[Wall], minimum_area: float = 1.0) -> list[Space]:
+def spaces_for_storey(storey: Storey, walls: list[Wall], minimum_area: float = 1.0,
+                      warnings: list[str] | None = None) -> list[Space]:
     """Polygonise only this storey's axes, then remove observed/assumed wall bodies."""
-    local = [wall for wall in walls if wall.storey_id == storey.id]
+    local = [wall for wall in walls if wall.storey_id == storey.id
+             and np.isfinite(np.asarray([wall.start, wall.end], dtype=float)).all()
+             and distance_between_points(wall.start, wall.end) > 1e-8]
     if not local:
         return []
-    lines = [LineString([w.start, w.end]) for w in local]
-    bodies = unary_union([line.buffer(w.thickness/2, cap_style="flat", join_style="mitre")
-                          for line, w in zip(lines, local)])
-    spaces = []
-    for polygon in polygonize(unary_union(lines)):
-        interior = polygon.difference(bodies).intersection(Polygon(storey.footprint))
-        parts = list(interior.geoms) if interior.geom_type == "MultiPolygon" else [interior]
-        for part in parts:
-            if part.geom_type != "Polygon" or part.area < minimum_area or part.interiors:
-                continue  # Holes/complex topology require a later profile adapter.
-            vertices = [tuple(map(float, p)) for p in list(part.exterior.coords)[:-1]]
-            spaces.append(Space(f"{storey.id}-space-{len(spaces)+1}", storey.id, vertices,
-                                storey.elevation, storey.ceiling-storey.elevation,
-                                {"footprint": "inferred",
-                                 "height": "measured" if storey.provenance.get("ceiling") == "measured" else "user_supplied",
-                                 "function": "unknown"}))
-    return spaces
+    try:
+        lines = [LineString([w.start, w.end]) for w in local]
+        bodies = unary_union([line.buffer(w.thickness/2, cap_style="flat", join_style="mitre")
+                              for line, w in zip(lines, local)])
+        spaces = []
+        for polygon in polygonize(unary_union(lines)):
+            interior = polygon.difference(bodies).intersection(Polygon(storey.footprint))
+            parts = list(interior.geoms) if interior.geom_type == "MultiPolygon" else [interior]
+            for part in parts:
+                if part.geom_type != "Polygon" or part.area < minimum_area or part.interiors:
+                    continue  # Holes/complex topology require a later profile adapter.
+                vertices = [tuple(map(float, p)) for p in list(part.exterior.coords)[:-1]]
+                spaces.append(Space(f"{storey.id}-space-{len(spaces)+1}", storey.id, vertices,
+                                    storey.elevation, storey.ceiling-storey.elevation,
+                                    {"footprint": "inferred",
+                                     "height": "measured" if storey.provenance.get("ceiling") == "measured" else "user_supplied",
+                                     "function": "unknown"}))
+        return spaces
+    except GEOSException as exc:
+        # Room topology is derived output. A pathological overlay must not
+        # discard an hour of successfully detected physical elements.
+        if warnings is not None:
+            warnings.append(f"{storey.id}: room-space topology skipped after GEOS rejected a degenerate edge ({exc})")
+        return []
 
 
 def _reconstruct_storey(cloud, level, settings, backend, profiler):
@@ -573,6 +593,7 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
     from .evidence import attach_evidence
     from .features import detect_openings, detect_stairs
     workers = resolved_cpu_workers(settings.cpu_workers)
+    warnings = []
     with profiler.stage("wall_proposals", storey_id=level.id, point_budget=settings.maximum_detection_points) as record:
         if settings.surface_method == "region_growing":
             walls, patches, statistics = _region_walls(cloud, level, settings, backend)
@@ -611,8 +632,9 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
                       support_points=sum(w.evidence_count for w in walls),
                       detected_elements={"walls": len(walls)})
     with profiler.stage("space_topology", storey_id=level.id) as record:
-        spaces = spaces_for_storey(level, walls, settings.minimum_space_area_m2)
-        record.update(sample_points=len(walls), detected_elements={"spaces": len(spaces)})
+        spaces = spaces_for_storey(level, walls, settings.minimum_space_area_m2, warnings)
+        record.update(sample_points=len(walls), detected_elements={"spaces": len(spaces)},
+                      warnings=list(warnings))
     with profiler.stage("openings", storey_id=level.id, source_points=len(cloud.points)) as record:
         openings = detect_openings(cloud, walls, settings, workers) if settings.detect_openings_enabled else []
         record.update(sample_points=len(cloud.points) if settings.detect_openings_enabled else 0,
@@ -622,7 +644,7 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
         stairs = detect_stairs(cloud, [level], settings, backend, stair_statistics) if settings.detect_stairs_enabled else []
         record.update(sample_points=sum(x["sample_points"] for x in stair_statistics),
                       sampling=stair_statistics, detected_elements={"stairs": len(stairs)})
-    return walls, spaces, openings, stairs, statistics, proposals, consolidation
+    return walls, spaces, openings, stairs, statistics, proposals, consolidation, warnings
 
 
 def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None,
@@ -666,7 +688,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                     cloud, level, local_settings, backend, profiler), sorted_levels))
             detection, proposals, consolidation = [], [], []
             for index, (level, result) in enumerate(zip(sorted_levels, results)):
-                local_walls, spaces, openings, stairs, statistics, local_proposals, report = result
+                local_walls, spaces, openings, stairs, statistics, local_proposals, report, local_warnings = result
                 proposals.extend(local_proposals)
                 consolidation.append({"storey_id": level.id, **report})
                 detection.append({"storey_id": level.id, **statistics,
@@ -681,6 +703,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                 model.spaces.extend(spaces)
                 model.openings.extend(openings)
                 model.stairs.extend(stairs)
+                model.warnings.extend(local_warnings)
                 if not local_walls:
                     model.warnings.append(f"{level.id}: no supported wall candidates detected")
                 if index and 0 < level.elevation-sorted_levels[index-1].ceiling <= settings.maximum_wall_thickness_m:
