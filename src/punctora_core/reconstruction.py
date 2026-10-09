@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from math import isfinite
 import cv2
 import numpy as np
+from scipy.signal import find_peaks
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
 from shapely.ops import polygonize, unary_union
 
@@ -40,6 +41,7 @@ class ReconstructionSettings:
     maximum_grid_cells: int = 20_000_000
     surface_method: str = "contour"
     detection_voxel_size_m: float = 0.02
+    maximum_level_detection_points: int = 500_000
     maximum_detection_points: int = 50_000
     processing_chunk_points: int = 100_000
     region_neighbours: int = 24
@@ -73,10 +75,10 @@ class ReconstructionSettings:
         if (not isinstance(self.detect_openings_enabled, bool) or not isinstance(self.detect_stairs_enabled, bool)
                 or not isinstance(self.consolidate_walls_enabled, bool)):
             raise ValueError("Feature detection switches must be booleans")
-        for name in ["maximum_detection_points", "processing_chunk_points", "region_neighbours", "region_minimum_points"]:
+        for name in ["maximum_level_detection_points", "maximum_detection_points", "processing_chunk_points", "region_neighbours", "region_minimum_points"]:
             if not isinstance(getattr(self, name), int) or isinstance(getattr(self, name), bool):
                 raise ValueError(f"{name} must be an integer")
-        if self.maximum_detection_points < 30 or not 6 <= self.region_neighbours <= 128:
+        if self.maximum_level_detection_points < 30 or self.maximum_detection_points < 30 or not 6 <= self.region_neighbours <= 128:
             raise ValueError("Detection budget must be >=30 and region_neighbours between 6 and 128")
         if self.region_minimum_points < 6 or self.region_minimum_points > self.maximum_detection_points:
             raise ValueError("region_minimum_points exceeds the detection budget or is below 6")
@@ -114,15 +116,50 @@ def detect_storeys(points: np.ndarray, settings: ReconstructionSettings) -> list
     histogram = np.bincount(indices, minlength=count)
     selected = np.flatnonzero(histogram >= max(20, settings.level_density_fraction * histogram.max()))
     groups = np.split(selected, np.where(np.diff(selected) > 1)[0] + 1)
-    levels = []
-    for group in groups:
-        if not len(group):
-            continue
-        mask = np.isin(indices, group)
-        surface = points[mask]
-        hull = MultiPoint(surface[:, :2]).convex_hull
-        if isinstance(hull, Polygon) and hull.area >= settings.minimum_footprint_area_m2:
-            levels.append((float(np.median(surface[:, 2])), hull))
+
+    def supported_levels(candidate_groups):
+        levels = []
+        for group in candidate_groups:
+            if not len(group):
+                continue
+            mask = np.isin(indices, group)
+            surface = points[mask]
+            hull = MultiPoint(surface[:, :2]).convex_hull
+            if isinstance(hull, Polygon) and hull.area >= settings.minimum_footprint_area_m2:
+                levels.append((float(np.median(surface[:, 2])), hull))
+        return levels
+
+    levels = supported_levels(groups)
+    if len(levels) < 2:
+        # A dominant floor can make a relative global threshold hide less dense
+        # ceilings or upper storeys. Search for locally prominent horizontal
+        # peaks, then reject candidates without a building-scale XY footprint.
+        smooth = np.convolve(histogram.astype(float), [.25, .5, .25], mode="same")
+        maximum = float(smooth.max())
+        minimum_height = max(8.0, maximum * .025)
+        peaks, _ = find_peaks(smooth, height=minimum_height,
+                              prominence=max(4.0, maximum * .015),
+                              distance=max(2, int(round(.10 / settings.level_bin_size_m))))
+        # scipy deliberately excludes array endpoints, but the scan's lowest
+        # floor and highest ceiling commonly occupy exactly those bins.
+        endpoints = [index for index in (0, len(smooth)-1)
+                     if smooth[index] >= minimum_height
+                     and (len(smooth) == 1 or smooth[index] >= smooth[1 if index == 0 else -2])]
+        peaks = np.unique(np.concatenate([peaks, endpoints])).astype(int)
+        peak_groups = [np.arange(max(0, peak-1), min(len(histogram), peak+2)) for peak in peaks]
+        fallback = supported_levels(peak_groups)
+        if fallback:
+            largest = max(hull.area for _, hull in fallback)
+            fallback = [(z, hull) for z, hull in fallback
+                        if hull.area >= max(settings.minimum_footprint_area_m2, largest * .15)]
+            fallback.sort(key=lambda item: item[0])
+            levels = []
+            for candidate in fallback:
+                if levels and candidate[0]-levels[-1][0] < max(.10, 2*settings.level_bin_size_m):
+                    if candidate[1].area > levels[-1][1].area:
+                        levels[-1] = candidate
+                else:
+                    levels.append(candidate)
     storeys = []
     for (floor, hull), (ceiling, _) in zip(levels, levels[1:]):
         if ceiling - floor >= settings.minimum_storey_height_m:
@@ -393,7 +430,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
     level_sample = None
     if storeys is None:
         level_sample = voxel_sample(cloud.points, settings.detection_voxel_size_m,
-                                    settings.maximum_detection_points, settings.processing_chunk_points)
+                                    settings.maximum_level_detection_points, settings.processing_chunk_points)
         levels = detect_storeys(level_sample.points, settings)
     else:
         levels = storeys

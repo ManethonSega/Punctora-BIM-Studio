@@ -6,7 +6,7 @@ from shapely.geometry import Polygon
 
 from punctora_core.cloud_io import CloudData
 from punctora_core.fixtures import demo_cloud, room_cloud
-from punctora_core.reconstruction import ReconstructionSettings, reconstruct, spaces_for_storey
+from punctora_core.reconstruction import ReconstructionSettings, detect_storeys, reconstruct, spaces_for_storey
 
 
 def test_one_floor_detects_walls_slabs_and_two_rooms():
@@ -21,6 +21,19 @@ def test_one_floor_detects_walls_slabs_and_two_rooms():
     assert paired[0].thickness == pytest.approx(0.2, abs=0.001)
     assert paired[0].provenance["thickness"] == "measured"
     assert max(w.fit_rmse_m for w in model.walls) < 1e-6
+
+
+def test_level_detection_recovers_less_dense_ceiling_peaks():
+    settings = ReconstructionSettings(level_density_fraction=.35)
+    xy_dense = np.array([(x, y) for x in np.linspace(0, 8, 70) for y in np.linspace(0, 5, 45)])
+    xy_sparse = np.array([(x, y) for x in np.linspace(0, 8, 28) for y in np.linspace(0, 5, 18)])
+    points = np.vstack([
+        np.column_stack([xy_dense, np.zeros(len(xy_dense))]),
+        np.column_stack([xy_sparse, np.full(len(xy_sparse), 3.0)]),
+        np.column_stack([xy_sparse, np.full(len(xy_sparse), 6.1)]),
+    ])
+    storeys = detect_storeys(points, settings)
+    assert [(round(s.elevation, 1), round(s.ceiling, 1)) for s in storeys] == [(0.0, 3.0), (3.0, 6.1)]
 
 
 def test_two_floors_do_not_leak_rooms_from_previous_floor():
