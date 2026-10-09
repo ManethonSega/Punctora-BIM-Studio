@@ -8,6 +8,7 @@ public sealed record SceneElement(string Id, string Kind, string StoreyId, strin
 
 public sealed class SceneData
 {
+    public const int PreviewPointLimit = 500_000;
     public float[] Points { get; init; } = [];
     public List<SceneElement> Elements { get; init; } = [];
     public long TotalPoints { get; init; }
@@ -21,7 +22,7 @@ public sealed class SceneData
         if (!path.StartsWith(Path.GetFullPath(assets) + Path.DirectorySeparatorChar, StringComparison.Ordinal))
             throw new InvalidDataException("Preview path escapes the project");
         var count = state["preview"]!["point_count"]!.GetValue<int>();
-        if (count is < 1 or > 100000) throw new InvalidDataException("Preview exceeds its point budget");
+        if (count is < 1 or > PreviewPointLimit) throw new InvalidDataException("Preview exceeds its point budget");
         var bytes = File.ReadAllBytes(path);
         if (bytes.Length != count * 24) throw new InvalidDataException("Preview is truncated");
         var points = new float[count * 7];

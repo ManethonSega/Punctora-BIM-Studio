@@ -93,6 +93,17 @@ def test_project_rejects_path_escape_and_missing_preview(project, tmp_path):
         projects.load_project(path)
 
 
+def test_large_cloud_preview_uses_gpu_friendly_display_budget(tmp_path):
+    count = projects.PREVIEW_LIMIT + 17
+    points = np.zeros((count, 3), dtype=np.float64)
+    points[:, 0] = np.arange(count)
+    manifest = projects.write_preview(CloudData(points), tmp_path, "generation")
+    assert manifest["point_count"] == projects.PREVIEW_LIMIT == 500_000
+    assert manifest["source_point_count"] == count
+    assert manifest["sampling"].endswith("display only")
+    assert (tmp_path / "preview.bin").stat().st_size == projects.PREVIEW_LIMIT * 24
+
+
 def test_storey_correction_shifts_dependents_and_rejects_overlap(project):
     path, state = project
     model = state["model"]

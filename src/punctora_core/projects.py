@@ -19,7 +19,10 @@ from .model import BuildingModel
 from .reconstruction import ReconstructionSettings, reconstruct
 from .wall_editing import merge_walls, split_wall
 
-PREVIEW_LIMIT = 100000
+# The preview is a display-only sample. 500k points remains small compared with
+# the immutable working cloud (12 MB on disk, 14 MB in the GPU vertex buffer)
+# while giving large surveys enough visual density for element review.
+PREVIEW_LIMIT = 500_000
 
 
 def read_json(path):

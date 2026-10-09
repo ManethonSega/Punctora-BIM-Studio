@@ -89,7 +89,10 @@ public sealed class MainWindow : Window
         inspector.Children.Add(Text("Ctrl-click wall rows to select fragments for merging. Split distance is measured from the selected wall start.",11));
         inspector.Children.Add(Text("SCAN EVIDENCE & ASSUMPTIONS",11));inspector.Children.Add(evidence);inspector.Children.Add(Text("PROJECT FINDINGS",11));inspector.Children.Add(warnings);
         var right=Panel(new ScrollViewer{Content=inspector,HorizontalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled});Grid.SetColumn(right,4);body.Children.Add(right);
-        var footer=new StackPanel{Spacing=7,Margin=new Thickness(0,12,0,0)};footer.Children.Add(progress);footer.Children.Add(status);Grid.SetRow(footer,3);root.Children.Add(footer);Content=root;
+        // Keep the descriptive status above the thin progress strip. On short
+        // displays the final row can be clipped at the bottom; job failures
+        // must remain visible and screenshot-readable.
+        var footer=new StackPanel{Spacing=7,Margin=new Thickness(0,12,0,0)};footer.Children.Add(status);footer.Children.Add(progress);Grid.SetRow(footer,3);root.Children.Add(footer);Content=root;
         storeys.SelectionChanged+=(_,_)=>FilterStorey();
         elements.SelectionChanged+=(_,_)=>{if(refreshing)return;selectedId=elements.SelectedIndex>=0?elementIds[elements.SelectedIndex]:null;viewport.View.Selected=selectedId;ShowProperties();viewport.Redraw();};
         Closing+=(_,e)=>
