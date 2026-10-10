@@ -10,6 +10,30 @@ from punctora_core.reconstruction import ReconstructionSettings
 from punctora_core.spatial_index import SpatialPointIndex
 
 
+def test_cyclic_index_closes_maps_before_directory_cleanup(monkeypatch):
+    import gc
+    from tempfile import TemporaryDirectory
+    index = SpatialPointIndex.build(CloudData(np.zeros((10, 3))))
+    index.local_cloud([dict(start=[0, 0], end=[1, 0], z_min=0, z_max=1)], .1, .1, stage="fit")
+    mapped = list(index.visited.values())
+    directory = Path(index.scratch.name)
+    cleanup = TemporaryDirectory.cleanup
+    calls = []
+
+    def checked_cleanup(scratch):
+        if Path(scratch.name) == directory:
+            calls.append(True)
+            assert mapped and all(array._mmap.closed for array in mapped)
+        cleanup(scratch)
+
+    monkeypatch.setattr(TemporaryDirectory, "cleanup", checked_cleanup)
+    index.cycle = index
+    del index
+    gc.collect()
+    assert calls == [True]
+    assert not directory.exists()
+
+
 @pytest.mark.parametrize("angle",[0,17,45,90,135,221,315])
 def test_cells_are_conservative_for_rotated_faces_and_height(angle):
     rng = np.random.default_rng(721)

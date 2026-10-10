@@ -22,6 +22,10 @@ class SpatialPointIndex:
         self.cache, self.cache_bytes = OrderedDict(), 0
         self.cache_limit = budget // 4
         self.scratch = TemporaryDirectory(prefix="punctora-spatial-",dir=scratch_directory)
+        # This owner must close mapped files before removing their directory.
+        # TemporaryDirectory's independent weakref finalizer can run first
+        # when a reconstruction reference cycle is collected on Windows.
+        self.scratch._finalizer.detach()
         self.spilled = len(cloud.points)*96 > budget//2
         self.closed = False
 
