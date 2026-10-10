@@ -94,3 +94,26 @@ def test_oversized_void_is_not_bridged_as_solid_wall():
     walls=detect_walls(points[~void],level(),ReconstructionSettings(),1)
     assert walls
     assert all(abs(w.end[0]-w.start[0])<2 for w in walls)
+
+
+def test_exact_storey_working_set_preserves_cropped_source_identities(monkeypatch,tmp_path):
+    from punctora_core import sampling
+    from punctora_core.evidence import storey_source_cloud,write_wall_evidence
+    points=cloud_face();rows=np.arange(len(points),dtype=np.int64)
+    cloud=CloudData(points,scan_index=(rows%2).astype(np.int32),source_record_index=rows+1000,working_index=rows+500)
+    monkeypatch.setattr(sampling,'available_memory_bytes',lambda:10**10)
+    scoped=storey_source_cloud(cloud,.5,2.,317,10**9)
+    keep=(points[:,2]>=.5)&(points[:,2]<=2.)
+    assert scoped is not cloud
+    assert np.array_equal(scoped.points,points[keep])
+    assert np.array_equal(scoped.working_index,cloud.working_index[keep])
+    assert np.array_equal(scoped.source_record_index,cloud.source_record_index[keep])
+    assert np.array_equal(scoped.scan_index,cloud.scan_index[keep])
+    wall=Wall('w','s',(0,0),(6,0),0,3,.2,observed_faces=[dict(start=[0,0],end=[6,0],z_min=.5,z_max=2.)])
+    attach_evidence(scoped,[wall],317)
+    write_wall_evidence(cloud,[wall],tmp_path/'evidence',317)
+    records=np.load(tmp_path/'evidence'/'wall-1.npy')
+    assert len(records)==wall.evidence_count
+    assert set(records[:,0])==set(cloud.working_index[keep])
+    assert np.array_equal(records[:,2]-records[:,0],np.full(len(records),500))
+    assert storey_source_cloud(cloud,.5,2.,317,1) is cloud

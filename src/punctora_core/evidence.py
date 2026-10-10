@@ -1,8 +1,47 @@
 """Original-record wall fitting and recomputable, bounded evidence selectors."""
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 import numpy as np
 from .sampling import point_batches
+
+_scope_lock=Lock()
+
+
+def storey_source_cloud(cloud,low,high,chunk_points,memory_cap_bytes):
+    """Retain every in-storey source row, trading justified RAM for fewer scans.
+
+    This is an optional exact working set, not subsampling. Source identities
+    survive cropping and original-record export. Limited RAM keeps mapped
+    selectors unchanged. Serial allocation prevents concurrent overcommit.
+    """
+    from .cloud_io import CloudData
+    from .sampling import available_memory_bytes
+    count=sum(int(((p[:,2]>=low)&(p[:,2]<=high)).sum()) for p,_ in point_batches(cloud.points,chunk_points))
+    if count==0 or count==len(cloud.points):
+        return cloud
+    channels={name:getattr(cloud,name) for name in ('scan_index','source_record_index') if getattr(cloud,name) is not None}
+    required=count*(32+sum(v.dtype.itemsize for v in channels.values()))
+    with _scope_lock:
+        if required>min(memory_cap_bytes,int(available_memory_bytes()*.15)):
+            return cloud
+        try:
+            points=np.empty((count,3),dtype=np.float64)
+            rows=np.empty(count,dtype=np.int64)
+            copied={name:np.empty(count,dtype=value.dtype) for name,value in channels.items()}
+            cursor=0
+            for batch,indices in point_batches(cloud.points,chunk_points):
+                keep=(batch[:,2]>=low)&(batch[:,2]<=high)
+                ids=indices[keep]
+                end=cursor+len(ids)
+                points[cursor:end]=batch[keep]
+                rows[cursor:end]=cloud.working_index[ids] if cloud.working_index is not None else ids
+                for name,value in channels.items():
+                    copied[name][cursor:end]=value[ids]
+                cursor=end
+            return CloudData(points,working_index=rows,metadata={**cloud.metadata,'source_scope':'exact storey working set'},**copied)
+        except MemoryError:
+            return cloud
 
 
 def _working_rows(cloud, indices):

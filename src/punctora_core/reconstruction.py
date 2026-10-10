@@ -595,7 +595,7 @@ def spaces_for_storey(storey: Storey, walls: list[Wall], minimum_area: float = 1
 
 def _reconstruct_storey(cloud, level, settings, backend, profiler):
     """Process one storey independently, returning only storey-owned objects."""
-    from .evidence import attach_evidence
+    from .evidence import attach_evidence, storey_source_cloud
     from .features import detect_openings, detect_stairs
     workers = resolved_cpu_workers(settings.cpu_workers)
     warnings = []
@@ -626,8 +626,13 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
         else:
             consolidation = {"input_walls": len(walls), "output_walls": len(walls), "groups": []}
         record["detected_elements"] = {"walls": len(walls)}
+    with profiler.stage('storey_source_scope',storey_id=level.id,source_points=len(cloud.points)) as record:
+        source_cloud=storey_source_cloud(cloud,level.elevation,level.ceiling,settings.processing_chunk_points,
+                                        min(int(settings.maximum_working_memory_gb*1024**3/4),2*1024**3))
+        record.update(sample_points=len(source_cloud.points),materialized=source_cloud is not cloud,
+                      sampling='all source rows in storey, no reduction')
     with profiler.stage("original_wall_fitting", storey_id=level.id, source_points=len(cloud.points)) as record:
-        attach_evidence(cloud, walls, settings.processing_chunk_points,
+        attach_evidence(source_cloud, walls, settings.processing_chunk_points,
                         endpoint_margin=max(.08, 3*settings.grid_size_m),
                         radius=settings.region_plane_tolerance_m if settings.surface_method == "region_growing" else settings.grid_size_m/2,
                         workers=workers)
@@ -652,13 +657,13 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
         record.update(sample_points=len(walls), detected_elements={"spaces": len(spaces)},
                       warnings=list(warnings))
     with profiler.stage("openings", storey_id=level.id, source_points=len(cloud.points)) as record:
-        openings = detect_openings(cloud, walls, settings, workers) if settings.detect_openings_enabled else []
+        openings = detect_openings(source_cloud, walls, settings, workers) if settings.detect_openings_enabled else []
         record.update(sample_points=len(cloud.points) if settings.detect_openings_enabled else 0,
                       sampling="full source wall selectors", detected_elements={"openings": len(openings)})
     with profiler.stage("stairs", storey_id=level.id) as record:
         stair_statistics = []
         landings = []
-        stairs = detect_stairs(cloud, [level], settings, backend, stair_statistics,
+        stairs = detect_stairs(source_cloud, [level], settings, backend, stair_statistics,
                                landings) if settings.detect_stairs_enabled else []
         record.update(sample_points=sum(x["sample_points"] for x in stair_statistics),
                       sampling=stair_statistics,

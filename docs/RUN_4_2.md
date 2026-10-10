@@ -27,6 +27,13 @@ record fitting refines each observed band without replacing consensus wall
 endpoints with the extrema from one band. Original record selectors and E57
 source references remain available, including after cropping.
 
+When available RAM justifies it, an exact in-memory storey working set avoids
+rescanning unrelated storeys for every band. It keeps all relevant original
+records and their immutable row, scan and E57 record identifiers. Allocation is
+serialized and limited against current available RAM; low-memory cases retain
+the mapped full-source selectors. This is not a larger sample or a reduction
+in source evidence. Stage telemetry records whether the exact scope was used.
+
 The corner graph uses common wall-axis intersections and solves connected
 clusters together. Before changing an endpoint, it checks corresponding
 observed-face intersections across overlapping bands. Multi-slice walls need
