@@ -3,7 +3,7 @@ import numpy as np
 from punctora_core.compute import ComputeBackend
 from punctora_core.convergence import compare_budgets
 from punctora_core.fixtures import demo_cloud
-from punctora_core.performance import ResourcePlan, StageProfiler
+from punctora_core.performance import ResourcePlan, StageProfiler, _process
 from punctora_core.reconstruction import ReconstructionSettings, reconstruct
 from punctora_core.sampling import voxel_sample
 
@@ -39,6 +39,15 @@ def test_stage_profiler_records_cpu_ram_and_backend_fields():
     assert stage["detected_elements"]["walls"] == 1
     assert stage["peak_process_rss_bytes"] >= 0
     assert "gpu_counter_status" in stage
+
+
+def test_linux_memory_counter_matches_own_procfs_when_available():
+    import os
+    if not os.path.isfile('/proc/self/statm'):
+        return
+    with open('/proc/self/statm',encoding='ascii') as stream:
+        expected = int(stream.read().split()[1])*os.sysconf('SC_PAGE_SIZE')
+    assert abs(_process().memory_info().rss-expected) < 8*1024**2
 
 
 def test_parallel_reconstruction_preserves_element_counts():

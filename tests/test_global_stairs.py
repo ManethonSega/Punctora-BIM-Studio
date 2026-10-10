@@ -8,7 +8,7 @@ from shapely.geometry import Polygon
 from punctora_core.cloud_io import CloudData
 from punctora_core.features import detect_stairs, derive_stair_slab_openings
 from punctora_core.stair_voids import reconcile_stair_voids
-from punctora_core.model import BuildingModel, Slab, SlabOpening, Stair, Storey
+from punctora_core.model import BuildingModel, Landing, Slab, SlabOpening, Stair, Storey
 from punctora_core.reconstruction import ReconstructionSettings
 from punctora_core.ifc_export import write_ifc
 
@@ -95,6 +95,8 @@ def test_observed_partial_hole_is_preserved_and_headroom_is_cut_and_exported(tmp
     assert validation['valid']
     reopened = ifcopenshell.open(tmp_path/'stairs.ifc')
     assert len(reopened.by_type('IfcStair')) == len(reopened.by_type('IfcStairFlight')) == 1
+    flight = reopened.by_type('IfcStairFlight')[0]
+    assert any(r.RelatingStructure.Name == 'Lower' for r in flight.ReferencedInStructures)
     assert len(reopened.by_type('IfcRelVoidsElement')) == 2
     psets = ifcopenshell.util.element.get_psets(reopened.by_type('IfcStairFlight')[0])
     assert json.loads(psets['Punctora_Reconstruction']['GeometricEvidence'])['inferred_missing_step_indices'] == [4]
@@ -106,3 +108,58 @@ def test_collision_check_reports_missing_void_instead_of_claiming_success():
     _, report = reconcile_stair_voids([slab],[],[],[stair],[])
     assert report[0]['status'] == 'review_required'
     assert report[0]['physical_intersection_area_m2'] > 0
+
+
+def test_roof_headroom_is_checked_without_exact_flight_endpoint_match():
+    stair = Stair('f','s',(0,0),(2,0),0,1,.2,.25,8)
+    slab = Slab('roof','s',[(-1,-1),(4,-1),(4,2),(-1,2)],3,.2,'NOTDEFINED')
+    candidates,_ = derive_stair_slab_openings([stair],[slab],headroom_m=2)
+    assert candidates
+    assert candidates[0].evidence['source_step_indices']['f'] == [5,6,7]
+    _,report = reconcile_stair_voids([slab],[],candidates,[stair],[],headroom_m=2)
+    assert report[0]['headroom_residual_area_m2'] == pytest.approx(0)
+    _,uncut = reconcile_stair_voids([slab],[],[],[stair],[],headroom_m=2)
+    assert uncut[0]['physical_intersection_area_m2'] == 0
+    assert uncut[0]['headroom_residual_area_m2'] > 0
+
+
+def test_terminal_tread_requires_an_independently_supported_landing():
+    treads = flight_points(missing=(7,),risers=False)
+    without = detect_stairs(CloudData(treads),levels(),ReconstructionSettings())
+    assert without[0].steps == 7
+    x,y = np.meshgrid(np.arange(1.96,3.1,.02),np.arange(0,1.1,.02))
+    landing = np.column_stack([x.ravel(),y.ravel(),np.full(x.size,1.36)])
+    flights = detect_stairs(CloudData(np.vstack([treads,landing])),levels(),ReconstructionSettings())
+    assert len(flights) == 1 and flights[0].steps == 8
+    assert flights[0].evidence['inferred_missing_step_indices'] == [7]
+    assert flights[0].evidence['landing_anchored_terminal_step']['support_area_fraction'] >= .5
+
+
+def test_floor_integrated_landing_does_not_duplicate_or_cut_its_floor(tmp_path):
+    footprint = [(-1,-1),(4,-1),(4,2),(-1,2)]
+    stair = Stair('f','s',(0,0),(2,0),.2,1,.2,.25,8,system_id='system')
+    floor = Slab('floor','s',footprint,0,.2)
+    landing = Landing('landing','s',[(-.5,-.5),(.5,-.5),(.5,.5),(-.5,.5)],.08,.12,
+                      'system',['f'],evidence={'floor_integrated':True,'source_floor_id':'floor'})
+    candidates,_ = derive_stair_slab_openings([stair],[floor],[landing])
+    assert not candidates
+    _,report = reconcile_stair_voids([floor],[],[],[stair],[landing])
+    assert report[0]['status'] == 'clear'
+    model = BuildingModel('Integrated landing',[Storey('s','Storey',.2,3.5,footprint)],
+                          slabs=[floor],stairs=[stair],landings=[landing])
+    assert write_ifc(model,tmp_path/'integrated.ifc')['valid']
+    file = ifcopenshell.open(tmp_path/'integrated.ifc')
+    entity = next(e for e in file.by_type('IfcSlab') if e.PredefinedType == 'LANDING')
+    assert entity.Representation is None
+    assert entity.Decomposes[0].RelatingObject.is_a('IfcStair')
+    assert not file.by_type('IfcOpeningElement')
+
+
+def test_small_host_fragment_is_not_discarded_when_it_obstructs_headroom():
+    stair = Stair('f','s',(0,0),(4,0),0,1,.2,.25,16)
+    slab = Slab('fragment','s',[(2,-.51),(2.04,-.51),(2.04,-.49),(2,-.49)],3,.2)
+    candidates,_ = derive_stair_slab_openings([stair],[slab])
+    assert len(candidates) == 1
+    assert Polygon(candidates[0].footprint).area < .05
+    _,report = reconcile_stair_voids([slab],[],candidates,[stair],[])
+    assert report[0]['headroom_residual_area_m2'] == pytest.approx(0)

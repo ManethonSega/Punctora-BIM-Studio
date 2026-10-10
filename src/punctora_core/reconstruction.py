@@ -769,6 +769,17 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                 if settings.detect_stairs_enabled:
                     model.stairs = detect_stairs(cloud, sorted_levels, settings, backend,
                                                 stair_statistics, model.landings)
+                from shapely.geometry import Polygon
+                for landing in model.landings:
+                    polygon = Polygon(landing.footprint)
+                    matches = [slab for slab in model.slabs
+                        if abs(slab.base+slab.thickness-(landing.base+landing.thickness)) <= .08
+                        and Polygon(slab.footprint).intersection(polygon).area >= .9*polygon.area]
+                    if matches:
+                        host = min(matches, key=lambda slab:
+                            abs(slab.base+slab.thickness-landing.base-landing.thickness))
+                        landing.evidence.update(floor_integrated=True, source_floor_id=host.id,
+                            scope="observed landing area integrated into the floor slab; no duplicate landing solid")
                 for flight in model.stairs:
                     for label, elevation in (("lower", flight.base),
                             ("upper", flight.base+flight.steps*flight.rise)):

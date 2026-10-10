@@ -14,7 +14,10 @@ from .sampling import available_memory_bytes, resolved_cpu_workers
 
 
 def _process():
-    if psutil is not None:
+    # Read our own procfs counters directly on Linux. Some hosted runtimes
+    # virtualize psutil's process counters and report impossible sub-MB RSS.
+    # Windows has no procfs and retains the native psutil implementation.
+    if psutil is not None and not os.path.isfile("/proc/self/statm"):
         try:
             return psutil.Process()
         except psutil.Error:

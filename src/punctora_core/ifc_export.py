@@ -210,6 +210,8 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         for stair in stairs:
             flight = root("IfcStairFlight", stair.id+"-flight", predefined="STRAIGHT")
             api("aggregate.assign_object", products=[flight], relating_object=parent)
+            api("spatial.reference_structure", products=[flight],
+                relating_structure=storeys[stair.storey_id])
             flight.NumberOfRisers = stair.steps
             flight.NumberOfTreads = stair.steps
             flight.RiserHeight = stair.rise
@@ -233,14 +235,18 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         for landing in system_landings:
             entity = root("IfcSlab", landing.id, predefined="LANDING")
             api("aggregate.assign_object", products=[entity], relating_object=parent)
+            api("spatial.reference_structure", products=[entity],
+                relating_structure=storeys[landing.storey_id])
             matrix = np.eye(4); matrix[2, 3] = landing.base
-            solid(entity, landing.footprint, landing.thickness, matrix)
+            if not landing.evidence.get("floor_integrated"):
+                solid(entity, landing.footprint, landing.thickness, matrix)
             provenance(entity, landing.id, landing.provenance, {
                 "ReviewState": landing.review_state, "GeometricSupportScore": landing.confidence,
                 "StairSystemId": system_id,
                 "ConnectedFlightIds": ",".join(landing.connected_stair_ids),
                 "SourceStoreyId": landing.storey_id,
                 "GeometricEvidence": json.dumps(landing.evidence, sort_keys=True),
+                "IntegratedFloorId": landing.evidence.get("source_floor_id"),
                 "RepresentationScope": landing.evidence.get("scope", "Reviewed stair landing")})
             exported_landings.add(landing.id)
         system_review = ("flagged" if any(stair.review_state == "flagged" for stair in stairs+system_landings)

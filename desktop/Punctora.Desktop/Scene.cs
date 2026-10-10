@@ -111,6 +111,7 @@ public sealed class SceneData
             foreach(var node in model["landings"]?.AsArray()??[])
             {
                 var landing=node!.AsObject();
+                if(landing["evidence"]?["floor_integrated"]?.GetValue<bool>()==true)continue;
                 Add(elements,landing,"Landing",landing["footprint"]!.AsArray().Select(p=>XY(p!)).ToArray(),
                     Number(landing,"base"),Number(landing,"thickness"));
             }

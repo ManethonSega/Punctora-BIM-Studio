@@ -56,6 +56,8 @@ def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headro
                         and top-flight.tread_thickness < slab.base+slab.thickness-1e-8):
                     clearance.append(tread.intersection(solid))
         for landing in landings:
+            if landing.evidence.get('source_floor_id') == slab.id:
+                continue
             if (landing.base < slab.base+slab.thickness-1e-8
                     and landing.base+landing.thickness > slab.base+1e-8):
                 physical.append(Polygon(landing.footprint).intersection(solid))

@@ -200,9 +200,9 @@ def test_stair_slab_opening_is_reviewable_model_geometry_and_roundtrips():
     assert BuildingModel.from_dict(model.to_dict()).to_dict() == model.to_dict()
 
 
-def test_stair_slab_opening_requires_vertical_intersection_and_containment():
+def test_stair_slab_opening_requires_headroom_intersection_and_host_clipping():
     stair, slab = stair_and_upper_slab()
-    low_stair = Stair(**{**stair.__dict__, "id": "low", "rise": .1})
+    low_stair = Stair(**{**stair.__dict__, "id": "low", "rise": .05})
     openings, diagnostics = derive_stair_slab_openings([low_stair], [slab])
     assert not openings and diagnostics[0]["status"] == "no_intersected_slab"
     edge_stair = Stair(**{**stair.__dict__, "id": "edge", "start": (7, 9.7), "end": (11, 9.7)})

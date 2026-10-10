@@ -175,6 +175,28 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
                     "sample_voxel_size_m": sample.voxel_size_m,
                     "scope": "building-wide straight-flight proposal; missing interior treads are inferred, end treads are not extrapolated"}))
         local_flights = flights[flight_start:]
+        for stair in local_flights:
+            # One occluded terminal tread may be confirmed by an independently
+            # observed landing at the next fitted rise. Never extrapolate an
+            # endpoint using the stair lattice alone.
+            direction = (np.asarray(stair.end)-stair.start)/(stair.steps*stair.going)
+            current_top = stair.base+stair.steps*stair.rise
+            extended_end = np.asarray(stair.end)+direction*stair.going
+            next_tread = LineString([stair.end,extended_end]).buffer(stair.width/2,cap_style=2)
+            anchors = [patch for patch in landing_patches
+                if abs(patch["z"]-current_top-stair.rise) <= .03
+                and Polygon(patch["footprint"]).intersection(next_tread).area >= .5*next_tread.area]
+            if anchors and stair.steps < 100:
+                anchor = max(anchors,key=lambda p:p["count"])
+                stair.evidence["inferred_missing_step_indices"].append(stair.steps)
+                stair.evidence["landing_anchored_terminal_step"] = {
+                    "landing_surface_m": anchor["z"],
+                    "source_working_row_examples": anchor["source_working_row_examples"],
+                    "support_area_fraction": float(Polygon(anchor["footprint"]).intersection(next_tread).area/next_tread.area)}
+                stair.steps += 1
+                stair.end = tuple(extended_end)
+                stair.provenance["treads"] = "inferred"
+                stair.evidence["riser_support_counts"].append(0)
         for patch in landing_patches:
             polygon = Polygon(patch["footprint"])
             connected = []
@@ -276,7 +298,7 @@ def derive_stair_slab_openings(stairs, slabs, landings=None, margin_m=.1,
                 # Every obstructing slab is checked, including roof slabs and
                 # a slab crossed by a flight whose measured top is slightly
                 # below it. Headroom does not require exact endpoint equality.
-                if (low > stair.base+.05 and low <= top+max(.25, vertical_tolerance_m)
+                if (low > stair.base+.05 and low < top+headroom_m
                         and high >= stair.base+stair.rise):
                     qualifying.append((distance, stair))
             if qualifying:
@@ -310,6 +332,7 @@ def derive_stair_slab_openings(stairs, slabs, landings=None, margin_m=.1,
                 source_steps[stair.id] = indices
             connected_landings = [landing for landing in landings
                                   if landing.system_id == system_id
+                                  and landing.evidence.get("source_floor_id") != slab.id
                                   and slab.base-headroom_m <= landing.base+landing.thickness
                                   <= slab.base+slab.thickness+max(.12, vertical_tolerance_m)]
             shapes.extend(Polygon(landing.footprint).buffer(margin_m, join_style=2)
@@ -321,13 +344,13 @@ def derive_stair_slab_openings(stairs, slabs, landings=None, margin_m=.1,
             raw = unary_union(shapes).buffer(0)
             host = Polygon(slab.footprint)
             clipped = raw.intersection(host).buffer(0)
-            if clipped.is_empty or clipped.area < .05:
+            if clipped.is_empty or clipped.area < 1e-6:
                 diagnostics.append({"system_id": system_id, "stair_id": qualifying[0][1].id,
                                     "host_slab_id": slab.id, "status": "outside_host_footprint"})
                 continue
             pieces = list(clipped.geoms) if isinstance(clipped, MultiPolygon) else [clipped]
             for piece_index, piece in enumerate(sorted(pieces, key=lambda item: (-item.area, item.centroid.x, item.centroid.y)), 1):
-                if piece.area < .05:
+                if piece.area < 1e-6:
                     continue
                 footprint = [tuple(map(float, point)) for point in list(piece.exterior.coords)[:-1]]
                 start, end, width = _opening_frame(piece)

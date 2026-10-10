@@ -11,13 +11,17 @@ railings and structural design remain outside scope.
   patches. Source working-row examples are retained for treads and landings.
 - Discrete rise/going fits require at least four observed treads, allow at most
   two missing interior treads between observations, and limit missing evidence
-  to 40 percent of a flight. Missing end steps are not extrapolated.
+  to 40 percent of a flight. One missing terminal tread can be added only when
+  an observed landing independently supports the next rise and tread footprint.
+  A fitted sequence alone never justifies endpoint extrapolation.
 - Vertical riser returns are recorded independently. They increase inspectable
   evidence but are not mandatory for scans that observe only tread surfaces.
 - Changes in direction form separate flights. Only observed landing connectivity
   groups them into straight, L-shaped, U-shaped or multi-turn assemblies.
 - Landings follow supported component outlines. The upper face is measured;
   thickness and the resulting lower face remain assumptions.
+  Floor-integrated landings are semantic areas carried by the existing floor
+  solid, avoiding a duplicate solid and an unjustified hole under the landing.
 - Flights carry storey and nearest supported slab-zone associations. Unmatched
   endpoints retain null associations and a measured distance for review.
 - Headroom is calculated per tread, including explicitly inferred interior
@@ -31,6 +35,8 @@ railings and structural design remain outside scope.
 - IFC exports each connected system as an IfcStair, its IfcStairFlight members,
   landing slabs and explicit slab voids. Geometric evidence, missing treads,
   source storeys and review states remain inspectable in IFC property sets.
+  Flights and landings reference their own storeys while remaining members of
+  the connected stair assembly.
 - The desktop inspector exposes tread indices, inferred steps, riser support,
   slab associations, connected flights and opening boundary justification.
 
