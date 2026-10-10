@@ -99,7 +99,9 @@ also pass the independent test, with residual area below 1e-6 square metres.
 IFC schema/EXPRESS validation and tessellation report no errors. The final IFC
 contains 28 opening entities including the 17 wall-opening proposals.
 
-The local regression suite passes 170 tests. Generated tests establish algorithm
+The local regression checks pass 171 tests (170 in the full-suite run plus the
+added noisy-height field regression). The previous detector fails that added
+fixture; the corrected detector passes. Generated tests establish algorithm
 behavior and persistence, not independent survey accuracy. Before/after headless
 geometry review plates were rendered and inspected. Actual desktop screenshot
 comparison and independently annotated confirmation of every supported tread

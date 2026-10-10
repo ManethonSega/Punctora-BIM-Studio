@@ -189,3 +189,18 @@ def test_observed_slab_face_anchors_missing_terminal_tread_and_cross_storey_syst
     assert len(landings) == 1
     assert landings[0].evidence['source_slab_zone_index'] == 1
     assert Polygon(landings[0].footprint).difference(surface['geometry']).area == pytest.approx(0)
+
+
+def test_sparse_horizontal_noise_between_treads_does_not_merge_all_height_bins():
+    # Reproduces the field failure without shipping customer points: unrelated
+    # small surfaces fill the Z bins between broad, genuine tread surfaces.
+    noise = []
+    for index,z in enumerate(np.arange(.033,1.4,.03)):
+        x,y = np.meshgrid(np.arange(0,.14,.02),np.arange(0,.14,.02))
+        noise.append(np.column_stack([x.ravel()+3+(index%5)*.3,
+                                      y.ravel()+3+(index//5)*.3,np.full(x.size,z)]))
+    cloud = CloudData(np.vstack([flight_points(risers=False),*noise]))
+    flights = detect_stairs(cloud,levels(),ReconstructionSettings())
+    assert len(flights) == 1
+    assert flights[0].steps == 8
+    assert flights[0].rise == pytest.approx(.17,abs=.01)
