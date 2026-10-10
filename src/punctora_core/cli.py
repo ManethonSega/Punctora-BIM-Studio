@@ -15,7 +15,7 @@ from .fixtures import demo_cloud
 from .ifc_export import write_ifc
 from .reconstruction import ReconstructionSettings, reconstruct
 from .convergence import compare_budgets
-from .evidence import write_wall_evidence
+from .evidence import write_model_evidence
 
 
 def _json_write(path, data):
@@ -115,8 +115,7 @@ def main(argv=None):
         evidence_directory = args.output_dir/"evidence"/uuid.uuid4().hex
         evidence_directory.parent.mkdir(parents=True, exist_ok=True)
         try:
-            write_wall_evidence(cloud, model.walls, evidence_directory, settings.processing_chunk_points,
-                                model.metadata.get("surface_proposals"))
+            write_model_evidence(cloud,model,evidence_directory,settings.processing_chunk_points)
         except Exception:
             shutil.rmtree(evidence_directory, ignore_errors=True)
             raise

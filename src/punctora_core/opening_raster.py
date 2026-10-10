@@ -7,7 +7,7 @@ from .sampling import resolved_cpu_workers
 from .wall_slices import runs
 
 
-def _one_wall(cloud,wall,settings):
+def _one_wall(cloud,wall,settings,visit=lambda _: None):
     start=np.asarray(wall.start,float)
     direction=np.asarray(wall.end,float)-start
     length=float(np.linalg.norm(direction))
@@ -28,6 +28,7 @@ def _one_wall(cloud,wall,settings):
         histogram=np.zeros(81,np.int64)
         for begin in range(0,len(cloud.points),settings.processing_chunk_points):
             p=cloud.points[begin:begin+settings.processing_chunk_points]
+            visit(len(p))
             along=(p[:,:2]-start)@direction
             d=(p[:,:2]-start)@normal
             keep=(along>=0)&(along<length)&(p[:,2]>=wall.base)&(p[:,2]<wall.base+wall.height)
@@ -44,6 +45,7 @@ def _one_wall(cloud,wall,settings):
         support=0
         for begin in range(0,len(cloud.points),settings.processing_chunk_points):
             points=cloud.points[begin:begin+settings.processing_chunk_points]
+            visit(len(points))
             # Filter height before projecting unrelated storeys.
             points=points[(points[:,2]>=wall.base)&(points[:,2]<wall.base+wall.height)]
             relative=points[:,:2]-start
@@ -135,9 +137,32 @@ def _one_wall(cloud,wall,settings):
     return accepted
 
 
-def detect_signed_openings(cloud,walls,settings,workers=None):
+def detect_signed_openings(cloud,walls,settings,workers=None,spatial_index=None,stage="openings"):
     workers=resolved_cpu_workers(settings.cpu_workers) if workers is None else workers
+    def detect(wall):
+        local = cloud
+        visit = lambda _: None
+        if spatial_index is not None:
+            # Opening rasters inspect returns within 0.35 m of the observed
+            # face.  The exact per-pixel test in _one_wall remains unchanged.
+            # Openings span the whole host height, even with narrow fitting slices.
+            a,b = np.asarray(wall.start,float),np.asarray(wall.end,float)
+            direction = b-a
+            length = np.linalg.norm(direction)
+            if length<.5:
+                return []
+            direction /= length
+            normal = np.array([-direction[1],direction[0]])
+            offsets = [float((np.mean([f["start"],f["end"]],axis=0)-a)@normal)
+                       for f in wall.observed_faces] or [0.]
+            faces = [dict(start=(a+normal*o).tolist(),end=(b+normal*o).tolist(),
+                          z_min=wall.base,z_max=wall.base+wall.height) for o in offsets]
+            local, _ = spatial_index.local_cloud(faces,.405,.05,stage)
+            visit = lambda count: spatial_index.visit(stage,count)
+            if local is None:
+                return []
+        return _one_wall(local,wall,settings,visit)
     if workers>1 and len(walls)>1:
         with ThreadPoolExecutor(max_workers=min(workers,len(walls))) as pool:
-            return [o for group in pool.map(lambda w:_one_wall(cloud,w,settings),walls) for o in group]
-    return [o for w in walls for o in _one_wall(cloud,w,settings)]
+            return [o for group in pool.map(detect,walls) for o in group]
+    return [o for w in walls for o in detect(w)]

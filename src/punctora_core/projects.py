@@ -15,7 +15,7 @@ import numpy as np
 from .cloud_io import CloudData
 from .cropping import EMPTY_CROP, crop_active, materialize_crop, validate_crop
 from .e57_io import read_e57
-from .evidence import write_wall_evidence
+from .evidence import write_model_evidence
 from .fixtures import demo_cloud
 from .ifc_export import write_ifc
 from .model import BuildingModel, Landing, Opening, SlabOpening, Stair
@@ -138,6 +138,13 @@ def mark_performance_cancelled(path, job_id):
                                               "scope": "recorded by desktop after worker termination"})
     atomic_json(matches[0], report)
     atomic_json(root / "last-performance.json", report)
+    # The terminated worker cannot run TemporaryDirectory's finalizer. Remove
+    # only its unpublished index workspaces, never source or published data.
+    temporary = safe_path(root,f"staging/{job_id}")
+    if temporary.is_dir():
+        for directory in temporary.glob("punctora-spatial-*"):
+            if directory.is_dir() and not directory.is_symlink():
+                shutil.rmtree(safe_path(root,str(directory.relative_to(root))))
     return {"updated": True, "diagnostic": str(matches[0])}
 
 
@@ -428,12 +435,12 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                 progress(20, "Finding surfaces and fitting elements")
                 if request.get("compare_budgets"):
                     model, budget_report = compare_budgets(
-                        cloud, settings, progress=progress, diagnostics=save_performance)
+                        cloud,settings,progress=progress,diagnostics=save_performance,scratch_directory=stage)
                     atomic_json(assets_for(path) / "budget-comparison.json", budget_report)
                     model.metadata["budget_comparison"] = budget_report
                 else:
                     model = reconstruct(cloud, settings, name=state["name"],
-                                        progress=progress, diagnostics=save_performance,
+                                        progress=progress, diagnostics=save_performance,scratch_directory=stage,
                                         diagnostic_context={"job_id": token, "command": "reconstruct",
                                                             "project_name": state["name"],
                                                             "source_points": len(cloud.points),
@@ -455,8 +462,7 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                 progress(80, "Retaining source evidence")
                 evidence = stage / "evidence" / "records"
                 evidence.parent.mkdir()
-                write_wall_evidence(cloud, model.walls, evidence, settings.processing_chunk_points,
-                                    model.metadata.get("surface_proposals"))
+                write_model_evidence(cloud,model,evidence,settings.processing_chunk_points)
                 for wall in model.walls:
                     record = wall.evidence.get("records")
                     if record:
@@ -476,6 +482,8 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                 state["processing_backend"] = model.metadata.get("performance", {}).get(
                     "compute_backend", "CPU")
             finally:
+                if "model" in locals() and getattr(model,"_spatial_index",None) is not None:
+                    model._spatial_index.close()
                 if cloud is not source_cloud:
                     close_cloud(cloud)
                 close_cloud(source_cloud)

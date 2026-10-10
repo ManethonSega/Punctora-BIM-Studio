@@ -2,6 +2,11 @@
 
 The reconstruction worker now uses an adaptive, evidence-preserving pipeline.
 
+Run 1 adds one lossless complete-cloud XYZ cell index, reused by wall fitting,
+openings and evidence export, with bounded sorting runs, mapped spill and
+measured point visits distinct from unique source rows. See [Run 1 verification](RUN_1_SCALE.md).
+The under-20-minute, 210-million-point acceptance gate is still pending.
+
 * CPU workers default to all logical processors except one. Independent storeys
   run concurrently, while BLAS thread pools are limited so nested parallelism
   does not oversubscribe the machine. Wall evidence, opening detection, and

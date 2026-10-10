@@ -117,3 +117,22 @@ def test_exact_storey_working_set_preserves_cropped_source_identities(monkeypatc
     assert set(records[:,0])==set(cloud.working_index[keep])
     assert np.array_equal(records[:,2]-records[:,0],np.full(len(records),500))
     assert storey_source_cloud(cloud,.5,2.,317,1) is cloud
+
+
+def test_spatial_wall_cells_preserve_source_records_without_scanning_far_points():
+    from punctora_core.spatial_index import SpatialPointIndex
+    near = cloud_face()
+    far = near + np.array([100., 100., 0.])
+    points = np.vstack([near, far])
+    rows = np.arange(len(points), dtype=np.int64)
+    cloud = CloudData(points, scan_index=(rows % 3).astype(np.int32),
+                      source_record_index=rows+700, working_index=rows+900)
+    index = SpatialPointIndex.build(cloud, .20)
+    face = dict(start=[0,0], end=[6,0], z_min=0, z_max=3)
+    local, selected = index.local_cloud([face], .05, .08)
+    assert local is not None
+    assert len(selected) <= len(points)/2
+    assert selected.max() < len(near)
+    assert np.array_equal(local.working_index, cloud.working_index[selected])
+    assert np.array_equal(local.scan_index, cloud.scan_index[selected])
+    assert np.array_equal(local.source_record_index, cloud.source_record_index[selected])

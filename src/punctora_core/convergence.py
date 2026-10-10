@@ -63,7 +63,7 @@ def geometry_change(previous, current):
 
 
 def compare_budgets(cloud, settings=None, storeys=None, budgets=BUDGETS, tolerance_m=.01,
-                    progress=lambda *_: None, diagnostics=None):
+                    progress=lambda *_: None, diagnostics=None, scratch_directory=None):
     settings = settings or ReconstructionSettings()
     budgets = tuple(budgets)
     if not budgets or list(budgets) != sorted(set(budgets)) or any(not isinstance(x, int) or x < 30 for x in budgets):
@@ -73,10 +73,12 @@ def compare_budgets(cloud, settings=None, storeys=None, budgets=BUDGETS, toleran
     previous, stable_steps, runs = None, 0, []
     chosen = None
     for index, budget in enumerate(budgets):
+        if previous is not None:
+            previous._spatial_index.close()
         progress(10+int(index*65/len(budgets)), f"Comparing geometry at {budget:,} points")
         model = reconstruct(cloud, replace(settings, maximum_detection_points=budget,
                                            region_minimum_points=min(settings.region_minimum_points, budget)),
-                            storeys=storeys, diagnostics=diagnostics)
+                            storeys=storeys,diagnostics=diagnostics,scratch_directory=scratch_directory)
         counts = {kind: len(getattr(model, kind)) for kind in ("storeys", "walls", "slabs", "spaces", "openings", "stairs", "landings", "slab_openings")}
         change = geometry_change(previous, model) if previous is not None else None
         stable = change is not None and not change["counts_changed"] and change["maximum_geometry_change_m"] <= tolerance_m

@@ -64,6 +64,15 @@ def test_stage_profiler_emits_running_heartbeat_and_terminal_snapshot():
     assert snapshots[-1]["stages"][0]["points_per_second"] > 0
 
 
+def test_stage_profiler_distinguishes_logical_visits_from_unique_source_reference():
+    profiler = StageProfiler(ComputeBackend("cpu"))
+    with profiler.stage("indexed", point_cloud_passes=.25) as record:
+        record.update(points_processed=250, unique_source_points=1_000)
+    report = profiler.report()
+    assert report["logical_point_visits_total"] == 250
+    assert report["unique_source_points_reference"] == 1_000
+
+
 def test_linux_memory_counter_matches_own_procfs_when_available():
     import os
     if not os.path.isfile('/proc/self/statm'):
@@ -80,6 +89,11 @@ def test_parallel_reconstruction_preserves_element_counts():
     for kind in ("storeys", "walls", "slabs", "spaces", "openings", "stairs", "landings", "slab_openings"):
         assert len(getattr(serial, kind)) == len(getattr(parallel, kind))
     assert parallel.metadata["performance"]["resource_plan"]["workers"] >= 1
+    index_stages = [r for r in parallel.metadata["performance"]["stages"] if r["stage"]=="wall_spatial_index"]
+    assert len(index_stages)==1
+    assert index_stages[0]["points_processed"]==len(cloud.points)
+    serial._spatial_index.close()
+    parallel._spatial_index.close()
 
 
 def test_budget_comparison_reports_stability_without_claiming_accuracy():

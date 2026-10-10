@@ -16,9 +16,9 @@ from .stair_sequences import fit_tread_sequences
 from .sampling import adaptive_point_limit, resolved_cpu_workers, voxel_sample
 
 
-def detect_openings(cloud, walls, settings, workers=None):
+def detect_openings(cloud, walls, settings, workers=None, spatial_index=None, stage="openings"):
     from .opening_raster import detect_signed_openings
-    return detect_signed_openings(cloud, walls, settings, workers)
+    return detect_signed_openings(cloud,walls,settings,workers,spatial_index,stage)
 
 
 def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landing_output=None,
