@@ -4,7 +4,7 @@ from shapely.ops import unary_union
 from .model import slab_opening_footprint
 
 
-def reconcile_stair_voids(slabs, observed, candidates, flights, landings):
+def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headroom_m=2.0):
     """Keep observations intact; cut only flight/landing-supported additions.
 
     Overlapping IFC voids are legal and their union is the actual removed area.
@@ -52,18 +52,21 @@ def reconcile_stair_voids(slabs, observed, candidates, flights, landings):
                 tread = LineString([a,b]).buffer(flight.width/2, cap_style=2)
                 if top > slab.base+1e-8 and top-flight.tread_thickness < slab.base+slab.thickness-1e-8:
                     physical.append(tread.intersection(solid))
-                # Headroom comes from the actual configured envelope candidate.
-        for candidate in candidates:
-            if candidate.host_slab_id == slab.id:
-                clearance.append(Polygon(slab_opening_footprint(candidate)).intersection(solid))
+                if (top+headroom_m > slab.base+1e-8
+                        and top-flight.tread_thickness < slab.base+slab.thickness-1e-8):
+                    clearance.append(tread.intersection(solid))
         for landing in landings:
             if (landing.base < slab.base+slab.thickness-1e-8
                     and landing.base+landing.thickness > slab.base+1e-8):
                 physical.append(Polygon(landing.footprint).intersection(solid))
+            if (landing.base+landing.thickness+headroom_m > slab.base+1e-8
+                    and landing.base < slab.base+slab.thickness-1e-8):
+                clearance.append(Polygon(landing.footprint).intersection(solid))
         residual = unary_union(physical).area
         headroom_residual = unary_union(clearance).area
         report.append({'host_slab_id': slab.id,
             'physical_intersection_area_m2': float(residual),
             'headroom_residual_area_m2': float(headroom_residual),
+            'required_headroom_m': float(headroom_m),
             'status': 'clear' if residual < 1e-6 and headroom_residual < 1e-6 else 'review_required'})
     return result, report

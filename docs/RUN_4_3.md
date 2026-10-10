@@ -1,0 +1,57 @@
+# Run 4.3: global stairs and stairwell verification
+
+Version 0.3.0a14 implements building-wide straight-flight detection after slab
+zones have been established. It uses geometric evidence, not scan-specific
+elevations, storey counts or expected flight counts. Curved and spiral stairs,
+railings and structural design remain outside scope.
+
+## Implementation
+
+- One spatially sampled building-wide pass estimates horizontal and vertical
+  patches. Source working-row examples are retained for treads and landings.
+- Discrete rise/going fits require at least four observed treads, allow at most
+  two missing interior treads between observations, and limit missing evidence
+  to 40 percent of a flight. Missing end steps are not extrapolated.
+- Vertical riser returns are recorded independently. They increase inspectable
+  evidence but are not mandatory for scans that observe only tread surfaces.
+- Changes in direction form separate flights. Only observed landing connectivity
+  groups them into straight, L-shaped, U-shaped or multi-turn assemblies.
+- Landings follow supported component outlines. The upper face is measured;
+  thickness and the resulting lower face remain assumptions.
+- Flights carry storey and nearest supported slab-zone associations. Unmatched
+  endpoints retain null associations and a measured distance for review.
+- Headroom is calculated per tread, including explicitly inferred interior
+  treads, and combined with connected landing footprints. Every addition is
+  clipped to its host slab and records source flights, step indices and landings.
+- Observed slab holes are retained. Their overlap with a stair envelope and the
+  additional cut area are recorded separately. Unsupported holes remain pending
+  manual review rather than being declared stairwells.
+- An independent per-tread/landing test checks physical and headroom residuals
+  against the final slab solid. Nonzero residuals generate review warnings.
+- IFC exports each connected system as an IfcStair, its IfcStairFlight members,
+  landing slabs and explicit slab voids. Geometric evidence, missing treads,
+  source storeys and review states remain inspectable in IFC property sets.
+- The desktop inspector exposes tread indices, inferred steps, riser support,
+  slab associations, connected flights and opening boundary justification.
+
+## Regression and acceptance
+
+Generated tests cover rotated flights, missing interior treads, cross-storey
+flights, L/U landing connectivity, separation without a landing, observed partial
+holes, independent collision failures, persistence, IFC validation and reopening.
+Existing slab, window, corner, coordinate and crop regressions remain in CI.
+
+The supplied E57 remains the local field regression, not a CI input. The report
+script records counts, evidence, residuals, stage timings, sampled peak RSS and
+manual-review warnings. Slab inferred-area percentages and missing-tread indices
+are reported separately; a calibrated whole-model unsupported percentage is
+not available.
+
+`scripts/render_stair_review.py` creates reproducible geometry review plates.
+These are headless plan projections, not desktop screenshots or survey ground
+truth. Actual desktop before/after visual acceptance remains a separate check.
+
+Full-scan results are pending in this implementation checkpoint. Passing
+generated tests must not be described as recognizing every stair in the scan.
+The specific second-storey window acceptance item from Run 4.2 also remains open.
+Run 5 stays blocked until the agreed visual and numerical completion gate passes.

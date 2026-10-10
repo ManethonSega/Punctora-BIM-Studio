@@ -52,7 +52,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a13 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
+        Title="Punctora BIM Studio | 0.3.0a14 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -61,7 +61,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a13",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a14",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -318,6 +318,9 @@ public sealed class MainWindow : Window
         evidence.Text=(kind=="walls"?$"Supporting original points: {obj["evidence_count"]}\nObserved-face fit RMSE: {obj["fit_rmse_m"]?.ToJsonString()??"unknown"} m\n\n":"")+string.Join("\n",provenance)+"\n\nObserved faces and fit statistics refer to the original fit. Corrections are recorded as user supplied.";
         if(kind=="openings"||kind=="stairs"||kind=="landings"||kind=="slab_openings"||kind=="slabs")evidence.Text=$"Geometric support score: {obj["confidence"]?.ToJsonString()??"unknown"} (not an accuracy probability)\n{obj["evidence"]?["scope"]?.GetValue<string>()??"Caller-supplied geometry"}\n\n"+evidence.Text;
         if(kind=="slabs")evidence.Text=$"Supported area: {obj["evidence"]?["supported_percent"]?.ToJsonString()??"unknown"}%\nInferred area: {obj["evidence"]?["inferred_percent"]?.ToJsonString()??"unknown"}%\n\n"+evidence.Text;
+        if(kind=="stairs")evidence.Text=$"System: {obj["system_id"]} ({obj["evidence"]?["system_layout"]})\nObserved tread indices: {obj["evidence"]?["observed_step_indices"]}\nInferred missing treads: {obj["evidence"]?["inferred_missing_step_indices"]}\nRiser support: {obj["evidence"]?["riser_support_counts"]}\nLower/upper slabs: {obj["evidence"]?["lower_slab_id"]} / {obj["evidence"]?["upper_slab_id"]}\n\n"+evidence.Text;
+        if(kind=="landings")evidence.Text=$"Connected flights: {obj["connected_stair_ids"]}\nObserved support points: {obj["evidence"]?["support_points"]}\n\n"+evidence.Text;
+        if(kind=="slab_openings")evidence.Text=$"Stair validation: {obj["evidence"]?["stair_validation"]??obj["evidence"]?["validation_state"]}\nObserved overlap: {obj["evidence"]?["observed_overlap_m2"]} m2\nAdditional cut: {obj["evidence"]?["additional_cut_area_m2"]} m2\nBoundary justification: {obj["evidence"]?["boundary_justification"]}\n\n"+evidence.Text;
         if(kind=="walls"&&obj["evidence"]?["endpoints"] is JsonArray ends)evidence.Text="Endpoint evidence:\n"+string.Join("\n",ends.Select(e=>$"{e!["end"]}: {e["status"]}"))+"\n\n"+evidence.Text;
         if(kind=="openings")evidence.Text=$"Jamb positions: {obj["evidence"]?["jamb_positions_m"]?.ToJsonString()??"unknown"} m\nSill/head elevations: {obj["evidence"]?["sill_elevation_m"]} / {obj["evidence"]?["head_elevation_m"]} m\nSigned filling depth: {obj["evidence"]?["signed_interior_depth_m"]?.ToJsonString()??"unobserved"} m\nFrame support: {obj["evidence"]?["edge_support"]?.ToJsonString()??"unknown"}\n\n"+evidence.Text;
         UpdateActions();

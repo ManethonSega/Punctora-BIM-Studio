@@ -109,7 +109,16 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
                 corners = np.array([[low[0], low[1]], [high[0], low[1]],
                                     [high[0], high[1]], [low[0], high[1]]])@axes+centre
                 if 0.6 <= width <= 4.0 and 0.55 <= depth <= 4.0 and width*depth <= 12.0:
-                    landing_patches.append({"footprint": [tuple(map(float, point)) for point in corners],
+                    component = np.uint8(labels == index)
+                    contours, _ = cv2.findContours(component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    boundary = max(contours, key=cv2.contourArea)[:, 0, :]
+                    if len(boundary) < 3:
+                        continue
+                    supported_shape = Polygon(origin+(boundary+.5)*.06).buffer(.03, join_style=2)
+                    if not isinstance(supported_shape, Polygon) or supported_shape.area < .3:
+                        continue
+                    landing_patches.append({"footprint": [tuple(map(float, point))
+                                            for point in list(supported_shape.exterior.coords)[:-1]],
                                             "z": float(np.median(patch[:, 2])), "count": len(patch),
                                             "coverage": float(min(1.0, coverage)),
                                             "source_working_row_examples": source_examples})
@@ -180,12 +189,13 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
                     f"building-landing-{len(detected_landings)+1}",
                     max((s for s in actual_storeys if s.elevation <= patch["z"]+.12),
                         key=lambda s: s.elevation, default=actual_storeys[0]).id,
-                    patch["footprint"], patch["z"]-.06, .12,
+                    patch["footprint"], patch["z"]-.12, .12,
                     connected_stair_ids=connected,
-                    provenance={"footprint": "measured", "base": "measured", "thickness": "inferred"},
+                    provenance={"footprint": "measured", "base": "inferred", "thickness": "inferred"},
                     confidence=min(.9, .55+.35*patch["coverage"]), evidence={
                         "method": "horizontal_patch_at_flight_endpoint",
                         "support_points": patch["count"], "connected_stair_ids": connected,
+                        "observed_upper_surface_m": patch["z"],
                         "source_working_row_examples": patch["source_working_row_examples"],
                         "scope": "horizontal landing candidate connected to measured flight endpoints; structure and finish are unknown"}))
         _assign_stair_systems(local_flights, detected_landings)

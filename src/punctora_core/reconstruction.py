@@ -790,7 +790,8 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                     margin_m=settings.stair_void_margin_m,
                     headroom_m=settings.stair_headroom_m)
                 model.slab_openings, void_report = reconcile_stair_voids(
-                    model.slabs, model.slab_openings, candidates, model.stairs, model.landings)
+                    model.slabs, model.slab_openings, candidates, model.stairs, model.landings,
+                    headroom_m=settings.stair_headroom_m)
                 record.update(detected_elements={"slab_openings": len(model.slab_openings)},
                               verification=void_report)
             if any(item["status"] == "review_required" for item in void_report):
