@@ -255,6 +255,7 @@ public sealed class MainWindow : Window
     }
     void ShowProperties()
     {
+        FilterStorey();
         fields.Clear();initialFields.Clear();fieldsPanel.Children.Clear();var selection=Selected();
         if(selection==null){selectedTitle.Text="Element properties";evidence.Text="Select a wall, slab, slab opening, wall opening, stair, landing or storey.";UpdateActions();return;}
         var (kind,obj)=selection.Value;selectedTitle.Text=obj["id"]!.GetValue<string>();
@@ -269,6 +270,22 @@ public sealed class MainWindow : Window
             Number("base","Base (m)");Number("height","Height (m)");Number("thickness","Thickness (m)");
             var dx=obj["end"]![0]!.GetValue<double>()-obj["start"]![0]!.GetValue<double>();var dy=obj["end"]![1]!.GetValue<double>()-obj["start"]![1]!.GetValue<double>();
             splitOffset.Text=(Math.Sqrt(dx*dx+dy*dy)/2).ToString("G10",CultureInfo.InvariantCulture);
+            if(obj["evidence"]?["slices"] is JsonArray slices && slices.Count>0)
+            {
+                fieldsPanel.Children.Add(Text("Inspect wall evidence by height band",11));
+                var bands=slices.Where(s=>s!=null).GroupBy(s=>s!["slice_index"]!.GetValue<int>()).OrderBy(g=>g.Key).ToArray();
+                var selector=new ComboBox{HorizontalAlignment=HorizontalAlignment.Stretch,
+                    ItemsSource=new[]{"All height bands"}.Concat(bands.Select(g=>$"Band {g.Key+1}: {g.First()!["z_min"]!.GetValue<double>():F2} to {g.First()!["z_max"]!.GetValue<double>():F2} m")).ToArray(),SelectedIndex=0};
+                var details=Text("Choose a band to isolate cloud points and inspect its measured extent.",11);
+                selector.SelectionChanged+=(_,_)=>
+                {
+                    if(selector.SelectedIndex<=0){FilterStorey();details.Text="All height bands.";return;}
+                    var records=bands[selector.SelectedIndex-1].ToArray();var band=records[0]!;
+                    viewport.View.ZMin=(float)band["z_min"]!.GetValue<double>();viewport.View.ZMax=(float)band["z_max"]!.GetValue<double>();viewport.Redraw();
+                    details.Text=string.Join("\n",records.Select(s=>$"Face {s!["start"]!.ToJsonString()} to {s["end"]!.ToJsonString()}\nCoverage: {s["coverage"]?.ToJsonString()??"unknown"}; original fit points: {s["original_inlier_fit_points"]?.ToJsonString()??"unknown"}; proposal points: {s["proposal_support_points"]}; original RMSE: {s["original_plane_fit_rmse_m"]?.ToJsonString()??"unknown"} m"));
+                };
+                fieldsPanel.Children.Add(selector);fieldsPanel.Children.Add(details);
+            }
         }
         else if(kind=="slabs"){Number("base","Base (m)");Number("thickness","Thickness (m)");}
         else if(kind=="openings")
@@ -301,6 +318,8 @@ public sealed class MainWindow : Window
         evidence.Text=(kind=="walls"?$"Supporting original points: {obj["evidence_count"]}\nObserved-face fit RMSE: {obj["fit_rmse_m"]?.ToJsonString()??"unknown"} m\n\n":"")+string.Join("\n",provenance)+"\n\nObserved faces and fit statistics refer to the original fit. Corrections are recorded as user supplied.";
         if(kind=="openings"||kind=="stairs"||kind=="landings"||kind=="slab_openings"||kind=="slabs")evidence.Text=$"Geometric support score: {obj["confidence"]?.ToJsonString()??"unknown"} (not an accuracy probability)\n{obj["evidence"]?["scope"]?.GetValue<string>()??"Caller-supplied geometry"}\n\n"+evidence.Text;
         if(kind=="slabs")evidence.Text=$"Supported area: {obj["evidence"]?["supported_percent"]?.ToJsonString()??"unknown"}%\nInferred area: {obj["evidence"]?["inferred_percent"]?.ToJsonString()??"unknown"}%\n\n"+evidence.Text;
+        if(kind=="walls"&&obj["evidence"]?["endpoints"] is JsonArray ends)evidence.Text="Endpoint evidence:\n"+string.Join("\n",ends.Select(e=>$"{e!["end"]}: {e["status"]}"))+"\n\n"+evidence.Text;
+        if(kind=="openings")evidence.Text=$"Jamb positions: {obj["evidence"]?["jamb_positions_m"]?.ToJsonString()??"unknown"} m\nSill/head elevations: {obj["evidence"]?["sill_elevation_m"]} / {obj["evidence"]?["head_elevation_m"]} m\nSigned filling depth: {obj["evidence"]?["signed_interior_depth_m"]?.ToJsonString()??"unobserved"} m\nFrame support: {obj["evidence"]?["edge_support"]?.ToJsonString()??"unknown"}\n\n"+evidence.Text;
         UpdateActions();
     }
     static double Parse(string text)

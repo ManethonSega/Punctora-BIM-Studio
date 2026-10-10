@@ -246,6 +246,14 @@ def snap_wall_topology(walls, *, corner_tolerance_m=.3, t_tolerance_m=.1,
                 if projection is None:
                     continue
                 foot, distance, along, length = projection
+                intersection = _line_intersection(source_start,source_end,host_start,host_end)
+                if intersection is None:
+                    continue
+                actual = _project_onto_segment(intersection,host_start,host_end)
+                if actual is None:
+                    continue
+                foot,_,along,length = actual
+                distance = float(np.linalg.norm(point-foot))
                 if distance <= t_tolerance_m:
                     choices.append((distance, host.id, foot, along, length, angle))
             if choices:
@@ -286,6 +294,10 @@ def snap_wall_topology(walls, *, corner_tolerance_m=.3, t_tolerance_m=.1,
 
 def observed_junction_support(wall,end,target,partners):
     """Validate the observed face intersection, not a return inside solid material."""
+    a,b,direction,_=_axis(wall)
+    normal=np.array([-direction[1],direction[0]])
+    if abs(float((target-a)@normal))>.05:
+        return dict(wall_id=wall.id,end=end,supported=False,reason='correction_leaves_supported_axis')
     bands,checks=set(),[]
     for face in wall.observed_faces:
         a,b=np.asarray(face['start']),np.asarray(face['end'])

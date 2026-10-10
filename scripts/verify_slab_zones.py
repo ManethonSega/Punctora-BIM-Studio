@@ -55,6 +55,18 @@ def main():
               "slab_support": [{"id":s.id, **s.evidence} for s in model.slabs],
               "ifc_validation": validation,
               "scope": "algorithm/IFC checks; no independently annotated survey ground truth"}
+    if args.full_reconstruction:
+        hosts = {w.id:w for w in model.walls}
+        report['wall_verification'] = {
+            'walls':len(model.walls), 'openings':len(model.openings),
+            'multi_slice_walls':sum(w.detection_method == 'multi_slice' for w in model.walls),
+            'endpoint_status_counts':{status:sum(t['connectivity']['counts'].get(status,0)
+                for t in model.metadata['wall_topology']) for status in
+                ('supported_corner','supported_t_junction','unresolved_gap','rejected_correction','intentional_open_end')},
+            'opening_hosts':[{'wall_id':w.id,'storey_id':w.storey_id,'start':w.start,'end':w.end,
+                'openings':[{'id':o.id,'kind':o.kind,'offset':o.offset,'width':o.width,'sill':o.sill,'height':o.height,
+                            'evidence':o.evidence} for o in model.openings if o.host_wall_id == w.id]}
+                for w in hosts.values() if any(o.host_wall_id == w.id for o in model.openings)]}
     (args.output_dir/"slab-verification.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps({k:v for k,v in report.items() if k not in {"slab_support","ifc_validation"}}, indent=2))
 

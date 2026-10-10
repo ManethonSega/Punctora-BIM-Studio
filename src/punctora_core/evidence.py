@@ -60,7 +60,8 @@ def _refine_face(points, face, radius, margin, chunk_points):
     if direction @ original_direction < 0:
         direction *= -1
     centre += anchor
-    result = {**face, "start": centre.tolist(), "end": (centre+direction*np.linalg.norm(original_direction)).tolist()}
+    result = {**face, "start": centre.tolist(), "end": (centre+direction*np.linalg.norm(original_direction)).tolist(),
+              "original_inlier_fit_points":count, "original_plane_fit_rmse_m":float(np.sqrt(max(0.,values[0])))}
     # Use the original proposal's finite interval for refinement, so unrelated
     # collinear walls elsewhere cannot extend this candidate.
     low, high = np.inf, -np.inf
@@ -103,6 +104,10 @@ def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=
         a, b = np.asarray(first["start"]), np.asarray(first["end"])
         if wall.detection_method == "multi_slice":
             previous_evidence["refined_slices"] = [dict(f) for f in wall.observed_faces]
+            slices=previous_evidence.get('slices',[])
+            if len(slices)==len(wall.observed_faces):
+                previous_evidence['slices']=[{**r,'proposal_start':r['start'],'proposal_end':r['end'],**f}
+                                             for r,f in zip(slices,wall.observed_faces)]
         elif len(wall.observed_faces) == 2 and wall.classification == "paired_faces":
             from .reconstruction import _paired_axis
             second = wall.observed_faces[1]

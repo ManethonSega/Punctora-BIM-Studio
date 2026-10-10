@@ -1,0 +1,77 @@
+import numpy as np
+import pytest
+from punctora_core.cloud_io import CloudData
+from punctora_core.model import BuildingModel, Storey, Wall
+from punctora_core.reconstruction import ReconstructionSettings, detect_walls, _snap_walls
+from punctora_core.features import detect_openings
+from punctora_core.evidence import attach_evidence
+
+
+def cloud_face():
+    x,z=np.meshgrid(np.arange(0,6.001,.025),np.arange(0,3.001,.025))
+    return np.column_stack((x.ravel(),np.zeros(x.size),z.ravel()))
+
+
+def level():
+    return Storey('s','S',0,3,[(-1,-1),(7,-1),(7,2),(-1,2)])
+
+
+def test_multi_slice_shortens_extension_seen_only_at_ceiling():
+    points=cloud_face()
+    points=points[(points[:,0]<=4)|(points[:,2]>=2.4)]
+    walls=detect_walls(points,level(),ReconstructionSettings(),1)
+    assert len(walls)==1
+    assert max(walls[0].start[0],walls[0].end[0])<=4.05
+    old=(walls[0].start,walls[0].end)
+    attach_evidence(CloudData(points),walls)
+    assert (walls[0].start,walls[0].end)==old
+    assert len(walls[0].evidence['slices'])>=4
+
+
+def test_through_height_gap_stays_separate_but_framed_windows_keep_host():
+    points=cloud_face()
+    gap=(points[:,0]>2)&(points[:,0]<4)
+    assert len(detect_walls(points[~gap],level(),ReconstructionSettings(),1))==2
+    window=gap&(points[:,2]>.8)&(points[:,2]<2.1)
+    walls=detect_walls(points[~window],level(),ReconstructionSettings(),1)
+    assert len(walls)==1
+    assert abs(walls[0].end[0]-walls[0].start[0])>5.9
+
+
+@pytest.mark.parametrize('depth',[0.,.12,-.12])
+def test_two_windows_with_thin_supported_mullion_and_signed_depth(depth):
+    points=cloud_face()
+    windows=(((points[:,0]>=1)&(points[:,0]<2.5))|((points[:,0]>=2.6)&(points[:,0]<4.1)))&(points[:,2]>=.9)&(points[:,2]<2.1)
+    if depth:
+        points[windows,1]=depth
+    else:
+        points=points[~windows]
+    wall=Wall('w','s',(0,0),(6,0),0,3,.2,observed_faces=[dict(start=[0,0],end=[6,0],z_min=0,z_max=3)])
+    openings=detect_openings(CloudData(points),[wall],ReconstructionSettings(),1)
+    assert len(openings)==2
+    assert all(o.kind=='window' for o in openings)
+    assert [o.offset for o in openings]==pytest.approx([1,2.6],abs=.05)
+    if depth:
+        assert all(o.evidence['signed_interior_depth_m']==pytest.approx(depth,abs=.01) for o in openings)
+    copy=BuildingModel.from_dict(BuildingModel('Test',[level()],walls=[wall],openings=openings).to_dict())
+    assert copy.openings[0].evidence==openings[0].evidence
+
+
+def test_corner_correction_requires_two_measured_bands():
+    faces=[dict(start=[0,0],end=[3,0],z_min=a,z_max=b,slice_index=i) for i,(a,b) in enumerate(((.3,1.2),(1.5,2.4)))]
+    others=[{**f,'start':[3,0],'end':[3,3]} for f in faces]
+    first=Wall('a','s',(0,0),(2.9,0),0,3,.2,observed_faces=faces,detection_method='multi_slice')
+    second=Wall('b','s',(3,.1),(3,3),0,3,.2,observed_faces=others,detection_method='multi_slice')
+    report=_snap_walls([first,second],ReconstructionSettings())
+    assert np.linalg.norm(np.array(first.end)-second.start)<=.05
+    assert report['connectivity']['counts']['supported_corner']==2
+    first=Wall('a','s',(0,0),(2.9,0),0,3,.2,observed_faces=[{**f,'end':[2.7,0]} for f in faces],detection_method='multi_slice')
+    second=Wall('b','s',(3,.1),(3,3),0,3,.2,observed_faces=others,detection_method='multi_slice')
+    report=_snap_walls([first,second],ReconstructionSettings())
+    assert first.end==(2.9,0)
+    assert report['connectivity']['counts']['rejected_correction']>=1
+
+
+def test_single_height_patch_does_not_become_full_storey_wall():
+    points=cloud_face()
+    assert not detect_walls(points[(points[:,2]>=1.1)&(points[:,2]<1.3)],level(),ReconstructionSettings(),1)

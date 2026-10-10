@@ -12,7 +12,7 @@ def multi_slice_walls(points, storey, settings, workers=1):
     from .reconstruction import _segments, _fit_face, _walls_from_faces
     height = storey.ceiling-storey.elevation
     count = max(6, min(12, int(np.ceil(height/.4))))
-    edges = np.linspace(storey.elevation+.08*height, storey.ceiling-.08*height, count+1)
+    edges = np.linspace(storey.elevation+.04, storey.ceiling-.04, count+1)
     records = []
     tolerance = max(.025, settings.grid_size_m*1.5)
     for index, (low, high) in enumerate(zip(edges[:-1], edges[1:])):
@@ -99,14 +99,27 @@ def multi_slice_walls(points, storey, settings, workers=1):
                               proposal_support_points=sum(r['count'] for r in local),fit_rmse_m=float(max(r['rmse'] for r in local)))
                 slices.append(record)
                 observed.append({k:record[k] for k in ('start','end','z_min','z_max','slice_index')})
-            if len(slices)<2:
+            if len(slices)<2 or len(slices)/count<.35:
                 continue
             face = [axis*start+normal*offset,axis*end+normal*offset]
             faces.append((face,sum(r['proposal_support_points'] for r in slices),max(r['fit_rmse_m'] for r in slices)))
             evidence.append(dict(face=face,observed=observed,slices=slices,vertical_continuity=len(slices)/count,
                                  cell_size_m=cell,slice_occupancy_runs=[dict(slice_index=i,intervals_m=[
                                     [float((a+first)*cell),float((b+first)*cell)] for a,b in runs(occupied[i,first:last])]) for i in ids]))
-    walls = _walls_from_faces(faces,storey,settings,(float(edges[0]),float(edges[-1])))
+    def support_for(face):
+        return min(evidence,key=lambda e:np.linalg.norm(np.asarray(e['face'])-face))
+    def credible_pair(face,other):
+        first,second=support_for(face),support_for(other)
+        # Glazing or a leaf observed only inside a frame is not the far side
+        # of a full-height wall. Require repeated broad support on both sides.
+        if min(first['vertical_continuity'],second['vertical_continuity'])<.6:
+            return False
+        a,b=np.asarray(face)
+        axis=(b-a)/np.linalg.norm(b-a)
+        values=sorted(float((p-a)@axis) for p in other)
+        overlap=max(0.,min(np.linalg.norm(b-a),values[1])-max(0.,values[0]))
+        return overlap/max(np.linalg.norm(b-a),np.linalg.norm(np.asarray(other[1])-other[0]))>=.75
+    walls = _walls_from_faces(faces,storey,settings,(float(edges[0]),float(edges[-1])),pair_validator=credible_pair)
     for wall in walls:
         matches = [min(evidence,key=lambda e:np.linalg.norm(np.asarray(e['face'])-[f['start'],f['end']])) for f in wall.observed_faces]
         wall.observed_faces = [f for match in matches for f in match['observed']]

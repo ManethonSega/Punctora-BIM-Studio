@@ -451,7 +451,7 @@ def detect_walls(points, storey: Storey, settings: ReconstructionSettings, worke
     return multi_slice_walls(points, storey, settings, workers)
 
 
-def _walls_from_faces(faces, storey, settings, z_bounds):
+def _walls_from_faces(faces, storey, settings, z_bounds, pair_validator=None):
     height = storey.ceiling-storey.elevation
     faces.sort(key=lambda f: tuple(np.round(np.mean(f[0], axis=0), 6)))
     used, walls = set(), []
@@ -465,6 +465,8 @@ def _walls_from_faces(faces, storey, settings, z_bounds):
         observed = [face]
         for j, (other, other_count, other_rmse) in enumerate(faces):
             if j in used or not segments_angle(face, other):
+                continue
+            if pair_validator is not None and not pair_validator(face,other):
                 continue
             candidate, separation = _paired_axis(face, other)
             if (settings.minimum_wall_thickness_m <= separation <= settings.maximum_wall_thickness_m
@@ -606,7 +608,7 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
             height = level.ceiling-level.elevation
             sample = voxel_sample(cloud.points, settings.detection_voxel_size_m,
                                   settings.maximum_detection_points, settings.processing_chunk_points,
-                                  (level.elevation+.08*height, level.ceiling-.08*height),
+                                  (level.elevation+.04, level.ceiling-.04),
                                   workers, backend)
             walls = detect_walls(sample.points, level, settings, workers)
             proposals = []
