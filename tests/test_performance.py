@@ -45,7 +45,7 @@ def test_parallel_reconstruction_preserves_element_counts():
     cloud = demo_cloud(two_storeys=True)
     serial = reconstruct(cloud, ReconstructionSettings(cpu_workers=1))
     parallel = reconstruct(cloud, ReconstructionSettings(cpu_workers=-1))
-    for kind in ("storeys", "walls", "slabs", "spaces", "openings", "stairs", "slab_openings"):
+    for kind in ("storeys", "walls", "slabs", "spaces", "openings", "stairs", "landings", "slab_openings"):
         assert len(getattr(serial, kind)) == len(getattr(parallel, kind))
     assert parallel.metadata["performance"]["resource_plan"]["workers"] >= 1
 

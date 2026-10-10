@@ -172,6 +172,8 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         solid(void, rectangle(opening.width, host.thickness+0.02), opening.height, frame)
         api("feature.add_feature", feature=void, element=host_entity)
         provenance(void, opening.id+"-void", opening.provenance, {"ReviewState": opening.review_state})
+        if opening.kind == "unknown":
+            continue
         class_name = "IfcDoor" if opening.kind == "door" else "IfcWindow"
         filling = root(class_name, opening.id, predefined="NOTDEFINED")
         filling.OverallWidth, filling.OverallHeight = opening.width, opening.height
@@ -190,27 +192,63 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
                    {"RepresentationScope": "simple filling envelope; sash/leaf construction unknown",
                     "ReviewState": opening.review_state, "GeometricSupportScore": opening.confidence})
 
+    stair_systems = {}
     for stair in model.stairs:
-        parent = root("IfcStair", stair.id, predefined="STRAIGHT_RUN_STAIR")
-        api("spatial.assign_container", products=[parent], relating_structure=storeys[stair.storey_id])
-        flight = root("IfcStairFlight", stair.id+"-flight", predefined="STRAIGHT")
-        api("aggregate.assign_object", products=[flight], relating_object=parent)
-        flight.NumberOfRisers = stair.steps
-        flight.NumberOfTreads = stair.steps
-        flight.RiserHeight = stair.rise
-        flight.TreadLength = stair.going
-        direction = (np.asarray(stair.end)-np.asarray(stair.start))/(stair.steps*stair.going)
-        dx, dy = direction
-        frame = np.array([[dx, -dy, 0, stair.start[0]], [dy, dx, 0, stair.start[1]],
-                          [0, 0, 1, stair.base], [0, 0, 0, 1]], dtype=float)
-        for index in range(stair.steps):
-            vertices = [(x+index*stair.going, y) for x, y in rectangle(stair.going, stair.width)]
-            solid(flight, vertices, stair.tread_thickness, frame, append=True,
-                  local_z=(index+1)*stair.rise-stair.tread_thickness)
-        extra = {"ReviewState": stair.review_state, "GeometricSupportScore": stair.confidence,
-                 "RepresentationScope": "observed tread envelopes; landings, railings and support structure unknown"}
-        provenance(parent, stair.id, stair.provenance, extra)
-        provenance(flight, stair.id+"-flight", stair.provenance, extra)
+        stair_systems.setdefault(stair.system_id or stair.id, []).append(stair)
+    exported_landings = set()
+    for system_id, stairs in sorted(stair_systems.items()):
+        stairs.sort(key=lambda item: (item.flight_index, item.base, item.id))
+        predefined = "STRAIGHT_RUN_STAIR" if len(stairs) == 1 else "NOTDEFINED"
+        parent = root("IfcStair", system_id, predefined=predefined)
+        api("spatial.assign_container", products=[parent], relating_structure=storeys[stairs[0].storey_id])
+        for stair in stairs:
+            flight = root("IfcStairFlight", stair.id+"-flight", predefined="STRAIGHT")
+            api("aggregate.assign_object", products=[flight], relating_object=parent)
+            flight.NumberOfRisers = stair.steps
+            flight.NumberOfTreads = stair.steps
+            flight.RiserHeight = stair.rise
+            flight.TreadLength = stair.going
+            direction = (np.asarray(stair.end)-np.asarray(stair.start))/(stair.steps*stair.going)
+            dx, dy = direction
+            frame = np.array([[dx, -dy, 0, stair.start[0]], [dy, dx, 0, stair.start[1]],
+                              [0, 0, 1, stair.base], [0, 0, 0, 1]], dtype=float)
+            for index in range(stair.steps):
+                vertices = [(x+index*stair.going, y) for x, y in rectangle(stair.going, stair.width)]
+                solid(flight, vertices, stair.tread_thickness, frame, append=True,
+                      local_z=(index+1)*stair.rise-stair.tread_thickness)
+            extra = {"ReviewState": stair.review_state, "GeometricSupportScore": stair.confidence,
+                     "StairSystemId": system_id, "FlightIndex": stair.flight_index,
+                     "RepresentationScope": "observed tread envelopes; railings and support structure unknown"}
+            provenance(flight, stair.id+"-flight", stair.provenance, extra)
+        system_landings = [landing for landing in model.landings if landing.system_id == system_id]
+        for landing in system_landings:
+            entity = root("IfcSlab", landing.id, predefined="LANDING")
+            api("aggregate.assign_object", products=[entity], relating_object=parent)
+            matrix = np.eye(4); matrix[2, 3] = landing.base
+            solid(entity, landing.footprint, landing.thickness, matrix)
+            provenance(entity, landing.id, landing.provenance, {
+                "ReviewState": landing.review_state, "GeometricSupportScore": landing.confidence,
+                "StairSystemId": system_id,
+                "ConnectedFlightIds": ",".join(landing.connected_stair_ids),
+                "RepresentationScope": landing.evidence.get("scope", "Reviewed stair landing")})
+            exported_landings.add(landing.id)
+        system_review = ("flagged" if any(stair.review_state == "flagged" for stair in stairs+system_landings)
+                         else "reviewed" if all(stair.review_state == "reviewed" for stair in stairs+system_landings)
+                         else "unreviewed")
+        provenance(parent, system_id, {"assembly": "inferred"}, {
+            "ReviewState": system_review,
+            "FlightCount": len(stairs), "LandingCount": len(system_landings),
+            "RepresentationScope": "Connected flight and landing assembly; railings and support structure unknown"})
+    for landing in model.landings:
+        if landing.id in exported_landings:
+            continue
+        entity = root("IfcSlab", landing.id, predefined="LANDING")
+        api("spatial.assign_container", products=[entity], relating_structure=storeys[landing.storey_id])
+        matrix = np.eye(4); matrix[2, 3] = landing.base
+        solid(entity, landing.footprint, landing.thickness, matrix)
+        provenance(entity, landing.id, landing.provenance, {
+            "ReviewState": landing.review_state, "GeometricSupportScore": landing.confidence,
+            "RepresentationScope": landing.evidence.get("scope", "Unassigned reviewed stair landing")})
 
     file.header.file_name.originating_system = f"Punctora BIM Studio core {__version__}"
     file.header.file_name.preprocessor_version = f"IfcOpenShell {ifcopenshell.version}"

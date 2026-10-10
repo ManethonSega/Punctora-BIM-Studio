@@ -32,6 +32,11 @@ def _element_distance(kind, first, second):
                    abs(first.width-second.width),
                    1.0 if first.host_slab_id != second.host_slab_id else 0.0,
                    1.0 if first.source_stair_id != second.source_stair_id else 0.0)
+    if kind == "landings":
+        from shapely.geometry import Polygon
+        return max(Polygon(first.footprint).hausdorff_distance(Polygon(second.footprint)),
+                   abs(first.base-second.base), abs(first.thickness-second.thickness),
+                   1.0 if first.system_id != second.system_id else 0.0)
     if kind == "storeys":
         return max(abs(first.elevation-second.elevation), abs(first.ceiling-second.ceiling))
     if kind == "slabs":
@@ -41,7 +46,7 @@ def _element_distance(kind, first, second):
 
 def geometry_change(previous, current):
     changes, counts_changed = [], False
-    kinds = ("storeys", "walls", "slabs", "spaces", "openings", "stairs", "slab_openings")
+    kinds = ("storeys", "walls", "slabs", "spaces", "openings", "stairs", "landings", "slab_openings")
     for kind in kinds:
         first, second = list(getattr(previous, kind)), list(getattr(current, kind))
         if len(first) != len(second):
@@ -72,7 +77,7 @@ def compare_budgets(cloud, settings=None, storeys=None, budgets=BUDGETS, toleran
         model = reconstruct(cloud, replace(settings, maximum_detection_points=budget,
                                            region_minimum_points=min(settings.region_minimum_points, budget)),
                             storeys=storeys, diagnostics=diagnostics)
-        counts = {kind: len(getattr(model, kind)) for kind in ("storeys", "walls", "slabs", "spaces", "openings", "stairs", "slab_openings")}
+        counts = {kind: len(getattr(model, kind)) for kind in ("storeys", "walls", "slabs", "spaces", "openings", "stairs", "landings", "slab_openings")}
         change = geometry_change(previous, model) if previous is not None else None
         stable = change is not None and not change["counts_changed"] and change["maximum_geometry_change_m"] <= tolerance_m
         stable_steps = stable_steps+1 if stable else 0

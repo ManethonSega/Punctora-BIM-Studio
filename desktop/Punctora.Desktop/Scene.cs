@@ -77,9 +77,15 @@ public sealed class SceneData
             {
                 var opening=node!.AsObject();
                 var slab=model["slabs"]!.AsArray().First(s=>s!["id"]!.GetValue<string>()==opening["host_slab_id"]!.GetValue<string>())!.AsObject();
-                var start=XY(opening["start"]!);var end=XY(opening["end"]!);var direction=Vector2.Normalize(end-start);
-                var side=new Vector2(-direction.Y,direction.X)*Number(opening,"width")/2;
-                Add(elements,opening,"SlabOpening",[start-side,end-side,end+side,start+side],Number(slab,"base")-.01f,Number(slab,"thickness")+.02f,slab["storey_id"]!.GetValue<string>());
+                Vector2[] footprint;
+                if(opening["footprint"] is JsonArray polygon)footprint=polygon.Select(p=>XY(p!)).ToArray();
+                else
+                {
+                    var start=XY(opening["start"]!);var end=XY(opening["end"]!);var direction=Vector2.Normalize(end-start);
+                    var side=new Vector2(-direction.Y,direction.X)*Number(opening,"width")/2;
+                    footprint=[start-side,end-side,end+side,start+side];
+                }
+                Add(elements,opening,"SlabOpening",footprint,Number(slab,"base")-.01f,Number(slab,"thickness")+.02f,slab["storey_id"]!.GetValue<string>());
             }
             foreach(var node in model["openings"]?.AsArray()??[])
             {
@@ -99,6 +105,12 @@ public sealed class SceneData
                     Add(elements,stair,"Stair",[a-side,b-side,b+side,a+side],Number(stair,"base")+(i+1)*Number(stair,"rise")-Number(stair,"tread_thickness"),Number(stair,"tread_thickness"));
                 }
             }
+            foreach(var node in model["landings"]?.AsArray()??[])
+            {
+                var landing=node!.AsObject();
+                Add(elements,landing,"Landing",landing["footprint"]!.AsArray().Select(p=>XY(p!)).ToArray(),
+                    Number(landing,"base"),Number(landing,"thickness"));
+            }
         }
         foreach(var element in elements)
             for(var i=0;i<element.Triangles.Length;i+=7)
@@ -114,7 +126,7 @@ public sealed class SceneData
     {
         var review = obj["review_state"]?.GetValue<string>() ?? "unreviewed";
         var color = review switch { "reviewed" => new Vector4(.18f,.82f,.54f,.5f), "flagged"=>new Vector4(1,.68f,.15f,.55f),
-            "rejected"=>new Vector4(.9f,.25f,.35f,.16f), _=>kind switch {"Wall"=>new Vector4(.43f,.62f,1,.4f),"Stair"=>new Vector4(.9f,.45f,.72f,.7f),"SlabOpening"=>new Vector4(.75f,.25f,.95f,.72f),"door"=>new Vector4(.95f,.65f,.25f,.5f),"window"=>new Vector4(.2f,.85f,.9f,.35f),_=>new Vector4(.64f,.68f,.78f,.3f)} };
+            "rejected"=>new Vector4(.9f,.25f,.35f,.16f), _=>kind switch {"Wall"=>new Vector4(.43f,.62f,1,.4f),"Stair"=>new Vector4(.9f,.45f,.72f,.7f),"Landing"=>new Vector4(.98f,.55f,.32f,.65f),"SlabOpening"=>new Vector4(.75f,.25f,.95f,.72f),"door"=>new Vector4(.95f,.65f,.25f,.5f),"window"=>new Vector4(.2f,.85f,.9f,.35f),"unknown"=>new Vector4(.95f,.85f,.25f,.45f),_=>new Vector4(.64f,.68f,.78f,.3f)} };
         var vertices = new List<float>();
         void Vertex(Vector2 p,float h) { vertices.AddRange([p.X,p.Y,h,color.X,color.Y,color.Z,color.W]); }
         foreach (var tri in Triangulate(polygon))

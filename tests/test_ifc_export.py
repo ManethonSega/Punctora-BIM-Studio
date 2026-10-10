@@ -8,7 +8,7 @@ import ifcopenshell.util.shape
 
 from punctora_core.fixtures import demo_cloud
 from punctora_core.ifc_export import create_ifc, validate_ifc, write_ifc
-from punctora_core.model import (BuildingModel, Opening, Slab, SlabOpening, Space,
+from punctora_core.model import (BuildingModel, Landing, Opening, Slab, SlabOpening, Space,
                                  Stair, Storey, Wall)
 from punctora_core.reconstruction import reconstruct
 
@@ -76,6 +76,35 @@ def test_door_window_voids_types_positions_and_cut_volume(tmp_path):
     expected_volume = 6*3*0.3 - (0.9*2.1+1.2*1.1)*0.3
     tessellation = shape(host)
     assert ifcopenshell.util.shape.get_volume(tessellation.geometry) == pytest.approx(expected_volume, abs=1e-6)
+
+
+def test_uncertain_opening_cuts_wall_without_inventing_a_door_or_window(tmp_path):
+    model = opening_model()
+    model.openings.append(Opening("uncertain", "host", "unknown", 4.4, .3, .8, 1.5,
+                                  {"dimensions": "measured", "kind": "inferred"}))
+    report = write_ifc(model, tmp_path/"uncertain-opening.ifc")
+    assert report["valid"]
+    file = ifcopenshell.open(tmp_path/"uncertain-opening.ifc")
+    assert len(file.by_type("IfcOpeningElement")) == 3
+    assert len(file.by_type("IfcRelFillsElement")) == 2
+
+
+def test_multiflight_stair_and_landing_export_as_one_ifc_assembly(tmp_path):
+    storey = Storey("lower", "Lower", 0, 3.2, [(-1, -1), (5, -1), (5, 5), (-1, 5)])
+    first = Stair("f1", "lower", (0, 0), (2.24, 0), 0, .9, .175, .28, 8,
+                  system_id="system", flight_index=1)
+    second = Stair("f2", "lower", (2.24, 0), (2.24, 2.8), 1.4, .9, .18, .28, 10,
+                   system_id="system", flight_index=2)
+    landing = Landing("landing", "lower", [(1.79, -.45), (2.69, -.45),
+                      (2.69, .45), (1.79, .45)], 1.34, .12, "system", ["f1", "f2"])
+    model = BuildingModel("Stair system", [storey], stairs=[first, second], landings=[landing])
+    report = write_ifc(model, tmp_path/"stair-system.ifc")
+    assert report["valid"]
+    file = ifcopenshell.open(tmp_path/"stair-system.ifc")
+    assert len(file.by_type("IfcStair")) == 1
+    assert len(file.by_type("IfcStairFlight")) == 2
+    ifc_landing = next(item for item in file.by_type("IfcSlab") if item.PredefinedType == "LANDING")
+    assert ifc_landing.Decomposes[0].RelatingObject.is_a("IfcStair")
 
 
 def test_reviewed_stair_slab_opening_cuts_its_host_floor(tmp_path):

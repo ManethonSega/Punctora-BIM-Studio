@@ -41,6 +41,7 @@ public sealed class MainWindow : Window
     readonly ProgressBar progress=new(){Minimum=0,Maximum=100,Height=4};
     readonly List<Button> projectActions=[];
     readonly Button save,apply,cancel,undoButton,mergeButton,splitButton,cropDraw,cropApply,cropClear,cropCancel;
+    readonly Button addDoorButton,addWindowButton,addStairButton,addLandingButton,addSlabOpeningButton,deleteCandidateButton;
     readonly TextBox splitOffset=new(){Watermark="Distance from wall start (m)"};
     readonly Stack<JsonNode> undo=[];
     CancellationTokenSource? jobCancellation;
@@ -51,7 +52,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a10 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
+        Title="Punctora BIM Studio | 0.3.0a11 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -60,7 +61,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a10",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a11",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -98,6 +99,13 @@ public sealed class MainWindow : Window
         var viewFooter=new StackPanel{Spacing=4,Margin=new Thickness(8,8,8,0)};viewFooter.Children.Add(counts);viewFooter.Children.Add(Text("Drag: orbit  ·  Right-drag: pan  ·  Wheel: zoom  ·  Click model: select",11));viewFooter.Children.Add(backend);Grid.SetRow(viewFooter,1);center.Children.Add(viewFooter);
         var inspector=new StackPanel{Spacing=10,Margin=new Thickness(14)};inspector.Children.Add(selectedTitle);inspector.Children.Add(fieldsPanel);inspector.Children.Add(Text("Review state",11));inspector.Children.Add(review);inspector.Children.Add(Text("Wall classification",11));inspector.Children.Add(classification);
         apply=Button("Apply correction",ApplyAsync);inspector.Children.Add(apply);
+        inspector.Children.Add(Text("FEATURE CORRECTIONS",11));
+        addDoorButton=Button("Add door to selected wall",()=>AddCandidateAsync("door"));inspector.Children.Add(addDoorButton);
+        addWindowButton=Button("Add window to selected wall",()=>AddCandidateAsync("window"));inspector.Children.Add(addWindowButton);
+        addStairButton=Button("Add stair to selected storey",()=>AddCandidateAsync("stair"));inspector.Children.Add(addStairButton);
+        addLandingButton=Button("Add landing to selected stair",()=>AddCandidateAsync("landing"));inspector.Children.Add(addLandingButton);
+        addSlabOpeningButton=Button("Add opening to selected slab",()=>AddCandidateAsync("slab_opening"));inspector.Children.Add(addSlabOpeningButton);
+        deleteCandidateButton=Button("Delete selected candidate",DeleteCandidateAsync);inspector.Children.Add(deleteCandidateButton);
         inspector.Children.Add(Text("WALL TOPOLOGY",11));
         mergeButton=Button("Merge selected wall fragments",()=>MergeWallsAsync());inspector.Children.Add(mergeButton);
         inspector.Children.Add(splitOffset);splitButton=Button("Split selected wall",SplitWallAsync);inspector.Children.Add(splitButton);
@@ -133,6 +141,11 @@ public sealed class MainWindow : Window
         foreach(var button in projectActions)button.IsEnabled=!busy;
         cancel.IsEnabled=busy;apply.IsEnabled=!busy&&selectedId!=null;save.IsEnabled=!busy&&dirty;undoButton.IsEnabled=!busy&&undo.Count>0;
         var selectedWalls=SelectedWallIds();var selected=Selected();mergeButton.IsEnabled=!busy&&selectedWalls.Length>=2;splitButton.IsEnabled=!busy&&selected!=null&&selected.Value.Kind=="walls";splitOffset.IsEnabled=splitButton.IsEnabled;
+        addDoorButton.IsEnabled=addWindowButton.IsEnabled=!busy&&selected?.Kind=="walls";
+        addStairButton.IsEnabled=!busy&&selected?.Kind=="storeys";
+        addLandingButton.IsEnabled=!busy&&selected?.Kind=="stairs";
+        addSlabOpeningButton.IsEnabled=!busy&&selected?.Kind=="slabs";
+        deleteCandidateButton.IsEnabled=!busy&&selected!=null&&new[]{"openings","stairs","landings","slab_openings"}.Contains(selected.Value.Kind);
         method.IsEnabled=zUp.IsEnabled=!busy;
         cropBottom.IsEnabled=cropTop.IsEnabled=!busy&&state!=null;
         cropDraw.IsEnabled=cropApply.IsEnabled=cropClear.IsEnabled=!busy&&state!=null;
@@ -196,7 +209,7 @@ public sealed class MainWindow : Window
             var levels=model?["storeys"]?.AsArray()??[];
             storeys.ItemsSource=new[]{"All storeys"}.Concat(levels.Select(s=>s!["name"]!.GetValue<string>())).ToArray();
             storeys.SelectedIndex=priorStorey==null?0:Math.Max(0,levels.ToList().FindIndex(s=>s!["id"]!.GetValue<string>()==priorStorey)+1);
-            var nodes=model==null?new List<(string Kind,JsonObject Node)>():new[]{"storeys","walls","slabs","slab_openings","openings","stairs"}.SelectMany(kind=>(model[kind]?.AsArray()??[]).Select(n=>(Kind:kind,Node:n!.AsObject()))).ToList();
+            var nodes=model==null?new List<(string Kind,JsonObject Node)>():new[]{"storeys","walls","slabs","slab_openings","openings","stairs","landings"}.SelectMany(kind=>(model[kind]?.AsArray()??[]).Select(n=>(Kind:kind,Node:n!.AsObject()))).ToList();
             elementIds=nodes.Select(n=>n.Node["id"]!.GetValue<string>()).ToArray();
             elements.ItemsSource=nodes.Select(n=>$"{n.Kind} · {n.Node["id"]}\n{n.Node["review_state"]?.GetValue<string>()??"levels / inferred outline"}").ToArray();
             elements.SelectedIndex=Array.IndexOf(elementIds,selectedId);
@@ -209,7 +222,7 @@ public sealed class MainWindow : Window
             if(computeBackend!=null)backend.Text=$"Geometry backend: {computeBackend} · {performance?["cpu_workers"]?.GetValue<int>()??0} CPU workers";
             var cropState=cropPolygon!=null||cropLow!=null||cropHigh!=null
                 ?(state["model_crop_stale"]!.GetValue<bool>()?" · crop changed, detection required":" · crop active"):"";
-            counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {model?["walls"]?.AsArray().Count??0} walls, {model?["slabs"]?.AsArray().Count??0} slabs, {model?["slab_openings"]?.AsArray().Count??0} slab openings, {model?["openings"]?.AsArray().Count??0} wall openings, {model?["stairs"]?.AsArray().Count??0} stairs · local metres{cropState}";
+            counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {model?["walls"]?.AsArray().Count??0} walls, {model?["slabs"]?.AsArray().Count??0} slabs, {model?["slab_openings"]?.AsArray().Count??0} slab openings, {model?["openings"]?.AsArray().Count??0} wall openings, {model?["stairs"]?.AsArray().Count??0} flights, {model?["landings"]?.AsArray().Count??0} landings · local metres{cropState}";
         }
         finally{refreshing=false;}
         ShowProperties();FilterStorey();UpdateActions();
@@ -230,7 +243,7 @@ public sealed class MainWindow : Window
     (string Kind,JsonObject Node)? Selected()
     {
         if(state?["model"] is not JsonObject model||selectedId==null)return null;
-        foreach(var kind in new[]{"storeys","walls","slabs","slab_openings","openings","stairs"})
+        foreach(var kind in new[]{"storeys","walls","slabs","slab_openings","openings","stairs","landings"})
             foreach(var node in model[kind]?.AsArray()??[])if(node!["id"]!.GetValue<string>()==selectedId)return(kind,node.AsObject());
         return null;
     }
@@ -243,7 +256,7 @@ public sealed class MainWindow : Window
     void ShowProperties()
     {
         fields.Clear();initialFields.Clear();fieldsPanel.Children.Clear();var selection=Selected();
-        if(selection==null){selectedTitle.Text="Element properties";evidence.Text="Select a wall, slab, slab opening, wall opening, stair or storey.";UpdateActions();return;}
+        if(selection==null){selectedTitle.Text="Element properties";evidence.Text="Select a wall, slab, slab opening, wall opening, stair, landing or storey.";UpdateActions();return;}
         var (kind,obj)=selection.Value;selectedTitle.Text=obj["id"]!.GetValue<string>();
         void Field(string key,string label,string value)
         {
@@ -260,11 +273,13 @@ public sealed class MainWindow : Window
         else if(kind=="slabs"){Number("base","Base (m)");Number("thickness","Thickness (m)");}
         else if(kind=="openings")
         {
-            Field("kind","Kind (door / window)",obj["kind"]!.GetValue<string>());
+            Field("host_wall_id","Host wall ID",obj["host_wall_id"]!.GetValue<string>());
+            Field("kind","Kind (door / window / unknown)",obj["kind"]!.GetValue<string>());
             foreach(var key in new[]{"offset","sill","width","height"})Number(key,key+" (m)");
         }
         else if(kind=="slab_openings")
         {
+            Field("host_slab_id","Host slab ID",obj["host_slab_id"]!.GetValue<string>());
             for(var j=0;j<2;j++)foreach(var key in new[]{"start","end"})Field(key+j,key+" "+(j==0?"X":"Y")+" (m)",obj[key]![j]!.GetValue<double>().ToString("G10",CultureInfo.InvariantCulture));
             Number("width","Width (m)");
         }
@@ -274,12 +289,17 @@ public sealed class MainWindow : Window
             foreach(var key in new[]{"base","width","rise","going","tread_thickness"})Number(key,key+" (m)");
             Field("steps","Number of treads",obj["steps"]!.GetValue<int>().ToString(CultureInfo.InvariantCulture));
         }
+        else if(kind=="landings")
+        {
+            Number("base","Base (m)");Number("thickness","Thickness (m)");
+            Field("system_id","Stair system ID",obj["system_id"]?.GetValue<string>()??"");fields["system_id"].IsReadOnly=true;
+        }
         else{Field("name","Storey name",obj["name"]!.GetValue<string>());Number("elevation","Floor level (m)");Number("ceiling","Ceiling level (m)");}
         review.SelectedItem=obj["review_state"]?.GetValue<string>()??"unreviewed";review.IsVisible=kind!="storeys";
         classification.SelectedItem=obj["classification"]?.GetValue<string>()??"unclassified";classification.IsVisible=kind=="walls";
         var provenance=obj["provenance"]?.AsObject().Select(p=>$"{p.Key}: {p.Value}")??[];
         evidence.Text=(kind=="walls"?$"Supporting original points: {obj["evidence_count"]}\nObserved-face fit RMSE: {obj["fit_rmse_m"]?.ToJsonString()??"unknown"} m\n\n":"")+string.Join("\n",provenance)+"\n\nObserved faces and fit statistics refer to the original fit. Corrections are recorded as user supplied.";
-        if(kind=="openings"||kind=="stairs"||kind=="slab_openings")evidence.Text=$"Geometric support score: {obj["confidence"]?.ToJsonString()??"unknown"} (not an accuracy probability)\n{obj["evidence"]?["scope"]?.GetValue<string>()??"Caller-supplied geometry"}\n\n"+evidence.Text;
+        if(kind=="openings"||kind=="stairs"||kind=="landings"||kind=="slab_openings")evidence.Text=$"Geometric support score: {obj["confidence"]?.ToJsonString()??"unknown"} (not an accuracy probability)\n{obj["evidence"]?["scope"]?.GetValue<string>()??"Caller-supplied geometry"}\n\n"+evidence.Text;
         UpdateActions();
     }
     static double Parse(string text)
@@ -295,7 +315,7 @@ public sealed class MainWindow : Window
         {
             if(box.Text==initialFields[key])continue;
             if(key.StartsWith("start")||key.StartsWith("end"))continue;
-            JsonNode value=key=="name"||key=="kind"?JsonValue.Create(box.Text?.Trim()??"")!:key=="steps"?JsonValue.Create(int.Parse(box.Text??"",CultureInfo.InvariantCulture))!:JsonValue.Create(Parse(box.Text??""))!;
+            JsonNode value=key=="name"||key=="kind"||key=="host_wall_id"||key=="host_slab_id"||key=="system_id"?JsonValue.Create(box.Text?.Trim()??"")!:key=="steps"?JsonValue.Create(int.Parse(box.Text??"",CultureInfo.InvariantCulture))!:JsonValue.Create(Parse(box.Text??""))!;
             if(value.ToJsonString()!=obj[key]!.ToJsonString())changes[key]=value;
         }
         if(kind=="walls"||kind=="stairs"||kind=="slab_openings")foreach(var key in new[]{"start","end"})
@@ -360,6 +380,24 @@ public sealed class MainWindow : Window
         var previous=DraftSnapshot();var request=ModelRequest();request["wall_id"]=selection.Value.Node["id"]!.GetValue<string>();request["offset"]=Parse(splitOffset.Text??"");
         var result=await RunAsync("split_wall",projectPath,request);if(result==null)return;
         undo.Push(previous);dirty=true;selectedId=selection.Value.Node["id"]!.GetValue<string>();await PresentAsync(projectPath,result,false);status.Text="Wall split and hosted openings reassigned. Save to keep this version.";
+    }
+    async Task AddCandidateAsync(string candidateKind)
+    {
+        var selection=Selected();if(selection==null||state==null||projectPath==null||busy)return;
+        var previous=DraftSnapshot();var request=ModelRequest();request["candidate_kind"]=candidateKind;
+        request["host_id"]=selection.Value.Node["id"]!.GetValue<string>();
+        var result=await RunAsync("add_candidate",projectPath,request);if(result==null)return;
+        var before=state["model"]![candidateKind is "door" or "window"?"openings":candidateKind=="stair"?"stairs":candidateKind=="landing"?"landings":"slab_openings"]!.AsArray().Select(n=>n!["id"]!.GetValue<string>()).ToHashSet();
+        var collection=candidateKind is "door" or "window"?"openings":candidateKind=="stair"?"stairs":candidateKind=="landing"?"landings":"slab_openings";
+        selectedId=result["model"]![collection]!.AsArray().Select(n=>n!["id"]!.GetValue<string>()).FirstOrDefault(id=>!before.Contains(id));
+        undo.Push(previous);dirty=true;await PresentAsync(projectPath,result,false);status.Text="Candidate added. Adjust its measured fields, then save or undo.";
+    }
+    async Task DeleteCandidateAsync()
+    {
+        var selection=Selected();if(selection==null||state==null||projectPath==null||busy)return;
+        var previous=DraftSnapshot();var request=ModelRequest();request["element_id"]=selection.Value.Node["id"]!.GetValue<string>();
+        var result=await RunAsync("delete_candidate",projectPath,request);if(result==null)return;
+        undo.Push(previous);dirty=true;selectedId=null;await PresentAsync(projectPath,result,false);status.Text="Candidate deleted. Save to keep this version, or undo.";
     }
     async Task<string?> PickProjectAsync(string title)
     {
@@ -431,6 +469,10 @@ public sealed class MainWindow : Window
             var cropSurvivedReopen=state!["crop"]!["polygon"]?.AsArray().Count==4&&state["model_crop_stale"]!.GetValue<bool>();if(!cropSurvivedReopen)throw new Exception("Crop was lost on reopening");
             await ClearCropAsync();await SaveAsync();if(state!["model_crop_stale"]!.GetValue<bool>())throw new Exception("Clearing crop did not restore model/crop alignment");
             var sample=state!["model"]!["walls"]![0]!;
+            var openingCount=state["model"]!["openings"]!.AsArray().Count;selectedId=sample["id"]!.GetValue<string>();ShowProperties();
+            await AddCandidateAsync("door");if(state!["model"]!["openings"]!.AsArray().Count!=openingCount+1||selectedId==null)throw new Exception("Manual opening creation failed");
+            await DeleteCandidateAsync();if(state!["model"]!["openings"]!.AsArray().Count!=openingCount)throw new Exception("Manual candidate deletion failed");
+            var featureAddDeletePassed=true;
             // Explicit synthetic candidates exercise new preview/edit/save/IFC
             // plumbing independently of the detector's geometry regressions.
             var opening=new JsonObject{["id"]="ui-window",["host_wall_id"]=sample["id"]!.DeepClone(),["kind"]="window",["offset"]=.2,["sill"]=.8,["width"]=.6,["height"]=.8,["provenance"]=new JsonObject{["dimensions"]="user_supplied"},["review_state"]="unreviewed"};
@@ -466,7 +508,7 @@ public sealed class MainWindow : Window
             await ExportToAsync(Path.Combine(output,"edited.ifc"));
             await Task.Delay(1800);for(var i=0;i<30;i++){viewport.View.Camera.Yaw+=.008f;viewport.Redraw();await Task.Delay(20);}viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(700);
             using(var bitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96))){bitmap.Render(this);using var outputStream=File.Create(Path.Combine(output,"desktop.png"));bitmap.Save(outputStream,PngBitmapEncoderOptions.Default);}
-            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["crop_undo_restored"]=cropUndoRestored,["crop_survived_reopen"]=cropSurvivedReopen,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
+            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["crop_undo_restored"]=cropUndoRestored,["crop_survived_reopen"]=cropSurvivedReopen,["feature_add_delete_passed"]=featureAddDeletePassed,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
             dirty=false;Environment.ExitCode=0;Close();
         }
         catch(Exception e){File.WriteAllText(Path.Combine(output,"ui-error.txt"),e.ToString());dirty=false;Environment.ExitCode=1;Close();}

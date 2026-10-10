@@ -21,21 +21,28 @@ Open endpoints are not automatically defects. They may represent scan boundaries
 
 ## Wall openings
 
-Doors and windows are proposed from bounded empty regions in a host-wall occupancy grid. The detector requires supported side/top edges, size limits and low interior occupancy. It detects visible voids only. Glazing, closed leaves, furniture occlusion and sparse returns can cause misses or false proposals. Accepted wall openings produce an `IfcOpeningElement` plus an `IfcDoor` or `IfcWindow` filling.
+Openings use two independent geometric signals inside a bounded host-wall envelope:
+
+- supported empty regions, for visibly open doors and windows;
+- supported recessed return planes, for closed leaves or glazing measurably behind the surrounding wall face.
+
+Both paths require a rectangular component, plausible dimensions and supported jamb/head edges. Evidence records occupancy, frame support, wall-face reference depth and recess contrast. Floor contact and height propose a door, a supported sill proposes a window, and ambiguous geometry remains `unknown`. An unknown candidate cuts only an `IfcOpeningElement`; it does not invent an `IfcDoor` or `IfcWindow` filling.
+
+The default minimum recess is 0.03 m and minimum edge support is 0.65. Furniture outside the wall envelope is excluded, but wall-mounted objects, occlusion, reflective glazing and sparse returns can still cause false or missed candidates. These thresholds require annotated real-scan validation.
 
 ## Stairs and slab openings
 
-Straight stair flights are proposed from repeated horizontal tread patches with consistent rise, going and width. Curved stairs, landings, railings, stringers and structural support are outside the current detector.
+Straight flights are proposed from repeated horizontal tread patches with consistent rise, going and width. Broader horizontal patches touching flight endpoints become landing candidates. Flights sharing a landing are grouped into one stable stair system with ordered flight indices. This supports straight, L-shaped and U-shaped assemblies made from straight runs. Curved and spiral flights, railings, stringers and structural support remain outside the detector.
 
-After slabs are assembled, a stair can produce a separate `SlabOpening` candidate only when:
+After slabs are assembled, a stair system can produce one or more `SlabOpening` candidates when:
 
 1. its computed top reaches the vertical interval of a different `FLOOR` slab within 0.05 m;
-2. its run has nonzero length; and
-3. the complete run-width rectangle, including a 0.10 m review margin, lies inside the host slab footprint.
+2. one or more nondegenerate flight or landing envelopes enter the configurable 2.0 m headroom zone below that slab; and
+3. the resulting polygon intersects the host slab footprint.
 
-The candidate has its own stable ID, host slab, source stair, provenance, evidence, support score and review state. It appears as a purple inspection volume in the desktop, can be edited or rejected, survives project save/reopen, participates in point-budget convergence comparisons, and cuts the host slab during IFC export. Rejected candidates, or candidates linked to rejected stairs or slabs, are excluded from project export.
+The union of the relevant flight and landing envelopes receives a 0.10 m review margin and is clipped explicitly to the detected host footprint. The evidence records the source flights, source landings, headroom, margin and whether clipping occurred. A candidate has its own stable ID, host slab, stair-system identity, provenance, support score and review state. It appears as a polygonal purple inspection volume, survives save/reopen, participates in convergence comparisons and cuts the host slab during IFC export.
 
-The current rectangle is a tread-envelope proposal, not a headroom or structural trimming calculation. If it extends beyond the slab footprint, Punctora records a skipped diagnostic instead of clipping it into another shape.
+The envelope is a clearance proposal, not a structural trimming design. Reinforcement, edge framing, finishes and code compliance still require engineering review.
 
 ## Slabs and vertical gaps
 
@@ -43,4 +50,4 @@ A small observed gap between one storey's ceiling and the next storey's floor ca
 
 ## Review and export
 
-Supported candidates can be marked `unreviewed`, `reviewed`, `flagged` or `rejected`. Geometry corrections are recorded as user supplied while original evidence remains attached to the source fit. Export warns when unreviewed or flagged elements remain. Whole-cloud deviation, annotated precision/recall and independent viewer acceptance remain separate quality work.
+Supported candidates can be marked `unreviewed`, `reviewed`, `flagged` or `rejected`. The desktop can add doors, windows, flights, landings and slab openings, delete feature candidates, reassign opening hosts and edit their supported parameters. Geometry corrections are recorded as user supplied while original evidence remains attached to the source fit. Export warns when unreviewed or flagged elements remain. Whole-cloud deviation, annotated precision/recall and independent viewer acceptance remain separate quality work.

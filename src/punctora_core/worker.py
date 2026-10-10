@@ -38,6 +38,19 @@ def dispatch(request, progress):
         state = projects.apply_draft_context(state, request)
         state["model"] = projects.split_model_wall(state, request["model"], request["wall_id"], request["offset"])
         return state
+    if command == "add_candidate":
+        state = projects.load_project(path)
+        projects.check_revision(state, request["expected_revision"])
+        state = projects.apply_draft_context(state, request)
+        state["model"] = projects.add_candidate(
+            state, request["model"], request["candidate_kind"], request["host_id"])
+        return state
+    if command == "delete_candidate":
+        state = projects.load_project(path)
+        projects.check_revision(state, request["expected_revision"])
+        state = projects.apply_draft_context(state, request)
+        state["model"] = projects.delete_candidate(state, request["model"], request["element_id"])
+        return state
     if command == "edit_crop":
         state = projects.load_project(path)
         projects.check_revision(state, request["expected_revision"])

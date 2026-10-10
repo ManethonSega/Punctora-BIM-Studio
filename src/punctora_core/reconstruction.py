@@ -68,6 +68,10 @@ class ReconstructionSettings:
     region_adaptive: bool = False
     detect_openings_enabled: bool = True
     detect_stairs_enabled: bool = True
+    opening_recess_depth_m: float = 0.03
+    opening_minimum_edge_support: float = 0.65
+    stair_headroom_m: float = 2.0
+    stair_void_margin_m: float = 0.1
     consolidate_walls_enabled: bool = True
     wall_merge_angle_deg: float = 2.0
     wall_merge_lateral_tolerance_m: float = 0.08
@@ -116,6 +120,8 @@ class ReconstructionSettings:
             raise ValueError("maximum_grid_cells must be an integer")
         if self.level_density_fraction > 1:
             raise ValueError("level_density_fraction cannot exceed 1")
+        if self.opening_minimum_edge_support > 1:
+            raise ValueError("opening_minimum_edge_support cannot exceed 1")
         if self.minimum_wall_thickness_m >= self.maximum_wall_thickness_m:
             raise ValueError("Wall thickness bounds are reversed")
         for name in ["assumed_wall_thickness_m", "exterior_wall_thickness_m"]:
@@ -660,10 +666,13 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
                       sampling="full source wall selectors", detected_elements={"openings": len(openings)})
     with profiler.stage("stairs", storey_id=level.id) as record:
         stair_statistics = []
-        stairs = detect_stairs(cloud, [level], settings, backend, stair_statistics) if settings.detect_stairs_enabled else []
+        landings = []
+        stairs = detect_stairs(cloud, [level], settings, backend, stair_statistics,
+                               landings) if settings.detect_stairs_enabled else []
         record.update(sample_points=sum(x["sample_points"] for x in stair_statistics),
-                      sampling=stair_statistics, detected_elements={"stairs": len(stairs)})
-    return walls, spaces, openings, stairs, statistics, proposals, consolidation, topology, warnings
+                      sampling=stair_statistics,
+                      detected_elements={"stairs": len(stairs), "landings": len(landings)})
+    return walls, spaces, openings, stairs, landings, statistics, proposals, consolidation, topology, warnings
 
 
 def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None,
@@ -707,7 +716,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                     cloud, level, local_settings, backend, profiler), sorted_levels))
             detection, proposals, consolidation, wall_topology, inter_storey_gaps = [], [], [], [], []
             for index, (level, result) in enumerate(zip(sorted_levels, results)):
-                local_walls, spaces, openings, stairs, statistics, local_proposals, report, topology, local_warnings = result
+                local_walls, spaces, openings, stairs, landings, statistics, local_proposals, report, topology, local_warnings = result
                 proposals.extend(local_proposals)
                 consolidation.append({"storey_id": level.id, **report})
                 wall_topology.append({"storey_id": level.id, **topology})
@@ -723,6 +732,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                 model.spaces.extend(spaces)
                 model.openings.extend(openings)
                 model.stairs.extend(stairs)
+                model.landings.extend(landings)
                 model.warnings.extend(local_warnings)
                 if not local_walls:
                     model.warnings.append(f"{level.id}: no supported wall candidates detected")
@@ -753,7 +763,9 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                                     {"thickness": "inferred", "footprint": "inferred", "material": "unknown"}))
             from .features import derive_stair_slab_openings
             model.slab_openings, slab_opening_diagnostics = derive_stair_slab_openings(
-                model.stairs, model.slabs)
+                model.stairs, model.slabs, model.landings,
+                margin_m=settings.stair_void_margin_m,
+                headroom_m=settings.stair_headroom_m)
             skipped_openings = sum(item["status"] != "candidate_created"
                                    for item in slab_opening_diagnostics)
             if skipped_openings and model.stairs:
@@ -763,8 +775,8 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                 "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
                 "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
                 "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
-                "Openings are empty wall-gap proposals; glazing, closed doors and occlusion require manual review.",
-                "Stairs are straight-flight tread envelopes; landings, railings and support structure are not reconstructed.",
+                "Openings combine supported wall gaps and recessed return planes; glazing, closed leaves and occlusion still require review.",
+                "Stair systems contain measured straight-flight and landing candidates; curved flights, railings and support structure are not reconstructed.",
                 "Candidate scores are geometric support indicators, not calibrated accuracy probabilities. No whole-cloud deviation report is implemented.",
             ])
             perf = profiler.report()

@@ -6,7 +6,7 @@ import ifcopenshell.util.element
 from punctora_core.cloud_io import CloudData
 from punctora_core.features import detect_openings, detect_stairs, derive_stair_slab_openings
 from punctora_core.ifc_export import write_ifc
-from punctora_core.model import BuildingModel, Slab, Stair, Storey, Wall
+from punctora_core.model import BuildingModel, Landing, Slab, Stair, Storey, Wall
 from punctora_core.projects import edit_model
 from punctora_core import projects
 from punctora_core.reconstruction import ReconstructionSettings, reconstruct
@@ -23,6 +23,16 @@ def wall_cloud(gaps=True):
         door = (points[:, 0] >= .8) & (points[:, 0] < 1.7) & (points[:, 2] < 2.1)
         window = (points[:, 0] >= 2.8) & (points[:, 0] < 4) & (points[:, 2] >= 1) & (points[:, 2] < 2.1)
         points = points[~(door | window)]
+    return CloudData(points)
+
+
+def recessed_filling_cloud():
+    x, z = np.meshgrid(np.arange(0, 5, .025), np.arange(0, 3, .025))
+    points = np.column_stack([x.ravel(), np.full(x.size, .1), z.ravel()])
+    door = (points[:, 0] >= .8) & (points[:, 0] < 1.7) & (points[:, 2] < 2.1)
+    window = ((points[:, 0] >= 2.8) & (points[:, 0] < 4)
+              & (points[:, 2] >= 1) & (points[:, 2] < 2.1))
+    points[door | window, 1] = .03
     return CloudData(points)
 
 
@@ -51,6 +61,15 @@ def test_openings_require_bounded_edge_evidence_and_classify_height():
     assert not detect_openings(sparse, [wall], ReconstructionSettings())
 
 
+def test_recessed_closed_door_and_glazing_planes_are_detected_without_empty_gaps():
+    wall = Wall("w", "s", (0, 0), (5, 0), 0, 3, .2)
+    openings = detect_openings(recessed_filling_cloud(), [wall], ReconstructionSettings())
+    assert [opening.kind for opening in openings] == ["door", "window"]
+    assert [opening.offset for opening in openings] == pytest.approx([.8, 2.8])
+    assert all(opening.evidence["method"] == "recessed_filling_plane" for opening in openings)
+    assert all(opening.evidence["interior_depth_contrast_m"] > .06 for opening in openings)
+
+
 @pytest.mark.parametrize("angle", [0, .63, 1.57])
 def test_straight_stair_detection_retains_rotation_and_tread_measurements(angle):
     stairs = detect_stairs(stairs_cloud(angle, (1, 1)), [level()], ReconstructionSettings())
@@ -61,6 +80,19 @@ def test_straight_stair_detection_retains_rotation_and_tread_measurements(angle)
     assert stair.going == pytest.approx(.28, abs=.015)
     assert stair.width == pytest.approx(1.1, abs=.12)
     assert len(stair.evidence["tread_support_counts"]) == 8
+
+
+def test_landing_at_flight_endpoint_is_detected_and_assigned_to_system():
+    cloud = stairs_cloud()
+    x, y = np.meshgrid(np.arange(2.24, 3.34, .02), np.arange(0, 1.1, .02))
+    landing = np.column_stack([x.ravel(), y.ravel(), np.full(x.size, 1.44)])
+    cloud.points = np.vstack([cloud.points, landing])
+    landings = []
+    stairs = detect_stairs(cloud, [level()], ReconstructionSettings(), landing_output=landings)
+    assert len(stairs) == len(landings) == 1
+    assert stairs[0].system_id == landings[0].system_id
+    assert landings[0].connected_stair_ids == [stairs[0].id]
+    assert landings[0].evidence["support_points"] > 100
 
 
 def test_vertical_wall_and_flat_floor_do_not_propose_stairs():
@@ -118,9 +150,9 @@ def test_rejected_features_survive_save_but_are_excluded_from_ifc(tmp_path):
 
 def test_old_schema_two_and_invalid_new_feature_values():
     model = BuildingModel("Old", [level()])
-    data = model.to_dict(); data.pop("stairs"); data.pop("slab_openings")
+    data = model.to_dict(); data.pop("stairs"); data.pop("landings"); data.pop("slab_openings")
     old = BuildingModel.from_dict(data)
-    assert old.stairs == [] and old.slab_openings == []
+    assert old.stairs == [] and old.landings == [] and old.slab_openings == []
     model.stairs = detect_stairs(stairs_cloud(), model.storeys, ReconstructionSettings())
     data = model.to_dict(); data["stairs"][0]["steps"] = 8.5
     with pytest.raises(ValueError, match="steps"):
@@ -155,9 +187,11 @@ def test_stair_slab_opening_is_reviewable_model_geometry_and_roundtrips():
     assert len(openings) == 1
     opening = openings[0]
     assert opening.host_slab_id == slab.id and opening.source_stair_id == stair.id
-    assert opening.start == pytest.approx((1.9, 2))
-    assert opening.end == pytest.approx((6.1, 2))
+    assert opening.start == pytest.approx((3.25, 2))
+    assert opening.end == pytest.approx((6, 2))
     assert opening.width == pytest.approx(1.2)
+    assert opening.evidence["headroom_m"] == 2
+    assert opening.footprint is not None
     assert diagnostics[0]["status"] == "candidate_created"
     model = BuildingModel("Slab opening", [
         Storey("lower", "Lower", 0, 3, [(0, 0), (10, 0), (10, 10), (0, 10)]),
@@ -173,7 +207,24 @@ def test_stair_slab_opening_requires_vertical_intersection_and_containment():
     assert not openings and diagnostics[0]["status"] == "no_intersected_slab"
     edge_stair = Stair(**{**stair.__dict__, "id": "edge", "start": (7, 9.7), "end": (11, 9.7)})
     openings, diagnostics = derive_stair_slab_openings([edge_stair], [slab])
-    assert not openings and diagnostics[0]["status"] == "outside_host_footprint"
+    assert openings and diagnostics[0]["status"] == "candidate_created"
+    assert openings[0].evidence["clipped_to_host"]
+
+
+def test_multiflight_system_and_landing_produce_polygonal_headroom_void():
+    first = Stair("f1", "lower", (0, 0), (2.24, 0), 0, .9, .175, .28, 8,
+                  system_id="system", flight_index=1)
+    second = Stair("f2", "lower", (2.24, 0), (2.24, 2.8), 1.4, .9, .18, .28, 10,
+                   system_id="system", flight_index=2)
+    landing = Landing("landing", "lower", [(1.79, -.45), (2.69, -.45),
+                      (2.69, .45), (1.79, .45)], 1.34, .12, "system", ["f1", "f2"])
+    slab = Slab("upper", "upper", [(-1, -1), (5, -1), (5, 5), (-1, 5)], 3.2, .2)
+    openings, diagnostics = derive_stair_slab_openings([first, second], [slab], [landing])
+    assert len(openings) == 1 and len(openings[0].footprint) > 4
+    assert openings[0].source_system_id == "system"
+    assert openings[0].evidence["source_stair_ids"] == ["f1", "f2"]
+    assert openings[0].evidence["source_landing_ids"] == ["landing"]
+    assert diagnostics[0]["status"] == "candidate_created"
 
 
 def test_slab_opening_edit_persists_and_rejected_candidate_is_not_exported(tmp_path):

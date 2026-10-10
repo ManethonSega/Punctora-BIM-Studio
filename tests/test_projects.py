@@ -55,6 +55,30 @@ def test_edit_save_reopen_copy_and_ifc_identity(project, tmp_path):
     assert ifcopenshell.util.element.get_psets(second.by_type("IfcSlab")[0])["Punctora_Reconstruction"]["ReviewState"] == "reviewed"
 
 
+def test_manual_feature_add_edit_delete_roundtrip(project):
+    path, state = project
+    model = state["model"]
+    wall_id = model["walls"][0]["id"]
+    draft = projects.add_candidate(state, model, "door", wall_id)
+    door = draft["openings"][-1]
+    assert door["host_wall_id"] == wall_id and door["provenance"]["dimensions"] == "user_supplied"
+    draft = projects.edit_model(state, draft, door["id"], {"kind": "unknown", "review_state": "flagged"})
+    assert draft["openings"][-1]["kind"] == "unknown"
+    storey_id = model["storeys"][0]["id"]
+    draft = projects.add_candidate(state, draft, "stair", storey_id)
+    stair = draft["stairs"][-1]
+    draft = projects.add_candidate(state, draft, "landing", stair["id"])
+    assert draft["landings"][-1]["connected_stair_ids"] == [stair["id"]]
+    slab_id = model["slabs"][0]["id"]
+    draft = projects.add_candidate(state, draft, "slab_opening", slab_id)
+    assert draft["slab_openings"][-1]["footprint"]
+    draft = projects.delete_candidate(state, draft, stair["id"])
+    assert all(item["id"] != stair["id"] for item in draft["stairs"])
+    assert all(stair["id"] not in item["connected_stair_ids"] for item in draft["landings"])
+    state = projects.save_project(path, request(state, model=draft))
+    assert projects.load_project(path)["model"] == json.loads(json.dumps(state["model"]))
+
+
 def test_crop_is_draft_only_until_save_and_survives_reopen_and_copy(project, tmp_path):
     path, state = project
     crop = {"polygon": [[0, 0], [4, 0], [4, 3], [0, 3]], "z_min": .2, "z_max": 2.8}

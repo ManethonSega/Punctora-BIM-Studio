@@ -75,9 +75,13 @@ class SlabOpening:
     review_state: str = "unreviewed"
     confidence: float | None = None
     evidence: dict = field(default_factory=dict)
+    footprint: list[tuple[float, float]] | None = None
+    source_system_id: str | None = None
 
 
 def slab_opening_footprint(opening: SlabOpening) -> list[tuple[float, float]]:
+    if opening.footprint is not None:
+        return opening.footprint
     length = dist(opening.start, opening.end)
     positive(length, "Slab opening length")
     dx = (opening.end[0]-opening.start[0])/length
@@ -103,7 +107,7 @@ class Space:
 class Opening:
     id: str
     host_wall_id: str
-    kind: Literal["door", "window"]
+    kind: Literal["door", "window", "unknown"]
     offset: float
     sill: float
     width: float
@@ -130,6 +134,23 @@ class Stair:
     review_state: str = "unreviewed"
     confidence: float | None = None
     evidence: dict = field(default_factory=dict)
+    system_id: str | None = None
+    flight_index: int = 0
+
+
+@dataclass
+class Landing:
+    id: str
+    storey_id: str
+    footprint: list[tuple[float, float]]
+    base: float
+    thickness: float = 0.12
+    system_id: str | None = None
+    connected_stair_ids: list[str] = field(default_factory=list)
+    provenance: dict[str, str] = field(default_factory=dict)
+    review_state: str = "unreviewed"
+    confidence: float | None = None
+    evidence: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -143,6 +164,7 @@ class BuildingModel:
     warnings: list[str] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
     stairs: list[Stair] = field(default_factory=list)
+    landings: list[Landing] = field(default_factory=list)
     slab_openings: list[SlabOpening] = field(default_factory=list)
 
     @classmethod
@@ -156,6 +178,7 @@ class BuildingModel:
         parts = {}
         for key, kind in [("storeys", Storey), ("walls", Wall), ("slabs", Slab),
                           ("spaces", Space), ("openings", Opening), ("stairs", Stair),
+                          ("landings", Landing),
                           ("slab_openings", SlabOpening)]:
             values = data.get(key, [])
             if not isinstance(values, list):
@@ -181,7 +204,7 @@ class BuildingModel:
         if not isinstance(self.warnings, list) or any(not isinstance(w, str) for w in self.warnings):
             raise ValueError("Warnings must be a list of strings")
         objects = (self.storeys + self.walls + self.slabs + self.spaces + self.openings
-                   + self.stairs + self.slab_openings)
+                   + self.stairs + self.landings + self.slab_openings)
         ids = [obj.id for obj in objects]
         if any(not isinstance(value, str) or not value for value in ids) or len(set(ids)) != len(ids):
             raise ValueError("Element IDs must be nonempty and unique")
@@ -196,7 +219,7 @@ class BuildingModel:
                 raise ValueError("Storey levels must be finite")
             positive(s.ceiling - s.elevation, "Storey clear height")
             polygon_check(s.footprint)
-        for obj in self.walls + self.slabs + self.spaces:
+        for obj in self.walls + self.slabs + self.spaces + self.landings:
             if obj.storey_id not in storeys:
                 raise ValueError(f"Unknown storey for {obj.id}")
             if not isfinite(obj.base):
@@ -217,12 +240,20 @@ class BuildingModel:
                             or not all(isfinite(x) for x in [*face["start"], *face["end"], face["z_min"], face["z_max"]])
                             or dist(face["start"], face["end"]) <= 0 or face["z_min"] > face["z_max"]):
                         raise ValueError("Observed wall faces require finite nondegenerate geometry")
-            else:
+            elif isinstance(obj, (Slab, Space)):
                 polygon_check(obj.footprint)
                 positive(obj.thickness if isinstance(obj, Slab) else obj.height, "Extrusion depth")
+            else:
+                polygon_check(obj.footprint)
+                positive(obj.thickness, "Landing thickness")
+                if obj.system_id is not None and (not isinstance(obj.system_id, str) or not obj.system_id):
+                    raise ValueError("Landing system ID must be a nonempty string")
+                if (not isinstance(obj.connected_stair_ids, list)
+                        or any(not isinstance(value, str) or not value for value in obj.connected_stair_ids)):
+                    raise ValueError("Landing connections must be stair IDs")
         for opening in self.openings:
-            if opening.host_wall_id not in walls or opening.kind not in {"door", "window"}:
-                raise ValueError("Opening requires a known host wall and door/window kind")
+            if opening.host_wall_id not in walls or opening.kind not in {"door", "window", "unknown"}:
+                raise ValueError("Opening requires a known host wall and door/window/unknown kind")
             host = walls[opening.host_wall_id]
             positive(opening.width, "Opening width")
             positive(opening.height, "Opening height")
@@ -242,11 +273,25 @@ class BuildingModel:
                 raise ValueError("Stair steps must be an integer between 2 and 100")
             if abs(dist(stair.start, stair.end)-stair.going*stair.steps) > 1e-6:
                 raise ValueError("Stair run must equal steps times going")
+            if stair.system_id is not None and (not isinstance(stair.system_id, str) or not stair.system_id):
+                raise ValueError("Stair system ID must be a nonempty string")
+            if not isinstance(stair.flight_index, int) or isinstance(stair.flight_index, bool) or stair.flight_index < 0:
+                raise ValueError("Stair flight index must be a nonnegative integer")
+        for landing in self.landings:
+            if any(stair_id not in stairs for stair_id in landing.connected_stair_ids):
+                raise ValueError("Landing references an unknown stair flight")
+            if (landing.system_id is not None and any(
+                    stairs[stair_id].system_id not in {None, landing.system_id}
+                    for stair_id in landing.connected_stair_ids)):
+                raise ValueError("Landing and connected flights require one stair system")
         for opening in self.slab_openings:
             if opening.host_slab_id not in slabs:
                 raise ValueError("Slab opening requires a known host slab")
             if opening.source_stair_id is not None and opening.source_stair_id not in stairs:
                 raise ValueError("Slab opening source stair is unknown")
+            if opening.source_system_id is not None and (not isinstance(opening.source_system_id, str)
+                                                         or not opening.source_system_id):
+                raise ValueError("Slab opening source system must be a nonempty string")
             if (len(opening.start) != 2 or len(opening.end) != 2
                     or not all(isfinite(x) for x in (*opening.start, *opening.end))):
                 raise ValueError("Slab opening endpoints must be finite 2D points")

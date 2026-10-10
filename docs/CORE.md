@@ -69,7 +69,7 @@ Parameter provenance is `measured`, `inferred`, `user_supplied` or `unknown`. Me
 - Parallel observed faces estimate thickness. A single face uses a configured assumption; a boundary face is an exterior candidate, not a confirmed facade classification.
 - Slab gaps between detected levels provide candidate thicknesses, not proof of slab construction. Boundary thicknesses are assumed.
 - Spaces are inferred from closed wall loops; profiles with holes are not supported.
-- Geometric opening-gap and straight-stair-flight proposals are implemented; see [feature detection](FEATURE_DETECTION.md) for limits. Roofs, columns, landings, complex stairs and building services are not reconstructed.
+- Gap and recessed-plane opening proposals plus connected straight-flight/landing stair systems are implemented; see [feature detection](FEATURE_DETECTION.md) for limits. Roofs, columns, curved or spiral stairs, railings, structural stair design and building services are not reconstructed.
 - Observed-face fit RMSE covers selected original supporting points only, within documented finite face and Z bounds. It is not a whole-cloud deviation, coverage or project-tolerance report. Wall heights extrapolated to detected floor/ceiling levels are inferred.
 - XYZ is loaded into memory. E57 decoding/cache writing and original-record fitting are chunked. Detection samples cap KD-tree/adjacency and fitting arrays. The default budget is 50,000 points per detection stage with 100,000-record processing chunks. Raster allocation and level-histogram guards remain. This does not guarantee constant process RSS or unlimited building size.
 

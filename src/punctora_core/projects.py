@@ -16,7 +16,7 @@ from .e57_io import read_e57
 from .evidence import write_wall_evidence
 from .fixtures import demo_cloud
 from .ifc_export import write_ifc
-from .model import BuildingModel
+from .model import BuildingModel, Landing, Opening, SlabOpening, Stair
 from .convergence import compare_budgets
 from .reconstruction import ReconstructionSettings, reconstruct
 from .wall_editing import merge_walls, split_wall
@@ -427,15 +427,16 @@ def apply_draft_context(state, request):
 def edit_model(state, data, element_id, changes):
     model = draft_model(state, data)
     element = next((obj for obj in (model.walls + model.slabs + model.storeys
-                                    + model.openings + model.stairs + model.slab_openings)
+                                    + model.openings + model.stairs + model.landings + model.slab_openings)
                     if obj.id == element_id), None)
     if element is None:
         raise ValueError("Select a supported element")
     allowed = ({"start", "end", "base", "height", "thickness", "classification", "review_state"} if element in model.walls
                else {"base", "thickness", "review_state"} if element in model.slabs
-               else {"kind", "offset", "sill", "width", "height", "review_state"} if element in model.openings
+               else {"host_wall_id", "kind", "offset", "sill", "width", "height", "review_state"} if element in model.openings
                else {"start", "end", "base", "width", "rise", "going", "steps", "tread_thickness", "review_state"} if element in model.stairs
-               else {"start", "end", "width", "review_state"} if element in model.slab_openings
+               else {"base", "thickness", "review_state"} if element in model.landings
+               else {"host_slab_id", "start", "end", "width", "review_state"} if element in model.slab_openings
                else {"name", "elevation", "ceiling"})
     if not isinstance(changes, dict) or not changes or set(changes)-allowed:
         raise ValueError("Unsupported element correction")
@@ -443,6 +444,8 @@ def edit_model(state, data, element_id, changes):
     for field, value in changes.items():
         if field == "name" and (not isinstance(value, str) or not value.strip()):
             raise ValueError("Storey name cannot be empty")
+        if field in {"host_wall_id", "host_slab_id", "kind"} and (not isinstance(value, str) or not value):
+            raise ValueError("Element classifications and host IDs must be nonempty strings")
         if field in {"base", "height", "thickness", "elevation", "ceiling", "offset", "sill", "width", "rise", "going", "steps", "tread_thickness"} and (isinstance(value, bool) or not isinstance(value, (float, int))):
             raise ValueError("Dimensions must be numbers in metres")
         setattr(element, field, value)
@@ -460,9 +463,18 @@ def edit_model(state, data, element_id, changes):
             element.provenance["end"] = "user_supplied"
         if set(changes)-{"review_state"}:
             for opening in model.slab_openings:
-                if opening.source_stair_id == element.id:
+                if opening.source_stair_id == element.id or (element.system_id and opening.source_system_id == element.system_id):
                     opening.review_state = "flagged"
                     opening.evidence["source_geometry_changed"] = True
+            for landing in model.landings:
+                if element.id in landing.connected_stair_ids:
+                    landing.review_state = "flagged"
+                    landing.evidence["source_geometry_changed"] = True
+    if element in model.landings and set(changes)-{"review_state"}:
+        for opening in model.slab_openings:
+            if element.system_id and opening.source_system_id == element.system_id:
+                opening.review_state = "flagged"
+                opening.evidence["source_geometry_changed"] = True
     if element in model.slabs and set(changes)-{"review_state"}:
         for opening in model.slab_openings:
             if opening.host_slab_id == element.id:
@@ -484,6 +496,10 @@ def edit_model(state, data, element_id, changes):
             if stair.storey_id == element.id:
                 stair.base += shift
                 stair.provenance["base"] = "user_supplied"
+        for landing in model.landings:
+            if landing.storey_id == element.id:
+                landing.base += shift
+                landing.provenance["base"] = "user_supplied"
         levels = sorted(model.storeys, key=lambda obj: obj.elevation)
         if any(a.ceiling > b.elevation+1e-8 for a, b in zip(levels, levels[1:])):
             raise ValueError("Edited storey intervals overlap")
@@ -492,6 +508,122 @@ def edit_model(state, data, element_id, changes):
         model.metadata["geometry_edited"] = True
     model.metadata.setdefault("edit_history", []).append({"element_id": element_id, "changes": deepcopy(changes),
                             "quality_scope": "Observed faces and evidence describe the original fit, not the corrected geometry"})
+    model.validate()
+    return model.to_dict()
+
+
+def _new_id(model, stem):
+    existing = {obj.id for obj in (model.storeys + model.walls + model.slabs + model.spaces
+                                    + model.openings + model.stairs + model.landings + model.slab_openings)}
+    index = 1
+    while f"{stem}-{index}" in existing:
+        index += 1
+    return f"{stem}-{index}"
+
+
+def add_candidate(state, data, kind, host_id):
+    """Add explicit user-supplied review geometry without changing the saved project."""
+    from math import ceil, dist
+    from shapely.geometry import Polygon
+    from .features import _opening_frame
+    model = draft_model(state, data)
+    if kind in {"door", "window", "unknown"}:
+        host = next((wall for wall in model.walls if wall.id == host_id), None)
+        if host is None:
+            raise ValueError("Select a host wall before adding an opening")
+        length = dist(host.start, host.end)
+        width = min(.9 if kind == "door" else 1.2, length*.6)
+        sill = 0.0 if kind == "door" else .9
+        height = min(2.1 if kind == "door" else 1.2, host.height-sill)
+        model.openings.append(Opening(_new_id(model, f"{host.id}-{kind}"), host.id, kind,
+                                      (length-width)/2, sill, width, height,
+                                      {"dimensions": "user_supplied", "kind": "user_supplied",
+                                       "filling": "unknown"}, evidence={
+                                           "method": "manual_candidate",
+                                           "scope": "User-supplied opening; verify dimensions and host against the point cloud"}))
+    elif kind == "stair":
+        storey = next((item for item in model.storeys if item.id == host_id), None)
+        if storey is None:
+            raise ValueError("Select a storey before adding a stair")
+        centre = np.asarray(Polygon(storey.footprint).representative_point().coords[0])
+        steps = max(4, min(100, int(ceil((storey.ceiling-storey.elevation)/.18))))
+        rise, going = (storey.ceiling-storey.elevation)/steps, .28
+        start, end = centre-np.array([steps*going/2, 0]), centre+np.array([steps*going/2, 0])
+        identifier = _new_id(model, f"{storey.id}-stair")
+        model.stairs.append(Stair(identifier, storey.id, tuple(start), tuple(end), storey.elevation,
+                                  .9, rise, going, steps, provenance={
+                                      "treads": "user_supplied", "run": "user_supplied",
+                                      "structure": "unknown"}, system_id=identifier, flight_index=1,
+                                  evidence={"method": "manual_candidate",
+                                            "scope": "User-supplied stair flight; verify every dimension against the point cloud"}))
+    elif kind == "landing":
+        stair = next((item for item in model.stairs if item.id == host_id), None)
+        if stair is None:
+            raise ValueError("Select a stair flight before adding a landing")
+        start, end = np.asarray(stair.start), np.asarray(stair.end)
+        direction = (end-start)/np.linalg.norm(end-start)
+        side = np.array([-direction[1], direction[0]])*stair.width/2
+        depth = stair.width
+        footprint = [tuple(end-side), tuple(end+direction*depth-side),
+                     tuple(end+direction*depth+side), tuple(end+side)]
+        identifier = _new_id(model, f"{stair.storey_id}-landing")
+        model.landings.append(Landing(identifier, stair.storey_id, footprint,
+                                      stair.base+stair.steps*stair.rise-.06, .12,
+                                      stair.system_id or stair.id, [stair.id],
+                                      {"footprint": "user_supplied", "base": "user_supplied",
+                                       "thickness": "user_supplied"}, evidence={
+                                           "method": "manual_candidate",
+                                           "scope": "User-supplied landing; verify footprint and flight connections"}))
+    elif kind == "slab_opening":
+        slab = next((item for item in model.slabs if item.id == host_id), None)
+        if slab is None:
+            raise ValueError("Select a host slab before adding a slab opening")
+        host = Polygon(slab.footprint)
+        centre = np.asarray(host.representative_point().coords[0])
+        rectangle = Polygon([centre+[-.8, -.5], centre+[.8, -.5], centre+[.8, .5], centre+[-.8, .5]])
+        geometry = rectangle.intersection(host).buffer(0)
+        if not isinstance(geometry, Polygon) or geometry.area < .05:
+            raise ValueError("The selected slab has no safe default opening footprint")
+        footprint = [tuple(map(float, point)) for point in list(geometry.exterior.coords)[:-1]]
+        start, end, width = _opening_frame(geometry)
+        model.slab_openings.append(SlabOpening(_new_id(model, f"{slab.id}-opening"), slab.id,
+                                                start, end, width, provenance={
+                                                    "footprint": "user_supplied", "host_slab_id": "user_supplied"},
+                                                evidence={"method": "manual_candidate",
+                                                          "scope": "User-supplied slab opening; verify structural trimming"},
+                                                footprint=footprint))
+    else:
+        raise ValueError("Unsupported candidate type")
+    model.metadata["geometry_edited"] = True
+    model.metadata.setdefault("edit_history", []).append({"operation": "add_candidate", "kind": kind, "host_id": host_id})
+    model.validate()
+    return model.to_dict()
+
+
+def delete_candidate(state, data, element_id):
+    model = draft_model(state, data)
+    collections = [model.openings, model.stairs, model.landings, model.slab_openings]
+    target = next((obj for values in collections for obj in values if obj.id == element_id), None)
+    if target is None:
+        raise ValueError("Only opening, stair, landing and slab-opening candidates can be deleted")
+    if target in model.stairs:
+        model.stairs.remove(target)
+        model.slab_openings = [opening for opening in model.slab_openings if opening.source_stair_id != target.id]
+        for opening in model.slab_openings:
+            if target.system_id and opening.source_system_id == target.system_id:
+                opening.review_state = "flagged"
+                opening.evidence["source_flight_deleted"] = target.id
+        for landing in list(model.landings):
+            landing.connected_stair_ids = [value for value in landing.connected_stair_ids if value != target.id]
+            if not landing.connected_stair_ids:
+                model.landings.remove(landing)
+    else:
+        for values in collections:
+            if target in values:
+                values.remove(target)
+                break
+    model.metadata["geometry_edited"] = True
+    model.metadata.setdefault("edit_history", []).append({"operation": "delete_candidate", "element_id": element_id})
     model.validate()
     return model.to_dict()
 
@@ -580,10 +712,16 @@ def export_project(path, request, progress=lambda *_: None):
         rejected = {w.id for w in model.walls if w.review_state == "rejected"}
         rejected_slabs = {s.id for s in model.slabs if s.review_state == "rejected"}
         rejected_stairs = {s.id for s in model.stairs if s.review_state == "rejected"}
+        rejected_landings = {landing.id for landing in model.landings if landing.review_state == "rejected"}
         model.walls = [w for w in model.walls if w.id not in rejected]
         model.slabs = [s for s in model.slabs if s.id not in rejected_slabs]
         model.openings = [o for o in model.openings if o.host_wall_id not in rejected and o.review_state != "rejected"]
         model.stairs = [s for s in model.stairs if s.id not in rejected_stairs]
+        model.landings = [landing for landing in model.landings if landing.id not in rejected_landings
+                          and any(stair_id not in rejected_stairs for stair_id in landing.connected_stair_ids)]
+        for landing in model.landings:
+            landing.connected_stair_ids = [stair_id for stair_id in landing.connected_stair_ids
+                                           if stair_id not in rejected_stairs]
         initial_slab_openings = len(model.slab_openings)
         model.slab_openings = [o for o in model.slab_openings
                                if o.review_state != "rejected"
@@ -591,7 +729,7 @@ def export_project(path, request, progress=lambda *_: None):
                                and (o.source_stair_id is None or o.source_stair_id not in rejected_stairs)]
         unresolved = sum(obj.review_state in {"unreviewed", "flagged"}
                          for obj in model.walls + model.slabs + model.openings
-                         + model.stairs + model.slab_openings)
+                         + model.stairs + model.landings + model.slab_openings)
         if unresolved:
             model.warnings.append(f"Export includes {unresolved} unreviewed or flagged elements; review state does not establish acceptance.")
         if model.metadata.get("geometry_edited"):
@@ -605,6 +743,7 @@ def export_project(path, request, progress=lambda *_: None):
         progress(100, "IFC export complete")
         return {"output": str(target), "validation": report, "warnings": model.warnings,
                 "excluded_rejected_walls": len(rejected),
+                "excluded_rejected_landings": len(rejected_landings),
                 "excluded_slab_openings": initial_slab_openings-len(model.slab_openings),
                 "spaces_omitted_after_edits": bool(model.metadata.get("geometry_edited"))}
 
