@@ -56,6 +56,21 @@ def main():
               "ifc_validation": validation,
               "scope": "algorithm/IFC checks; no independently annotated survey ground truth"}
     if args.full_reconstruction:
+        report['stair_verification'] = {
+            'systems':len({s.system_id for s in model.stairs}),
+            'flights':len(model.stairs), 'landings':len(model.landings),
+            'windows':sum(o.kind == 'window' for o in model.openings),
+            'flight_evidence':[{'id':s.id,'storey_id':s.storey_id,'system_id':s.system_id,
+                'steps':s.steps,'rise_m':s.rise,'going_m':s.going,'evidence':s.evidence} for s in model.stairs],
+            'landing_evidence':[{'id':l.id,'connected_flight_ids':l.connected_stair_ids,
+                'system_id':l.system_id,'evidence':l.evidence} for l in model.landings],
+            'void_residuals':model.metadata['stairwell_verification'],
+            'void_evidence':[{'id':o.id,'host_slab_id':o.host_slab_id,'evidence':o.evidence}
+                             for o in model.slab_openings],
+            'remaining_manual_review_items':model.warnings}
+        report['performance'] = model.metadata['performance']
+        report['unsupported_geometry_scope'] = ('Slab supported/inferred percentages are recorded per component; '
+            'inferred missing treads are explicit. No calibrated whole-model unsupported percentage exists.')
         hosts = {w.id:w for w in model.walls}
         report['wall_verification'] = {
             'walls':len(model.walls), 'openings':len(model.openings),

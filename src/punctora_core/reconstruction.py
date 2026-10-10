@@ -660,14 +660,9 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
         openings = detect_openings(source_cloud, walls, settings, workers) if settings.detect_openings_enabled else []
         record.update(sample_points=len(cloud.points) if settings.detect_openings_enabled else 0,
                       sampling="full source wall selectors", detected_elements={"openings": len(openings)})
-    with profiler.stage("stairs", storey_id=level.id) as record:
-        stair_statistics = []
-        landings = []
-        stairs = detect_stairs(source_cloud, [level], settings, backend, stair_statistics,
-                               landings) if settings.detect_stairs_enabled else []
-        record.update(sample_points=sum(x["sample_points"] for x in stair_statistics),
-                      sampling=stair_statistics,
-                      detected_elements={"stairs": len(stairs), "landings": len(landings)})
+    # Stairs cross clear-height and storey boundaries. Detect once globally
+    # after slab zones, never independently inside each storey worker.
+    stairs, landings = [], []
     return walls, spaces, openings, stairs, landings, statistics, proposals, consolidation, topology, warnings
 
 
@@ -767,15 +762,39 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                 from .slab_zones import slab_zone_geometry
                 model.slabs, model.slab_openings = slab_zone_geometry(
                     slab_zones, slab_surfaces, sorted_levels, settings, model.walls)
-            from .features import derive_stair_slab_openings
-            if slab_zones is None:
-                model.slab_openings, slab_opening_diagnostics = derive_stair_slab_openings(
+            from .features import detect_stairs, derive_stair_slab_openings
+            from .stair_voids import reconcile_stair_voids
+            with profiler.stage("global_stairs", source_points=len(cloud.points)) as record:
+                stair_statistics = []
+                if settings.detect_stairs_enabled:
+                    model.stairs = detect_stairs(cloud, sorted_levels, settings, backend,
+                                                stair_statistics, model.landings)
+                for flight in model.stairs:
+                    for label, elevation in (("lower", flight.base),
+                            ("upper", flight.base+flight.steps*flight.rise)):
+                        nearest = min(model.slabs,
+                            key=lambda slab: abs(slab.base+slab.thickness-elevation), default=None)
+                        distance = (None if nearest is None else
+                                    abs(nearest.base+nearest.thickness-elevation))
+                        flight.evidence[f"{label}_slab_id"] = (nearest.id
+                            if distance is not None and distance <= .3 else None)
+                        flight.evidence[f"{label}_slab_zone_index"] = (nearest.evidence.get("zone_index")
+                            if distance is not None and distance <= .3 else None)
+                        flight.evidence[f"{label}_slab_association_distance_m"] = distance
+                record.update(sampling=stair_statistics,
+                    sample_points=sum(x["sample_points"] for x in stair_statistics),
+                    detected_elements={"flights": len(model.stairs), "landings": len(model.landings)})
+            with profiler.stage("stairwell_validation") as record:
+                candidates, slab_opening_diagnostics = derive_stair_slab_openings(
                     model.stairs, model.slabs, model.landings,
                     margin_m=settings.stair_void_margin_m,
                     headroom_m=settings.stair_headroom_m)
-            else:
-                slab_opening_diagnostics = []
-                model.warnings.append("Observed slab gaps are pending stair-system validation; no stair-derived enlargement was performed.")
+                model.slab_openings, void_report = reconcile_stair_voids(
+                    model.slabs, model.slab_openings, candidates, model.stairs, model.landings)
+                record.update(detected_elements={"slab_openings": len(model.slab_openings)},
+                              verification=void_report)
+            if any(item["status"] == "review_required" for item in void_report):
+                model.warnings.append("Stair/slab residual intersections remain; review stairwell verification before accepting the model.")
             skipped_openings = sum(item["status"] != "candidate_created"
                                    for item in slab_opening_diagnostics)
             if skipped_openings and model.stairs:
@@ -799,6 +818,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                               "wall_topology": wall_topology,
                               "inter_storey_gaps": inter_storey_gaps,
                               "slab_opening_detection": slab_opening_diagnostics,
+                              "stairwell_verification": void_report,
                               "slab_zones": slab_report,
                               "level_detection": None if level_sample is None else {
                                   "sample_points": len(level_sample.points), "voxel_size_m": level_sample.voxel_size_m,

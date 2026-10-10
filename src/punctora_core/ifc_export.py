@@ -155,6 +155,8 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
                    {"ReviewState": opening.review_state,
                     "GeometricSupportScore": opening.confidence,
                     "SourceStairId": opening.source_stair_id or "unknown",
+                    "SourceSystemId": opening.source_system_id or "unknown",
+                    "GeometricEvidence": json.dumps(opening.evidence, sort_keys=True),
                     "RepresentationScope": opening.evidence.get(
                         "scope", "Reviewed slab-opening candidate")})
 
@@ -222,7 +224,10 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
                       local_z=(index+1)*stair.rise-stair.tread_thickness)
             extra = {"ReviewState": stair.review_state, "GeometricSupportScore": stair.confidence,
                      "StairSystemId": system_id, "FlightIndex": stair.flight_index,
-                     "RepresentationScope": "observed tread envelopes; railings and support structure unknown"}
+                     "SourceStoreyId": stair.storey_id,
+                     "UpperStoreyId": stair.evidence.get("upper_storey_id"),
+                     "GeometricEvidence": json.dumps(stair.evidence, sort_keys=True),
+                     "RepresentationScope": "measured and explicitly inferred tread envelopes; railings and support structure unknown"}
             provenance(flight, stair.id+"-flight", stair.provenance, extra)
         system_landings = [landing for landing in model.landings if landing.system_id == system_id]
         for landing in system_landings:
@@ -234,6 +239,8 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
                 "ReviewState": landing.review_state, "GeometricSupportScore": landing.confidence,
                 "StairSystemId": system_id,
                 "ConnectedFlightIds": ",".join(landing.connected_stair_ids),
+                "SourceStoreyId": landing.storey_id,
+                "GeometricEvidence": json.dumps(landing.evidence, sort_keys=True),
                 "RepresentationScope": landing.evidence.get("scope", "Reviewed stair landing")})
             exported_landings.add(landing.id)
         system_review = ("flagged" if any(stair.review_state == "flagged" for stair in stairs+system_landings)
