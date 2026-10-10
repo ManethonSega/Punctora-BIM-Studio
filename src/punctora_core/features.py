@@ -7,6 +7,7 @@ import cv2
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.signal import find_peaks
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import unary_union
 
@@ -20,7 +21,8 @@ def detect_openings(cloud, walls, settings, workers=None):
     return detect_signed_openings(cloud, walls, settings, workers)
 
 
-def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landing_output=None):
+def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landing_output=None,
+                  floor_surfaces=None):
     flights = []
     detected_landings = []
     workers = resolved_cpu_workers(settings.cpu_workers)
@@ -71,11 +73,20 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
         if len(points) < 40:
             continue
         zcells = np.floor((points[:, 2]-storey.elevation)/0.03).astype(int)
-        levels = np.unique(zcells)
-        groups = np.split(levels, np.where(np.diff(levels) > 1)[0]+1)
-        patches, landing_patches = [], []
-        for group in groups:
-            plane_mask = np.isin(zcells, group)
+        # A few noisy returns can occupy every bin between two treads. Joining
+        # consecutive occupied bins then rejects both real surfaces as "thick".
+        # Local density peaks keep distinct planes even with noisy bridges.
+        histogram = np.bincount(zcells-zcells.min())
+        smooth = np.convolve(histogram, [.25,.5,.25], mode="same")
+        peaks, _ = find_peaks(np.r_[0,smooth,0],distance=3,prominence=5)
+        peak_cells = peaks-1+zcells.min()
+        patches, landing_patches = [], list(floor_surfaces or [])
+        for cell in peak_cells:
+            centre_points = points[zcells == cell]
+            if len(centre_points) < 10:
+                continue
+            height = float(np.median(centre_points[:,2]))
+            plane_mask = np.abs(points[:,2]-height) <= .035
             plane = points[plane_mask]
             plane_rows = horizontal_source_rows[plane_mask]
             if len(plane) < 20 or np.ptp(plane[:, 2]) > 0.07:
@@ -116,6 +127,10 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
                         continue
                     supported_shape = Polygon(origin+(boundary+.5)*.06).buffer(.03, join_style=2)
                     if not isinstance(supported_shape, Polygon) or supported_shape.area < .3:
+                        continue
+                    if any(abs(floor["z"]-float(np.median(patch[:,2]))) <= .04
+                           and floor["geometry"].intersection(supported_shape).area
+                           >= .8*supported_shape.area for floor in (floor_surfaces or [])):
                         continue
                     landing_patches.append({"footprint": [tuple(map(float, point))
                                             for point in list(supported_shape.exterior.coords)[:-1]],
@@ -185,39 +200,53 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
             next_tread = LineString([stair.end,extended_end]).buffer(stair.width/2,cap_style=2)
             anchors = [patch for patch in landing_patches
                 if abs(patch["z"]-current_top-stair.rise) <= .03
-                and Polygon(patch["footprint"]).intersection(next_tread).area >= .5*next_tread.area]
+                and patch.get("geometry", Polygon(patch.get("footprint",[]))).intersection(next_tread).area >= .5*next_tread.area]
             if anchors and stair.steps < 100:
                 anchor = max(anchors,key=lambda p:p["count"])
                 stair.evidence["inferred_missing_step_indices"].append(stair.steps)
                 stair.evidence["landing_anchored_terminal_step"] = {
                     "landing_surface_m": anchor["z"],
                     "source_working_row_examples": anchor["source_working_row_examples"],
-                    "support_area_fraction": float(Polygon(anchor["footprint"]).intersection(next_tread).area/next_tread.area)}
+                    "support_area_fraction": float(anchor.get("geometry",Polygon(anchor.get("footprint",[]))).intersection(next_tread).area/next_tread.area)}
                 stair.steps += 1
                 stair.end = tuple(extended_end)
                 stair.provenance["treads"] = "inferred"
                 stair.evidence["riser_support_counts"].append(0)
         for patch in landing_patches:
-            polygon = Polygon(patch["footprint"])
+            polygon = patch.get("geometry", Polygon(patch.get("footprint",[])))
             connected = []
+            endpoint_regions = []
             for stair in local_flights:
                 endpoints = ((stair.start, stair.base),
                              (stair.end, stair.base+stair.steps*stair.rise))
-                if any(abs(patch["z"]-height) <= .12 and polygon.buffer(.4).covers(Point(xy))
-                       for xy, height in endpoints):
+                matches = [xy for xy,height in endpoints if abs(patch["z"]-height) <= .12
+                           and polygon.buffer(.4).covers(Point(xy))]
+                if matches:
                     connected.append(stair.id)
+                    endpoint_regions.extend(Point(xy).buffer(stair.width*.7) for xy in matches)
             if connected:
+                if "geometry" in patch:
+                    # Floor evidence can span an entire room. Keep the observed
+                    # entry/exit region, not the whole floor, as the landing.
+                    centres = [region.centroid.coords[0] for region in endpoint_regions]
+                    if len(centres) > 1:
+                        endpoint_regions.append(LineString(centres).buffer(
+                            min(s.width for s in local_flights if s.id in connected)/2))
+                    polygon = polygon.intersection(unary_union(endpoint_regions)).buffer(0)
+                    if not isinstance(polygon, Polygon) or polygon.area < .1 or polygon.interiors:
+                        continue
                 detected_landings.append(Landing(
                     f"building-landing-{len(detected_landings)+1}",
                     max((s for s in actual_storeys if s.elevation <= patch["z"]+.12),
                         key=lambda s: s.elevation, default=actual_storeys[0]).id,
-                    patch["footprint"], patch["z"]-.12, .12,
+                    list(polygon.exterior.coords)[:-1], patch["z"]-.12, .12,
                     connected_stair_ids=connected,
                     provenance={"footprint": "measured", "base": "inferred", "thickness": "inferred"},
                     confidence=min(.9, .55+.35*patch["coverage"]), evidence={
                         "method": "horizontal_patch_at_flight_endpoint",
                         "support_points": patch["count"], "connected_stair_ids": connected,
                         "observed_upper_surface_m": patch["z"],
+                        "source_slab_zone_index": patch.get("zone_index"),
                         "source_working_row_examples": patch["source_working_row_examples"],
                         "scope": "horizontal landing candidate connected to measured flight endpoints; structure and finish are unknown"}))
         _assign_stair_systems(local_flights, detected_landings)

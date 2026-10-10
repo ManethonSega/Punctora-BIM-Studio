@@ -766,9 +766,19 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
             from .stair_voids import reconcile_stair_voids
             with profiler.stage("global_stairs", source_points=len(cloud.points)) as record:
                 stair_statistics = []
+                floor_surfaces = []
+                if slab_zones is not None:
+                    from .slab_zones import _polygons
+                    for index, zone in enumerate(slab_zones):
+                        surface = slab_surfaces[zone["upper"]]
+                        for piece in _polygons(surface.raw_geometry):
+                            floor_surfaces.append({"geometry": piece,
+                                "z": float(surface.elevation), "zone_index": index,
+                                "count": len(surface.indices), "coverage": 1.,
+                                "source_working_row_examples": surface.indices[:12].astype(int).tolist()})
                 if settings.detect_stairs_enabled:
                     model.stairs = detect_stairs(cloud, sorted_levels, settings, backend,
-                                                stair_statistics, model.landings)
+                                                stair_statistics, model.landings, floor_surfaces)
                 from shapely.geometry import Polygon
                 for landing in model.landings:
                     polygon = Polygon(landing.footprint)

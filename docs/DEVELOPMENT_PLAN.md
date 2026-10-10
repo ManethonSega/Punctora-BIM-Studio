@@ -43,7 +43,15 @@ Exact storey working sets accelerate original-record fitting without sampling
 away records. Real-scan acceptance remains separate from implementation: the
 specific requested second-storey window pair is not yet independently confirmed.
 See [implementation and acceptance results](RUN_4_2.md). Global stairs, connected
-landings and final stairwell decisions remain Run 4.3.
+landings and final stairwell decisions are implemented in Run 4.3 below.
+
+Run 4.3 is implemented in 0.3.0a14: building-wide tread/riser evidence,
+missing-tread lattice fitting, landing-anchored terminal steps, slab-face floor
+landings, cross-storey stair assemblies, per-tread headroom envelopes, preserved
+observed holes and independent slab-intersection checks. IFC retains assemblies,
+flights, landing semantics, storey references and geometric evidence. Linux RAM
+telemetry uses direct process counters. Field acceptance and the Run 5 completion
+gate remain separate from implementation. See [Run 4.3 results](RUN_4_3.md).
 
 - Import a supported registered E57 without altering it or duplicating cached points on rerun.
 - Confirm units, missing coordinate metadata and any unsupported E57 features.

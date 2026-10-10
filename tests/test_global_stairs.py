@@ -163,3 +163,20 @@ def test_small_host_fragment_is_not_discarded_when_it_obstructs_headroom():
     assert Polygon(candidates[0].footprint).area < .05
     _,report = reconcile_stair_voids([slab],[],candidates,[stair],[])
     assert report[0]['headroom_residual_area_m2'] == pytest.approx(0)
+
+
+def test_observed_slab_face_anchors_missing_terminal_tread_and_cross_storey_system():
+    first = flight_points(missing=(7,),risers=False)
+    second = flight_points(start=(3.1,0),angle=np.pi/2,base=1.36,risers=False)
+    surface = {'geometry':Polygon([(1.96,0),(3.34,0),(3.34,1.1),(1.96,1.1)]),
+               'z':1.36,'count':1000,'coverage':1.,'zone_index':1,
+               'source_working_row_examples':[1,2,3]}
+    landings = []
+    flights = detect_stairs(CloudData(np.vstack([first,second])),levels(),ReconstructionSettings(),
+                           landing_output=landings,floor_surfaces=[surface])
+    assert len(flights) == 2 and len({f.system_id for f in flights}) == 1
+    assert flights[0].steps == 8
+    assert flights[0].evidence['inferred_missing_step_indices'] == [7]
+    assert len(landings) == 1
+    assert landings[0].evidence['source_slab_zone_index'] == 1
+    assert Polygon(landings[0].footprint).difference(surface['geometry']).area == pytest.approx(0)

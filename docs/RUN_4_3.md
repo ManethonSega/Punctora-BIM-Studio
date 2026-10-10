@@ -9,6 +9,8 @@ railings and structural design remain outside scope.
 
 - One spatially sampled building-wide pass estimates horizontal and vertical
   patches. Source working-row examples are retained for treads and landings.
+  Local horizontal-density peaks separate tread faces even when noisy returns
+  occupy the bins between them; consecutive occupied bins are not merged.
 - Discrete rise/going fits require at least four observed treads, allow at most
   two missing interior treads between observations, and limit missing evidence
   to 40 percent of a flight. One missing terminal tread can be added only when
@@ -22,6 +24,9 @@ railings and structural design remain outside scope.
   thickness and the resulting lower face remain assumptions.
   Floor-integrated landings are semantic areas carried by the existing floor
   solid, avoiding a duplicate solid and an unjustified hole under the landing.
+  Observed upper slab-face polygons also supply landing anchors at floor
+  transitions. Landing regions are clipped to the observed entry/exit area;
+  an entire floor is not turned into a landing or stairwell cut.
 - Flights carry storey and nearest supported slab-zone associations. Unmatched
   endpoints retain null associations and a measured distance for review.
 - Headroom is calculated per tread, including explicitly inferred interior
