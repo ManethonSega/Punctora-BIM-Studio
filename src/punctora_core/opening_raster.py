@@ -111,6 +111,15 @@ def _one_wall(cloud,wall,settings):
                           signed_interior_depth_m=signed_depth,signed_depth_consistency=consistency,
                           divided_by_supported_mullion=divided,host_support_points=support,
                           scope='Supported jambs, head and sill on an observed host face; geometric door/window proposal, filling remains unknown')
+            evidence['raster_frame']=dict(along_origin_xy=start.tolist(),along_direction_xy=direction.tolist(),
+                                          signed_depth_normal_xy=normal.tolist(),z_origin_m=wall.base,
+                                          face_offset_from_axis_m=reference,shape_rows_columns=[nz,nx])
+            evidence['edge_contrast']={
+                'left_jamb':float(((filled[z:z+height,x-1]>0)&(filled[z:z+height,x]==0)).mean()),
+                'right_jamb':float(((filled[z:z+height,x+width]>0)&(filled[z:z+height,x+width-1]==0)).mean()),
+                'head':float(((filled[z+height,x:x+width]>0)&(filled[z+height-1,x:x+width]==0)).mean())}
+            if z>0:
+                evidence['edge_contrast']['sill']=float(((filled[z-1,x:x+width]>0)&(filled[z,x:x+width]==0)).mean())
             score=min(.95,min(edge.values())*(.8 if recessed else 1-occupied))
             candidates.append(Opening('',wall.id,kind,x*cell,actual_sill,min(w,length-x*cell),actual_height,
                                       {'dimensions':'measured','kind':'inferred','filling':'unknown'},confidence=score,evidence=evidence))

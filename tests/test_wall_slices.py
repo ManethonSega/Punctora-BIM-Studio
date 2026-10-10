@@ -75,3 +75,22 @@ def test_corner_correction_requires_two_measured_bands():
 def test_single_height_patch_does_not_become_full_storey_wall():
     points=cloud_face()
     assert not detect_walls(points[(points[:,2]>=1.1)&(points[:,2]<1.3)],level(),ReconstructionSettings(),1)
+
+
+def test_recessed_window_plane_does_not_shorten_host_as_opposite_wall_face():
+    points=cloud_face()
+    recess=(points[:,0]>=1)&(points[:,0]<2.5)&(points[:,2]>=.9)&(points[:,2]<2.1)
+    points[recess,1]=.12
+    walls=detect_walls(points,level(),ReconstructionSettings(),1)
+    host=max(walls,key=lambda w:abs(w.end[0]-w.start[0]))
+    assert abs(host.end[0]-host.start[0])>5.9
+    assert host.classification!='paired_faces'
+    assert detect_openings(CloudData(points),[host],ReconstructionSettings(),1)
+
+
+def test_oversized_void_is_not_bridged_as_solid_wall():
+    points=cloud_face()
+    void=(points[:,0]>.7)&(points[:,0]<5.3)&(points[:,2]>.5)&(points[:,2]<2.5)
+    walls=detect_walls(points[~void],level(),ReconstructionSettings(),1)
+    assert walls
+    assert all(abs(w.end[0]-w.start[0])<2 for w in walls)

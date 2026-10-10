@@ -3,14 +3,21 @@
 Automatic contour reconstruction now samples the entire clear storey height.
 Six to twelve nonoverlapping bands adapt to that height, excluding the slab
 boundaries. Contour lines are proposals only. Plane clusters use a fixed clean
-reference, angular agreement and signed perpendicular offset, avoiding
-transitive plane drift. Different observed sides remain distinct.
+reference, angular agreement and signed perpendicular offset. Median directions
+and per-band median offsets stabilize the final plane. The transverse gate is
+at most 80% of minimum wall thickness, keeping opposite thin-wall faces distinct.
+Bounded whole-storey normal-based patches add plane proposals where frames
+fragment contours; they must pass the same independent band checks. A recessed
+filling cannot pair as a wall's opposite face without broad vertical and
+longitudinal overlap on both faces.
 
 Plane-near point occupancy must repeat in at least two independent bands.
 Median endpoints across contributing bands reject an extension observed only
 near the ceiling. Small longitudinal sampling gaps, up to 80 mm by default,
 can close only when their neighbouring cells have common repeated support.
-A gap through every height band remains separate. Automatic consolidation
+A gap through every height band remains separate. Weakly supported bridges
+wider than 3.2 m are rejected instead of producing an uncut oversized void.
+Automatic consolidation
 cannot bridge those gaps after detection. This is conservative geometric
 support, not proof of wall material or a semantic AI classification.
 
@@ -57,3 +64,8 @@ full-cache scan verification uses `scripts/verify_slab_zones.py` with
 `--full-reconstruction`; its output preserves all element evidence and IFC
 validation. Real-scan counts and unresolved acceptance results must be recorded
 after that check completes. Run 4.3 global stair-system work remains separate.
+
+`scripts/inspect_wall_rasters.py` can inspect one selected storey from a mapped
+cache and an existing model. It writes local frame/depth inspection rasters and
+candidate JSON. It uses a 250,000-point spatial working set, so it is a diagnostic
+comparison, not full-source acceptance or a replacement for original-record fitting.

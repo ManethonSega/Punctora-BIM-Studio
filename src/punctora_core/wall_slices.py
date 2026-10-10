@@ -1,5 +1,6 @@
 """Repeated horizontal wall-face evidence and robust supported extents."""
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 import numpy as np
 
 
@@ -14,12 +15,31 @@ def multi_slice_walls(points, storey, settings, workers=1):
     count = max(6, min(12, int(np.ceil(height/.4))))
     edges = np.linspace(storey.elevation+.04, storey.ceiling-.04, count+1)
     records = []
-    tolerance = max(.025, settings.grid_size_m*1.5)
+    tolerance = max(.025,min(settings.wall_merge_lateral_tolerance_m,settings.minimum_wall_thickness_m*.8))
+    # Normal-based whole-storey patches supply stable plane proposals where
+    # several windows fragment individual contours. They do not bypass the
+    # independent slice occupancy or supported endpoint tests below.
+    from .sampling import voxel_sample
+    from .surfaces import region_growing
+    seed_sample=voxel_sample(points,max(.04,settings.detection_voxel_size_m),100000,
+                            min(100000,settings.processing_chunk_points),workers=workers)
+    patches,_=region_growing(seed_sample,replace(settings,cpu_workers=workers,region_normal_angle_deg=8.))
+    seeds=[]
+    for patch in patches:
+        if patch.orientation!='vertical' or patch.bounds[1][2]-patch.bounds[0][2]<height*.5:
+            continue
+        cloud_indices=np.asarray(patch.representative_cloud_indices,int)
+        patch_points=points[cloud_indices]
+        normal=np.asarray(patch.normal[:2]);direction=np.array([-normal[1],normal[0]])/np.linalg.norm(normal)
+        centre=np.asarray(patch.centroid[:2]);along=(patch_points[:,:2]-centre)@direction
+        seed=[centre+along.min()*direction,centre+along.max()*direction]
+        if np.linalg.norm(seed[1]-seed[0])>=settings.minimum_wall_length_m:
+            seeds.append(seed)
     for index, (low, high) in enumerate(zip(edges[:-1], edges[1:])):
         section = points[(points[:, 2] >= low)&(points[:, 2] < high)]
         if len(section) < 12:
             continue
-        segments = _segments(section, settings)
+        segments = _segments(section, settings)+seeds
         def fit(segment):
             return _fit_face(segment, section, max(.025, 2*settings.grid_size_m))
         if workers > 1 and len(segments) > 1:
@@ -43,7 +63,7 @@ def multi_slice_walls(points, storey, settings, workers=1):
         for cluster in clusters:
             origin,axis = cluster['origin'],cluster['direction']
             normal = np.array([-axis[1],axis[0]])
-            if abs(direction@axis) >= angle and max(abs((a-origin)@normal),abs((b-origin)@normal)) <= tolerance:
+            if abs(direction@axis) >= angle and abs(((a+b)/2-origin)@normal) <= tolerance:
                 target = cluster
                 break
         if target is None:
@@ -57,7 +77,13 @@ def multi_slice_walls(points, storey, settings, workers=1):
         ids = sorted({r['slice'] for r in records})
         if len(ids) < 2 or (max(ids)-min(ids)+1)/count < .35:
             continue
-        axis = cluster['direction']
+        directions=[]
+        for record in records:
+            a,b=record['face'];direction=(b-a)/np.linalg.norm(b-a)
+            if direction@cluster['direction']<0:
+                direction=-direction
+            directions.append(direction)
+        axis=np.median(directions,axis=0);axis/=np.linalg.norm(axis)
         normal = np.array([-axis[1],axis[0]])
         offset = float(np.median([np.median([np.mean(r['face'],axis=0)@normal
                        for r in records if r['slice'] == i]) for i in ids]))
@@ -73,6 +99,12 @@ def multi_slice_walls(points, storey, settings, workers=1):
         keep = (x>=0)&(x<bins)&(z>=0)&(z<count)
         occupied[z[keep],x[keep]] = True
         repeated = occupied.sum(axis=0) >= 2
+        # Long regions supported only at their header/sill cannot silently
+        # become a filled wall when they exceed plausible opening dimensions.
+        weak=(occupied.sum(axis=0)<=max(2,int(np.floor(count*.5))))&repeated
+        for a,b in runs(weak):
+            if (b-a)*cell>3.2:
+                repeated[a:b]=False
         for a,b in runs(~repeated):
             if a>0 and b<bins and (b-a)*cell <= .08 and np.count_nonzero(occupied[:,a-1]&occupied[:,b]) >= 2:
                 repeated[a:b] = True
@@ -104,7 +136,8 @@ def multi_slice_walls(points, storey, settings, workers=1):
             face = [axis*start+normal*offset,axis*end+normal*offset]
             faces.append((face,sum(r['proposal_support_points'] for r in slices),max(r['fit_rmse_m'] for r in slices)))
             evidence.append(dict(face=face,observed=observed,slices=slices,vertical_continuity=len(slices)/count,
-                                 cell_size_m=cell,slice_occupancy_runs=[dict(slice_index=i,intervals_m=[
+                                 cell_size_m=cell,raster_along_origin_xy=(axis*low+normal*offset).tolist(),
+                                 raster_direction_xy=axis.tolist(),slice_occupancy_runs=[dict(slice_index=i,intervals_m=[
                                     [float((a+first)*cell),float((b+first)*cell)] for a,b in runs(occupied[i,first:last])]) for i in ids]))
     def support_for(face):
         return min(evidence,key=lambda e:np.linalg.norm(np.asarray(e['face'])-face))

@@ -329,7 +329,7 @@ def evidence_endpoint_report(walls,topology,gap_tolerance_m=.05):
     rejected={tuple(k) for r in topology['rejected'] for k in r.get('wall_ends',[])}
     for item in report['endpoints']:
         key=(item['wall_id'],item['end'])
-        if key in rejected:
+        if key in rejected and item['status'] not in {'shared_corner','t_junction'}:
             item['status']='rejected_correction'
         elif item['status']=='shared_corner':
             item['status']='supported_corner'
