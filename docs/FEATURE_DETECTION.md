@@ -21,6 +21,11 @@ Open endpoints are not automatically defects. They may represent scan boundaries
 
 ## Wall openings
 
+Run 4.2 adds adaptive multi-slice hosts, source-supported corner corrections
+and signed observed-face rasters. The current endpoint statuses and inspection
+workflow are documented in [Run 4.2](RUN_4_2.md). Detection-time evidence remains
+static after manual edits, and must be regenerated for a new automatic fit.
+
 Openings use two independent geometric signals inside a bounded host-wall envelope:
 
 - supported empty regions, for visibly open doors and windows;

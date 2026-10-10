@@ -76,3 +76,43 @@ after that check completes. Run 4.3 global stair-system work remains separate.
 cache and an existing model. It writes local frame/depth inspection rasters and
 candidate JSON. It uses a 250,000-point spatial working set, so it is a diagnostic
 comparison, not full-source acceptance or a replacement for original-record fitting.
+
+## Supplied stairwell trial
+
+The final local full-cache trial inspected all 39,068,825 source heights and
+completed in 252.8 seconds in the development container. It retained five slab
+zones and four storeys, eight slab components and one observed slab hole. It
+proposed 31 walls, 16 wall openings and four flights. IFC4 schema/EXPRESS checks
+reported no findings, and all 76 products tessellated without geometry errors.
+The exact working sets retained 6,586,741; 11,443,912; 9,148,867; and 7,671,820
+original points for the four clear storey intervals. No RGB, coordinates or
+project source records were modified.
+
+The topology report contains 24 supported corner endpoints, four supported
+T-junction endpoints, 30 unresolved endpoints and four rejected corrections.
+Accepted corner clusters share an identical axis point, below the 50 mm
+endpoint-gap target. This does not measure survey accuracy or prove that every
+unresolved endpoint should close.
+
+Two separate 550 mm wide window candidates occur on `storey-4-wall-3`, with
+offsets 0.15 and 0.95 m, sill 1.50 m and height 1.20 m. The continuous host and
+independent frame checks preserve their separation. The specific pair the user
+described on the second storey is **not independently confirmed**: second-storey
+results include one door proposal and three ambiguous openings on separate
+hosts. These are not relabelled to manufacture acceptance.
+
+| Acceptance item | Result |
+| --- | --- |
+| Multiple slices and inspectable source extents | Implemented and tested |
+| Shorten unsupported ceiling-only extension | Generated regression passes; specific reported scan wall not independently annotated |
+| Evidenced corners within 50 mm | Supported clusters close; unsupported proposals remain diagnostics |
+| Two separate windows on a continuous host | Present on the upper storey; requested second-storey pair remains open |
+| Jamb, sill, head and signed-depth readings | Inspector and persisted evidence implemented |
+| Coordinates, crop identity, persistence and IFC | Regression checks pass; full-cache IFC valid |
+
+Run 4.2 implementation is available, but its scan acceptance is partial.
+Opening types are geometric proposals and can still misclassify glazing or
+occlusions. The requested second-storey host/window association needs continued
+correction or an independently identified reference, before claiming that this
+scan satisfies every Run 4.2 criterion. The four detected flights are existing
+per-storey proposals, not completion of Run 4.3 global stair reconstruction.

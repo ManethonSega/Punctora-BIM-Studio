@@ -33,8 +33,17 @@ The 0.3.0a6 High Performance pass replaces globally sampled level discovery with
 Run 4.1 is implemented in 0.3.0a12: horizontal slab-zone sequence selection,
 separate-face occupancy polygons, disconnected slab components, observed hole
 voids, source-row evidence and supported/inferred area accounting. Stair-derived
-enlargement is paused for automatic zones until Run 4.3. Multi-slice wall and
-window corrections remain Run 4.2. See [implementation and limits](RUN_4_1.md).
+enlargement is paused for automatic zones until Run 4.3. See
+[implementation and limits](RUN_4_1.md).
+
+Run 4.2 is implemented in 0.3.0a13: adaptive height-band wall evidence,
+normal-based plane proposals, consensus extents, source-supported corner and
+T-junction corrections, signed-face opening rasters and frame/depth inspection.
+Exact storey working sets accelerate original-record fitting without sampling
+away records. Real-scan acceptance remains separate from implementation: the
+specific requested second-storey window pair is not yet independently confirmed.
+See [implementation and acceptance results](RUN_4_2.md). Global stairs, connected
+landings and final stairwell decisions remain Run 4.3.
 
 - Import a supported registered E57 without altering it or duplicating cached points on rerun.
 - Confirm units, missing coordinate metadata and any unsupported E57 features.
