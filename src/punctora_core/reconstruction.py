@@ -791,6 +791,14 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                         landing.evidence.update(floor_integrated=True, source_floor_id=host.id,
                             scope="observed landing area integrated into the floor slab; no duplicate landing solid")
                 for flight in model.stairs:
+                    owner = next(level for level in sorted_levels if level.id == flight.storey_id)
+                    below = min(model.slabs, key=lambda s: abs(s.base+s.thickness-owner.elevation), default=None)
+                    above = min(model.slabs, key=lambda s: abs(s.base-owner.ceiling), default=None)
+                    flight.evidence["bounding_slab_zone_indices"] = [
+                        None if below is None else below.evidence.get("zone_index"),
+                        None if above is None else above.evidence.get("zone_index")]
+                    flight.evidence["zone_association_scope"] = (
+                        "bounding storey slab zones; endpoint slab matches may be null at intermediate landings")
                     for label, elevation in (("lower", flight.base),
                             ("upper", flight.base+flight.steps*flight.rise)):
                         nearest = min(model.slabs,

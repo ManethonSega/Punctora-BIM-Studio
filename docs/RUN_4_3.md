@@ -29,6 +29,8 @@ railings and structural design remain outside scope.
   an entire floor is not turned into a landing or stairwell cut.
 - Flights carry storey and nearest supported slab-zone associations. Unmatched
   endpoints retain null associations and a measured distance for review.
+  Bounding storey slab-zone indices are recorded separately, so an intermediate
+  landing does not masquerade as an unmatched building-level association.
 - Headroom is calculated per tread, including explicitly inferred interior
   treads, and combined with connected landing footprints. Every addition is
   clipped to its host slab and records source flights, step indices and landings.
