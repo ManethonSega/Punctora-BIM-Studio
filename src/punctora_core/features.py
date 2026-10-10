@@ -136,6 +136,9 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
                                             for point in list(supported_shape.exterior.coords)[:-1]],
                                             "z": float(np.median(patch[:, 2])), "count": len(patch),
                                             "coverage": float(min(1.0, coverage)),
+                                            "supported_percent": float(min(100.,
+                                                100*np.count_nonzero(mask[labels == index])/
+                                                max(1,np.count_nonzero(component)))),
                                             "source_working_row_examples": source_examples})
                 # Normal estimation loses narrow strips beside risers. The
                 # measured patch depth may be smaller than the fitted going.
@@ -247,9 +250,15 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
                         "support_points": patch["count"], "connected_stair_ids": connected,
                         "observed_upper_surface_m": patch["z"],
                         "source_slab_zone_index": patch.get("zone_index"),
+                        "supported_percent": patch.get("supported_percent",100.),
+                        "inferred_percent": 100.-patch.get("supported_percent",100.),
+                        "area_support_scope": "horizontal raster occupancy; landing thickness remains inferred",
                         "source_working_row_examples": patch["source_working_row_examples"],
                         "scope": "horizontal landing candidate connected to measured flight endpoints; structure and finish are unknown"}))
         _assign_stair_systems(local_flights, detected_landings)
+        for flight in local_flights:
+            flight.evidence["inferred_tread_percent"] = (
+                100*len(flight.evidence["inferred_missing_step_indices"])/flight.steps)
     if landing_output is not None:
         landing_output.extend(detected_landings)
     return flights

@@ -93,6 +93,8 @@ def test_observed_partial_hole_is_preserved_and_headroom_is_cut_and_exported(tmp
     assert BuildingModel.from_dict(model.to_dict()).to_dict() == model.to_dict()
     validation = write_ifc(model,tmp_path/'stairs.ifc')
     assert validation['valid']
+    assert validation['stairwell_verification'][0]['solid_source'] == 'reopened_ifc_cap_mesh'
+    assert validation['stairwell_verification'][0]['status'] == 'clear'
     reopened = ifcopenshell.open(tmp_path/'stairs.ifc')
     assert len(reopened.by_type('IfcStair')) == len(reopened.by_type('IfcStairFlight')) == 1
     flight = reopened.by_type('IfcStairFlight')[0]
@@ -153,6 +155,13 @@ def test_floor_integrated_landing_does_not_duplicate_or_cut_its_floor(tmp_path):
     assert entity.Representation is None
     assert entity.Decomposes[0].RelatingObject.is_a('IfcStair')
     assert not file.by_type('IfcOpeningElement')
+    from punctora_core.projects import edit_model
+    model.metadata['project_id'] = 'integration-test'
+    state = {'project_id':'integration-test','model':model.to_dict(),
+             'coordinate_confirmation':{'z_up':True}}
+    changed = edit_model(state,model.to_dict(),'landing',{'base':.3})
+    assert changed['landings'][0]['evidence']['floor_integrated'] is False
+    assert changed['landings'][0]['review_state'] == 'flagged'
 
 
 def test_small_host_fragment_is_not_discarded_when_it_obstructs_headroom():

@@ -310,7 +310,38 @@ def write_ifc(model: BuildingModel, path: str | Path) -> dict:
             candidate = Path(temp.name)
         file.header.file_name.name = path.name
         file.write(str(candidate))
-        report = validate_ifc(ifcopenshell.open(str(candidate)))
+        reopened = ifcopenshell.open(str(candidate))
+        report = validate_ifc(reopened)
+        # Recompute from the actual exported dimensions and voids, including
+        # manual edits. Stored detection-time clearance is not export evidence.
+        from copy import deepcopy
+        from .stair_voids import reconcile_stair_voids
+        from shapely.geometry import Polygon
+        from shapely.ops import unary_union
+        exported_solids = {}
+        if model.stairs:
+            geometry_settings = ifcopenshell.geom.settings()
+            geometry_settings.set(geometry_settings.USE_WORLD_COORDS, True)
+            entities = {entity.Name:entity for entity in reopened.by_type("IfcSlab")}
+            for slab in model.slabs:
+                shape = ifcopenshell.geom.create_shape(geometry_settings, entities[slab.id])
+                vertices = np.asarray(shape.geometry.verts).reshape(-1,3)
+                faces = np.asarray(shape.geometry.faces).reshape(-1,3)
+                caps = []
+                for face in faces:
+                    triangle = vertices[face]
+                    if np.ptp(triangle[:,2]) > 1e-6:
+                        continue
+                    polygon = Polygon(triangle[:,:2])
+                    if polygon.area > 1e-12:
+                        caps.append(polygon)
+                if not caps:
+                    raise ValueError(f"No horizontal IFC slab caps available for stair verification: {slab.id}")
+                exported_solids[slab.id] = unary_union(caps)
+        _, report["stairwell_verification"] = reconcile_stair_voids(
+            model.slabs, deepcopy(model.slab_openings), [], model.stairs, model.landings,
+            headroom_m=model.metadata.get("settings", {}).get("stair_headroom_m", 2.0),
+            exported_solids=exported_solids if model.stairs else None)
         if not report["valid"]:
             raise ValueError("IFC validation failed: " + json.dumps(report, ensure_ascii=False))
         os.replace(candidate, path)

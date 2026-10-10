@@ -4,7 +4,8 @@ from shapely.ops import unary_union
 from .model import slab_opening_footprint
 
 
-def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headroom_m=2.0):
+def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headroom_m=2.0,
+                          exported_solids=None):
     """Keep observations intact; cut only flight/landing-supported additions.
 
     Overlapping IFC voids are legal and their union is the actual removed area.
@@ -40,7 +41,8 @@ def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headro
         host = Polygon(slab.footprint)
         holes = unary_union([Polygon(slab_opening_footprint(o)) for o in result
                              if o.host_slab_id == slab.id and o.review_state != 'rejected'])
-        solid = host.difference(holes)
+        solid = (exported_solids[slab.id] if exported_solids is not None
+                 else host.difference(holes))
         physical, clearance = [], []
         for flight in flights:
             dx = (flight.end[0]-flight.start[0])/flight.steps
@@ -70,5 +72,6 @@ def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headro
             'physical_intersection_area_m2': float(residual),
             'headroom_residual_area_m2': float(headroom_residual),
             'required_headroom_m': float(headroom_m),
+            'solid_source': 'reopened_ifc_cap_mesh' if exported_solids is not None else 'model_footprint_minus_voids',
             'status': 'clear' if residual < 1e-6 and headroom_residual < 1e-6 else 'review_required'})
     return result, report

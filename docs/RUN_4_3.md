@@ -37,6 +37,10 @@ railings and structural design remain outside scope.
   manual review rather than being declared stairwells.
 - An independent per-tread/landing test checks physical and headroom residuals
   against the final slab solid. Nonzero residuals generate review warnings.
+  IFC export repeats the test on the actual dimensions and current voids after
+  edits. Editing an integrated landing invalidates its old floor integration.
+  Export verification uses cap polygons from reopened IFC slab meshes rather
+  than assuming that a requested Boolean void was successfully cut.
 - IFC exports each connected system as an IfcStair, its IfcStairFlight members,
   landing slabs and explicit slab voids. Geometric evidence, missing treads,
   source storeys and review states remain inspectable in IFC property sets.
@@ -55,14 +59,52 @@ Existing slab, window, corner, coordinate and crop regressions remain in CI.
 The supplied E57 remains the local field regression, not a CI input. The report
 script records counts, evidence, residuals, stage timings, sampled peak RSS and
 manual-review warnings. Slab inferred-area percentages and missing-tread indices
-are reported separately; a calibrated whole-model unsupported percentage is
+are reported separately, alongside landing raster support and inferred-tread
+percentages; a calibrated whole-model unsupported percentage is
 not available.
 
 `scripts/render_stair_review.py` creates reproducible geometry review plates.
 These are headless plan projections, not desktop screenshots or survey ground
 truth. Actual desktop before/after visual acceptance remains a separate check.
 
-Full-scan results are pending in this implementation checkpoint. Passing
-generated tests must not be described as recognizing every stair in the scan.
-The specific second-storey window acceptance item from Run 4.2 also remains open.
-Run 5 stays blocked until the agreed visual and numerical completion gate passes.
+## Supplied E57 result
+
+The unchanged 745,524,224-byte E57 contains 39,068,825 source points. The final
+local full-pipeline trial completed in 190.89 seconds, with sampled peak RSS
+2.42 GiB. Level/slab-zone detection took 4.63 seconds, global stair processing
+23.45 seconds and model stairwell verification 0.06 seconds. These are informal
+local trial timings, not a controlled hardware comparison or Windows estimate.
+
+| Result | Previous 0.3.0a13 trial | Run 4.3 trial |
+| --- | ---: | ---: |
+| Slab zones / storeys | 5 / 4 | 5 / 4 |
+| Slab components | 8 | 8 |
+| Walls / wall-opening proposals | 30 / 17 | 30 / 17 |
+| Straight flight proposals | 4 | 6 |
+| Connected stair assemblies | 4 | 1 |
+| Landing areas | 3 | 7 |
+| Slab-opening objects | 1 observed | 1 observed plus 10 justified envelope pieces |
+| IFC validation and reopening | Pass | Pass |
+
+The seven landing areas comprise three intermediate landing solids and four
+floor-integrated areas. IFC contains one IfcStair, six IfcStairFlight members,
+seven landing entities and explicit slab openings. Floor-integrated entities
+carry semantic/evidence information while their solid is the existing floor.
+
+All eight slab components pass physical-intersection and configured 2 m
+headroom checks for the proposed stair system. The reopened IFC slab cap meshes
+also pass the independent test, with residual area below 1e-6 square metres.
+IFC schema/EXPRESS validation and tessellation report no errors. The final IFC
+contains 28 opening entities including the 17 wall-opening proposals.
+
+The local regression suite passes 170 tests. Generated tests establish algorithm
+behavior and persistence, not independent survey accuracy. Before/after headless
+geometry review plates were rendered and inspected. Actual desktop screenshot
+comparison and independently annotated confirmation of every supported tread
+remain visual acceptance items.
+
+The specific second-storey window acceptance item from Run 4.2 remains open.
+Run 4.3's numeric stair/void checks pass, but Run 5 stays blocked until the agreed
+visual and numerical completion gate passes. Missing-tread envelopes, landing
+thicknesses, uncertain opening classifications and unsupported wall corners
+remain review proposals. No scan-specific elevations or counts are hard-coded.

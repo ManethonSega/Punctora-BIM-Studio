@@ -471,6 +471,11 @@ def edit_model(state, data, element_id, changes):
                     landing.review_state = "flagged"
                     landing.evidence["source_geometry_changed"] = True
     if element in model.landings and set(changes)-{"review_state"}:
+        if element.evidence.get("floor_integrated"):
+            element.evidence["floor_integrated"] = False
+            element.evidence["floor_integration_stale"] = True
+            element.evidence.pop("source_floor_id", None)
+            element.review_state = "flagged"
         for opening in model.slab_openings:
             if element.system_id and opening.source_system_id == element.system_id:
                 opening.review_state = "flagged"
@@ -740,6 +745,8 @@ def export_project(path, request, progress=lambda *_: None):
             raise ValueError("Export requires an IFC file outside the project cache")
         progress(20, "Creating and validating IFC4")
         report = write_ifc(model, target)
+        if any(item["status"] == "review_required" for item in report.get("stairwell_verification", [])):
+            model.warnings.append("Exported candidate retains stair/slab or headroom conflicts; inspect stairwell verification before accepting it.")
         progress(100, "IFC export complete")
         return {"output": str(target), "validation": report, "warnings": model.warnings,
                 "excluded_rejected_walls": len(rejected),
