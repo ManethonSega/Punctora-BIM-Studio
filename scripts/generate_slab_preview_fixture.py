@@ -9,6 +9,7 @@ from punctora_core.model import Landing, SlabOpening
 path = Path(sys.argv[1])
 cloud, _, _ = benchmark_fixture("void")
 model = reconstruct(cloud)
+model._spatial_index.close()
 assert model.slab_openings, "Fixture must exercise real slab holes"
 # Real clipped contours include sub-float-width spikes and adjacent repeated
 # vertices. Native rendering must use the robust derived mesh for these too.
