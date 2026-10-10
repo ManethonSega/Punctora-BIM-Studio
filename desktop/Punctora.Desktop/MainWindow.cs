@@ -54,7 +54,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a16 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
+        Title="Punctora BIM Studio | 0.3.0a17 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -63,7 +63,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a16",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a17",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new WrapPanel{Orientation=Orientation.Horizontal,ItemSpacing=8,LineSpacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -164,7 +164,7 @@ public sealed class MainWindow : Window
         var request=extra??new JsonObject();request["command"]=command;request["project"]=path;
         try
         {
-            var result=await worker.RunAsync(request,(value,phase)=>Dispatcher.UIThread.Post(()=>{progress.IsIndeterminate=false;progress.Value=value;status.Text=phase+" · adaptive multicore/GPU";}),jobCancellation.Token);
+            var result=await worker.RunAsync(request,(value,phase)=>Dispatcher.UIThread.Post(()=>{progress.IsIndeterminate=false;progress.Value=value;status.Text=phase;}),jobCancellation.Token);
             var geometryBackend=result?["processing_backend"]?.GetValue<string>()
                 ?? result?["model"]?["metadata"]?["performance"]?["compute_backend"]?.GetValue<string>();
             status.Text=geometryBackend==null?"Completed":"Completed · geometry: "+geometryBackend;
@@ -173,6 +173,10 @@ public sealed class MainWindow : Window
         catch(OperationCanceledException)
         {
             status.Text="Job stopped. Saved work is preserved.";
+            var cancelledJobId=request["job_id"]?.GetValue<string>();
+            if(cancelledJobId!=null)
+                await worker.RunAsync(new JsonObject{["command"]="record_cancelled",["project"]=path,
+                    ["cancelled_job_id"]=cancelledJobId},null,CancellationToken.None);
             if(File.Exists(path))
             {
                 // A completed atomic save may have raced cancellation; reopen its authoritative state.

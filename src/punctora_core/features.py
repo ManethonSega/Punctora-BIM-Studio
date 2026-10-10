@@ -42,6 +42,7 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
         if statistics is not None:
             statistics.append({"storey_id": storey.id, "sample_points": len(sample.points),
                                "source_point_count": sample.source_point_count,
+                               "full_cloud_passes": sample.full_cloud_passes,
                                "voxel_size_m": sample.voxel_size_m})
         points = sample.points
         if len(points) < 60:

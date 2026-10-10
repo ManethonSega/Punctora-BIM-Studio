@@ -52,7 +52,9 @@ class ReconstructionSettings:
     maximum_level_detection_points: int = 5_000_000
     maximum_detection_points: int = 5_000_000
     processing_chunk_points: int = 1_000_000
-    maximum_working_memory_gb: float = 20.0
+    # 0 selects the automatic ceiling: at most 70% of currently available RAM.
+    # A positive value is a stricter user cap in GiB.
+    maximum_working_memory_gb: float = 0.0
     cpu_workers: int = 0
     compute_backend: str = "auto"
     gpu_memory_mb: int = 256
@@ -95,6 +97,8 @@ class ReconstructionSettings:
     def validate(self):
         for name, value in asdict(self).items():
             if name in {"surface_method", "region_adaptive", "detect_openings_enabled", "detect_stairs_enabled", "consolidate_walls_enabled", "cpu_workers", "compute_backend"}:
+                continue
+            if name == "maximum_working_memory_gb" and value == 0:
                 continue
             if not isfinite(value) or value <= 0:
                 raise ValueError(f"{name} must be finite and positive")
@@ -315,8 +319,9 @@ def streaming_level_sample(points, settings):
         raise ValueError("No spatially supported floor/ceiling candidates found; add or adjust explicit storey bounds")
     sample_points = np.concatenate([retained_points[index] for index in available])
     sample_indices = np.concatenate([retained_indices[index] for index in available])
-    return DetectionSample(sample_points, sample_indices, footprint_cell, source_count), {
+    return DetectionSample(sample_points, sample_indices, footprint_cell, source_count, 2), {
         "method": "full_cloud_streaming_histogram", "source_points_scanned": source_count,
+        "full_cloud_passes": 2, "points_processed": source_count*2,
         "histogram_bins": len(histogram),
         "candidate_level_bins": [int(absolute_peaks[index]) for index in available],
         "retained_spatial_points": len(sample_points),
@@ -534,6 +539,9 @@ def _region_walls(cloud, storey, settings, backend=None):
                           (storey.elevation, storey.ceiling),
                           resolved_cpu_workers(settings.cpu_workers), backend)
     patches, statistics = region_growing(sample, settings)
+    statistics.update(full_cloud_passes=sample.full_cloud_passes,
+                      points_processed=sample.source_point_count*sample.full_cloud_passes,
+                      source_point_count=sample.source_point_count)
     height = storey.ceiling-storey.elevation
     faces = []
     for patch in patches:
@@ -613,8 +621,12 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
             walls = detect_walls(sample.points, level, settings, workers)
             proposals = []
             statistics = {"sample_points": len(sample.points), "source_point_count": sample.source_point_count,
-                          "voxel_size_m": sample.voxel_size_m}
+                          "voxel_size_m": sample.voxel_size_m,
+                          "full_cloud_passes": sample.full_cloud_passes,
+                          "points_processed": sample.source_point_count*sample.full_cloud_passes}
         record.update(statistics, sample_points=statistics.get("sample_points"),
+                      point_cloud_passes=statistics.get("full_cloud_passes"),
+                      points_processed=statistics.get("points_processed"),
                       detected_elements={"walls": len(walls)})
     with profiler.stage("wall_consolidation", storey_id=level.id) as record:
         if settings.consolidate_walls_enabled:
@@ -626,10 +638,12 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
         else:
             consolidation = {"input_walls": len(walls), "output_walls": len(walls), "groups": []}
         record["detected_elements"] = {"walls": len(walls)}
-    with profiler.stage('storey_source_scope',storey_id=level.id,source_points=len(cloud.points)) as record:
+    with profiler.stage('storey_source_scope',storey_id=level.id,source_points=len(cloud.points),
+                        point_cloud_passes=1) as record:
         source_cloud=storey_source_cloud(cloud,level.elevation,level.ceiling,settings.processing_chunk_points,
                                         min(int(settings.maximum_working_memory_gb*1024**3/4),2*1024**3))
-        record.update(sample_points=len(source_cloud.points),materialized=source_cloud is not cloud,
+        record.update(sample_points=len(source_cloud.points), points_processed=len(cloud.points),
+                      materialized=source_cloud is not cloud,
                       sampling='all source rows in storey, no reduction')
     with profiler.stage("original_wall_fitting", storey_id=level.id, source_points=len(cloud.points)) as record:
         attach_evidence(source_cloud, walls, settings.processing_chunk_points,
@@ -646,7 +660,11 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
             warnings.append(f"{level.id}: {counts['rejected_correction']} endpoint correction(s) rejected because observed-face support is missing")
         if counts.get("open_or_missing", 0):
             warnings.append(f"{level.id}: {counts['open_or_missing']} wall endpoint(s) are open or may indicate missing geometry; verify against the point cloud")
+        fitting_passes=sum(3*len(wall.observed_faces)+1 for wall in walls)
         record.update(sample_points=len(cloud.points), sampling="full source wall selectors",
+                      point_cloud_passes=fitting_passes,
+                      point_cloud_passes_scope="full-storey equivalents across wall candidates; passes may execute concurrently",
+                      points_processed=len(source_cloud.points)*fitting_passes,
                       support_points=sum(w.evidence_count for w in walls),
                       detected_elements={"walls": len(walls)},
                       topology_counts=counts,
@@ -658,7 +676,26 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
                       warnings=list(warnings))
     with profiler.stage("openings", storey_id=level.id, source_points=len(cloud.points)) as record:
         openings = detect_openings(source_cloud, walls, settings, workers) if settings.detect_openings_enabled else []
+        def opening_cloud_passes(wall):
+            direction = np.asarray(wall.end)-wall.start
+            length = np.linalg.norm(direction)
+            if length < .5:
+                return 0
+            direction /= length
+            normal = np.array([-direction[1], direction[0]])
+            offsets = sorted(float((np.mean([f["start"], f["end"]], axis=0)-wall.start)@normal)
+                             for f in wall.observed_faces)
+            planes = []
+            for offset in offsets:
+                if not planes or abs(offset-planes[-1]) > .04:
+                    planes.append(offset)
+            return len(planes) if planes else 2  # fallback histogram plus raster pass
+        opening_passes = (sum(opening_cloud_passes(w) for w in walls)
+                          if settings.detect_openings_enabled else 0)
         record.update(sample_points=len(cloud.points) if settings.detect_openings_enabled else 0,
+                      point_cloud_passes=opening_passes,
+                      point_cloud_passes_scope="full-storey equivalents across host walls; passes may execute concurrently",
+                      points_processed=len(source_cloud.points)*opening_passes,
                       sampling="full source wall selectors", detected_elements={"openings": len(openings)})
     # Stairs cross clear-height and storey boundaries. Detect once globally
     # after slab zones, never independently inside each storey worker.
@@ -668,13 +705,13 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
 
 def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None,
                 storeys: list[Storey] | None = None, name: str = "Punctora reconstruction",
-                progress=lambda *_: None, diagnostics=None) -> BuildingModel:
+                progress=lambda *_: None, diagnostics=None, diagnostic_context=None) -> BuildingModel:
     """Run adaptive multicore reconstruction with optional bounded GPU arithmetic."""
     started = time.perf_counter()
     settings = settings or ReconstructionSettings()
     settings.validate()
     backend = ComputeBackend(settings.compute_backend, settings.gpu_memory_mb)
-    profiler = StageProfiler(backend)
+    profiler = StageProfiler(backend, diagnostics=diagnostics, context=diagnostic_context)
     try:
         with threadpool_limits(limits=1, user_api="blas"):
             initial_plan = ResourcePlan.create(settings, len(cloud.points))
@@ -690,6 +727,8 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                     from .slab_zones import detect_slab_zones
                     levels, slab_zones, slab_surfaces, slab_report = detect_slab_zones(level_sample, settings)
                     record.update(sample_points=len(level_sample.points),
+                                  point_cloud_passes=level_statistics["full_cloud_passes"],
+                                  points_processed=level_statistics["points_processed"],
                                   detected_elements={"storeys": len(levels)},
                                   method=level_statistics["method"])
             else:
@@ -700,12 +739,15 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
             if any(a.ceiling > b.elevation + 1e-8 for a, b in zip(sorted_levels, sorted_levels[1:])):
                 raise ValueError("Storey clear-height intervals overlap")
             plan = ResourcePlan.create(settings, len(cloud.points), len(sorted_levels))
+            profiler.set_resource_plan(plan.report())
             local_settings = replace(settings, cpu_workers=plan.workers_per_storey,
+                                     maximum_working_memory_gb=plan.memory_bytes/1024**3,
                                      maximum_detection_points=plan.point_limit,
                                      region_minimum_points=min(settings.region_minimum_points, plan.point_limit),
                                      processing_chunk_points=plan.chunk_points)
             progress(20, f"Compute: {backend.name}; {plan.workers} CPU workers")
-            progress(35, f"Processing {len(sorted_levels)} storeys with {plan.concurrent_storeys} parallel workers")
+            progress(35, (f"Processing {len(sorted_levels)} storeys; up to {plan.workers} CPU workers "
+                          f"({plan.concurrent_storeys} concurrent storey task(s))"))
             with ThreadPoolExecutor(max_workers=plan.concurrent_storeys) as executor:
                 results = list(executor.map(lambda level: _reconstruct_storey(
                     cloud, level, local_settings, backend, profiler), sorted_levels))
@@ -811,6 +853,9 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                             if distance is not None and distance <= .3 else None)
                         flight.evidence[f"{label}_slab_association_distance_m"] = distance
                 record.update(sampling=stair_statistics,
+                    point_cloud_passes=sum(x.get("full_cloud_passes", 0) for x in stair_statistics),
+                    points_processed=sum(x.get("source_point_count", 0)*x.get("full_cloud_passes", 0)
+                                         for x in stair_statistics),
                     sample_points=sum(x["sample_points"] for x in stair_statistics),
                     detected_elements={"flights": len(model.stairs), "landings": len(model.landings)})
             with profiler.stage("stairwell_validation") as record:
@@ -863,8 +908,10 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                                               **perf},
                               "element_schema_version": 2}
             model.validate()
+            profiler.finish("completed")
+            model.metadata["performance"].update(profiler.report())
             return model
-    finally:
-        if diagnostics is not None:
-            diagnostics(profiler.report())
+    except BaseException as exc:
+        profiler.finish("failed", exc)
+        raise
 

@@ -125,6 +125,20 @@ def test_reconstruction_uses_saved_crop_without_altering_source(project):
     assert not (generation / "crop-working").exists()
 
 
+def test_cancelled_job_keeps_and_marks_latest_diagnostic(project):
+    path, _ = project
+    job_id = token()
+    write, history = projects._performance_writer(path, job_id, "reconstruct")
+    write(projects._initial_performance(job_id, "reconstruct", source_points=123))
+    result = projects.mark_performance_cancelled(path, job_id)
+    report = projects.read_json(history)
+    assert result["updated"] is True
+    assert report["status"] == "cancelled"
+    assert report["source_points"] == 123
+    assert report["events"][-1]["event"] == "job_cancelled"
+    assert projects.read_json(projects.assets_for(path) / "last-performance.json")["job_id"] == job_id
+
+
 @pytest.mark.parametrize("changes", [{"thickness": -1}, {"height": float("nan")}, {"start": [0, 0, 0]}, {"review_state": "approved"}, {"thickness": True}])
 def test_invalid_correction_cannot_change_saved_model(project, changes):
     path, state = project

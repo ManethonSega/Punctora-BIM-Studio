@@ -53,6 +53,15 @@ flights, landing semantics, storey references and geometric evidence. Linux RAM
 telemetry uses direct process counters. Field acceptance and the Run 5 completion
 gate remain separate from implementation. See [Run 4.3 results](RUN_4_3.md).
 
+Version 0.3.0a17 adds cancellation-surviving performance diagnostics for the
+large-cloud acceptance work. Stage boundaries and five-second heartbeats are
+atomically persisted with point-pass counts, throughput, planned workers,
+sampled process threads, CPU/RAM/I/O measurements and actual compute-backend
+activity. Automatic working memory is no longer constrained by the earlier
+20 GiB/60% policy: it may use up to 70% of memory available at job start while
+leaving 30% outside Punctora. This instrumentation identifies bottlenecks; it
+does not itself claim that one-storey reconstruction has been accelerated.
+
 - Import a supported registered E57 without altering it or duplicating cached points on rerun.
 - Confirm units, missing coordinate metadata and any unsupported E57 features.
 - Reconstruct storeys, walls and slabs where sufficient scan evidence exists.

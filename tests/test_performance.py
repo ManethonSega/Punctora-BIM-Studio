@@ -28,6 +28,16 @@ def test_resource_plan_reserves_source_and_exposes_parallel_budget():
     assert plan.chunk_points <= settings.processing_chunk_points
 
 
+def test_automatic_resource_plan_never_exceeds_seventy_percent_available(monkeypatch):
+    import punctora_core.performance as performance
+    available = 10 * 1024**3
+    monkeypatch.setattr(performance, "available_memory_bytes", lambda: available)
+    plan = ResourcePlan.create(ReconstructionSettings(maximum_working_memory_gb=0), 1_000)
+    accounted = plan.memory_bytes + plan.baseline_process_rss_bytes + plan.source_cloud_bytes_estimate
+    assert accounted <= int(available * .70)
+    assert plan.available_memory_fraction_limit == .70
+
+
 def test_stage_profiler_records_cpu_ram_and_backend_fields():
     profiler = StageProfiler(ComputeBackend("cpu"))
     with profiler.stage("unit", sample_points=4) as record:
@@ -39,6 +49,19 @@ def test_stage_profiler_records_cpu_ram_and_backend_fields():
     assert stage["detected_elements"]["walls"] == 1
     assert stage["peak_process_rss_bytes"] >= 0
     assert "gpu_counter_status" in stage
+
+
+def test_stage_profiler_emits_running_heartbeat_and_terminal_snapshot():
+    snapshots = []
+    profiler = StageProfiler(ComputeBackend("cpu"), diagnostics=snapshots.append,
+                             context={"job_id": "a"*32}, heartbeat_seconds=1)
+    with profiler.stage("unit", source_points=4, point_cloud_passes=2) as record:
+        record.update(sample_points=4, points_processed=8)
+    profiler.finish("completed")
+    assert snapshots[0]["status"] == "running"
+    assert any(s["active_stages"] == ["unit"] for s in snapshots)
+    assert snapshots[-1]["status"] == "completed"
+    assert snapshots[-1]["stages"][0]["points_per_second"] > 0
 
 
 def test_linux_memory_counter_matches_own_procfs_when_available():

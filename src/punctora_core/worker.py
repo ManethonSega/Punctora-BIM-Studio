@@ -66,6 +66,8 @@ def dispatch(request, progress):
         return projects.export_project(path, request, progress)
     if command == "cleanup":
         return projects.cleanup_project(path)
+    if command == "record_cancelled":
+        return projects.mark_performance_cancelled(path, request["cancelled_job_id"])
     raise ValueError("Unknown desktop command")
 
 

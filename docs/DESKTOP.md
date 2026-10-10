@@ -2,6 +2,13 @@
 
 The desktop opens registered E57 scans, fits the current reconstruction providers, overlays candidate geometry, edits supported elements and exports validated IFC4. It uses local files and has no AI weights or scan uploads. Reconstruction is adaptive multicore CPU work with optional bounded GPU voxel arithmetic; the CPU fallback is deterministic.
 
+Each import or reconstruction updates `last-performance.json` beside the
+project's owned data and retains a per-job copy under its `diagnostics` folder.
+The file is updated at stage boundaries and every five seconds during geometry
+processing. Cancelling a job keeps the latest valid snapshot and marks it
+`cancelled`. Backend fields report actual Punctora compute use; viewport GPU
+rendering is separate and is not reported as reconstruction acceleration.
+
 ## Windows preview
 
 Download `Punctora-BIM-Studio-M3-win-x64` from a successful **M3 desktop preview** run on [GitHub Actions](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/workflows/desktop.yml). Extract the artifact, then extract the contained ZIP. Keep all extracted files together and run **Punctora.Desktop.exe**. The portable preview includes .NET 10.0.0, Python 3.12.10 and pinned worker dependencies; it does not need developer tools. This is a preview build. Clean-machine installer acceptance remains M4 work.

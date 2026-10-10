@@ -12,6 +12,7 @@ class DetectionSample:
     cloud_indices: np.ndarray
     voxel_size_m: float
     source_point_count: int
+    full_cloud_passes: int = 0
 
 
 def available_memory_bytes():
@@ -58,8 +59,9 @@ def available_memory_bytes():
 
 def adaptive_point_limit(requested, maximum_working_memory_gb=20.0, bytes_per_point=192):
     """Cap a requested working set by both user policy and available RAM."""
-    policy = int(maximum_working_memory_gb * 1024**3)
-    usable = min(policy, int(available_memory_bytes() * .60))
+    automatic = int(available_memory_bytes() * .70)
+    policy = automatic if maximum_working_memory_gb == 0 else int(maximum_working_memory_gb * 1024**3)
+    usable = min(policy, automatic)
     return max(30, min(int(requested), usable // bytes_per_point))
 
 
@@ -114,10 +116,10 @@ def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
             origin = np.minimum(origin, local_origin)
             count += amount
     if not count:
-        return DetectionSample(np.empty((0, 3)), np.empty(0, dtype=np.int64), voxel_size_m, 0)
+        return DetectionSample(np.empty((0, 3)), np.empty(0, dtype=np.int64), voxel_size_m, 0, 1)
     size = voxel_size_m
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        for _ in range(64):
+        for attempt in range(64):
             retained, overflow = np.empty(0, dtype=np.int64), False
             def local_voxels(begin):
                 batch, indices = selected_chunk(begin)
@@ -145,7 +147,7 @@ def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
                     overflow = True
                     break
             if not overflow:
-                return DetectionSample(points[retained], retained, size, count)
+                return DetectionSample(points[retained], retained, size, count, 2+attempt)
             size *= 2
     raise ValueError("Unable to reduce detection cloud within its point budget")
 

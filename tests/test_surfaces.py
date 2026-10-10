@@ -106,7 +106,7 @@ def test_region_model_exports_valid_ifc_with_fit_scope(tmp_path):
 @pytest.mark.parametrize("field,value", [("surface_method", "invented"), ("region_neighbours", 3),
     ("region_adaptive", "true"), ("maximum_detection_points", 20), ("region_minimum_wall_height_fraction", 2),
     ("region_normal_angle_deg", 90), ("processing_chunk_points", True),
-    ("cpu_workers", -2), ("maximum_working_memory_gb", 0)])
+    ("cpu_workers", -2), ("maximum_working_memory_gb", -1)])
 def test_invalid_provider_settings_fail_before_processing(field, value):
     with pytest.raises(ValueError):
         replace(ReconstructionSettings(), **{field:value}).validate()

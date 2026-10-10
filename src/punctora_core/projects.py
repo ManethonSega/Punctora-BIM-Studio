@@ -6,7 +6,9 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
+import time
 import uuid
+from datetime import datetime, timezone
 
 import numpy as np
 
@@ -99,6 +101,44 @@ def atomic_json(path, data):
     finally:
         if temporary:
             temporary.unlink(missing_ok=True)
+
+
+def _performance_writer(path, job_id, command):
+    """Persist both the latest trace and an immutable-name trace for this job."""
+    root = assets_for(path)
+    history = root / "diagnostics" / f"{command}-{job_id}.json"
+    latest = root / "last-performance.json"
+    def write(report):
+        value = {**report, "job_id": job_id, "command": command,
+                 "diagnostic_file": str(history.name)}
+        atomic_json(history, value)
+        atomic_json(latest, value)
+    return write, history
+
+
+def _initial_performance(job_id, command, **details):
+    now = datetime.now(timezone.utc).isoformat()
+    return {"schema_version": 2, "job_id": job_id, "command": command,
+            "status": "running", "started_at_utc": now, "updated_at_utc": now,
+            "active_stages": [], "stages": [],
+            "events": [{"event": "job_started", "at": now}], **details}
+
+
+def mark_performance_cancelled(path, job_id):
+    """Mark the last durable heartbeat after the desktop terminates a worker."""
+    uuid.UUID(hex=job_id)
+    root = assets_for(project_path(path))
+    matches = list((root / "diagnostics").glob(f"*-{job_id}.json")) if (root / "diagnostics").is_dir() else []
+    if not matches:
+        return {"updated": False}
+    report = read_json(matches[0])
+    now = datetime.now(timezone.utc).isoformat()
+    report.update(status="cancelled", updated_at_utc=now)
+    report.setdefault("events", []).append({"event": "job_cancelled", "at": now,
+                                              "scope": "recorded by desktop after worker termination"})
+    atomic_json(matches[0], report)
+    atomic_json(root / "last-performance.json", report)
+    return {"updated": True, "diagnostic": str(matches[0])}
 
 
 def safe_path(root, relative):
@@ -297,11 +337,32 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
         # Resume a cancelled first import without overwriting a saved project.
         project_id = read_json(marker)["project_id"] if marker.is_file() else uuid.uuid4().hex
         uuid.UUID(hex=project_id)
+        ensure_assets(path, project_id)
+        save_performance, _ = _performance_writer(path, job_id, "import" if source else "demo")
+        import_report = _initial_performance(job_id, "import" if source else "demo",
+                                             source_kind="E57" if source else "fixture")
+        save_performance(import_report)
         with generation_stage(path, project_id, job_id) as stage:
             progress(5, "Reading scan" if source else "Creating example")
             if source:
+                read_started = time.perf_counter()
+                import_report["active_stages"] = ["e57_read_decompression_and_cache"]
+                import_report["stages"].append({"stage": "e57_read_decompression_and_cache",
+                                                "status": "running",
+                                                "started_at_utc": datetime.now(timezone.utc).isoformat()})
+                save_performance(import_report)
                 imported = read_e57(source, stage / "working-cache", 200000)
                 cloud, manifest = imported.cloud, imported.manifest
+                read_seconds = time.perf_counter()-read_started
+                import_report["stages"][-1].update(
+                    status="complete", seconds=read_seconds,
+                    raw_points=manifest["raw_point_count"], valid_points=manifest["valid_point_count"],
+                    points_per_second=manifest["raw_point_count"]/max(read_seconds, 1e-9),
+                    source_size_bytes=manifest["source"]["size_bytes"],
+                    scope="combined E57 read, decompression, validation, coordinate conversion and cache writing",
+                    completed_at_utc=datetime.now(timezone.utc).isoformat())
+                import_report["active_stages"] = []
+                save_performance(import_report)
                 kind = "E57"
             else:
                 cloud, manifest, kind = demo_cloud(two_storeys), None, "fixture"
@@ -312,7 +373,8 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
             if not source:
                 progress(80, "Reconstructing example")
                 candidate = reconstruct(cloud, name=path.stem,
-                                        diagnostics=lambda report: atomic_json(stage / "performance.json", report))
+                                        diagnostics=save_performance,
+                                        diagnostic_context={"job_id": job_id, "command": "demo"})
                 candidate.metadata["project_id"] = project_id
                 candidate.warnings = [w for w in candidate.warnings if "No desktop review" not in w]
                 model = candidate.to_dict()
@@ -329,6 +391,10 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
             publish_generation(path, job_id, stage)
             # Cancellation before this replacement can only leave an unused generation.
             atomic_json(path, state)
+            import_report.update(status="completed", updated_at_utc=datetime.now(timezone.utc).isoformat())
+            import_report.setdefault("events", []).append({"event": "job_completed", "at": import_report["updated_at_utc"]})
+            if source:
+                save_performance(import_report)
             progress(100, "Project ready")
             return state
 
@@ -340,6 +406,11 @@ def reconstruct_project(path, request, progress=lambda *_: None):
         if not request.get("confirm_z_up"):
             raise ValueError("Confirm that the scan uses Z as the upward direction before reconstruction")
         token = request["job_id"]
+        save_performance, _ = _performance_writer(path, token, "reconstruct")
+        save_performance(_initial_performance(
+            token, "reconstruct", project_name=state["name"],
+            e57_read_decompression={"seconds": 0.0,
+                                    "scope": "not repeated; reconstruction reads the imported memory-mapped cache"}))
         with generation_stage(path, state["project_id"], token) as stage:
             progress(5, "Opening working cloud")
             source_cloud = load_cloud(path, state)
@@ -355,8 +426,6 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                     crop_report = {"active": False, "source_points": len(source_cloud.points),
                                    "selected_points": len(source_cloud.points), "crop": state["crop"]}
                 progress(20, "Finding surfaces and fitting elements")
-                performance_path = assets_for(path) / "last-performance.json"
-                save_performance = lambda report: atomic_json(performance_path, report)
                 if request.get("compare_budgets"):
                     model, budget_report = compare_budgets(
                         cloud, settings, progress=progress, diagnostics=save_performance)
@@ -364,7 +433,12 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                     model.metadata["budget_comparison"] = budget_report
                 else:
                     model = reconstruct(cloud, settings, name=state["name"],
-                                        progress=progress, diagnostics=save_performance)
+                                        progress=progress, diagnostics=save_performance,
+                                        diagnostic_context={"job_id": token, "command": "reconstruct",
+                                                            "project_name": state["name"],
+                                                            "source_points": len(cloud.points),
+                                                            "e57_read_decompression": {"seconds": 0.0,
+                                                                "scope": "not repeated; memory-mapped import cache"}})
                 model.metadata["project_id"] = state["project_id"]
                 model.metadata["crop"] = crop_report
                 if crop_report["active"]:
