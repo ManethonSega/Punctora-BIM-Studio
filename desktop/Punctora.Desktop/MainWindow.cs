@@ -27,6 +27,8 @@ public sealed class MainWindow : Window
     readonly Dictionary<string,TextBox> fields=[];
     readonly Dictionary<string,string> initialFields=[];
     readonly ListBox elements=new(){SelectionMode=SelectionMode.Multiple};
+    readonly ScrollViewer leftScroll=new(){HorizontalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+        VerticalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Auto};
     readonly ComboBox storeys=new(){HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly ComboBox method=new(){ItemsSource=new[]{"Contours","Region growing"},SelectedIndex=0};
     readonly ComboBox review=new(){ItemsSource=new[]{"unreviewed","reviewed","flagged","rejected"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
@@ -52,7 +54,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a15 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
+        Title="Punctora BIM Studio | 0.3.0a16 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -61,8 +63,8 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a15",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
-        var toolbar=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8,Margin=new Thickness(0,0,0,14)};
+        var alpha=Text("M3 PREVIEW 0.3.0a16",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var toolbar=new WrapPanel{Orientation=Orientation.Horizontal,ItemSpacing=8,LineSpacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
         save=Action("Save",SaveAsync);Action("Save copy",CopyAsync);Action("Detect elements",ReconstructAsync);Action("Convert to IFC",ExportAsync);
@@ -70,7 +72,7 @@ public sealed class MainWindow : Window
         cancel=Button("Cancel job",()=>{jobCancellation?.Cancel();return Task.CompletedTask;});cancel.IsEnabled=false;toolbar.Children.Add(cancel);
         Grid.SetRow(toolbar,1);root.Children.Add(toolbar);
         var body=new Grid{ColumnDefinitions=new ColumnDefinitions("240,12,*,12,295")};Grid.SetRow(body,2);root.Children.Add(body);
-        var left=new Grid{RowDefinitions=new RowDefinitions("Auto,*"),Margin=new Thickness(12)};
+        var left=new StackPanel{Margin=new Thickness(12)};
         var options=new StackPanel{Spacing=9};options.Children.Add(Text("VIEW & ELEMENT DETECTION",12));options.Children.Add(storeys);
         var cloud=new CheckBox{Content="Point cloud",IsChecked=true};var model=new CheckBox{Content="Model candidates",IsChecked=true};
         cloud.IsCheckedChanged+=(_,_)=>{viewport.View.Cloud=cloud.IsChecked==true;viewport.Redraw();};
@@ -92,8 +94,8 @@ public sealed class MainWindow : Window
         options.Children.Add(Text("Surface method",11));options.Children.Add(method);options.Children.Add(zUp);options.Children.Add(compareBudgets);
         var software=new CheckBox{Content="Use software preview",IsChecked=viewport.SoftwareMode};
         software.IsCheckedChanged+=(_,_)=>{if(software.IsChecked==true)viewport.UseSoftware("Selected in settings");else viewport.UseAutomatic();};options.Children.Add(software);
-        options.Children.Add(Text("ELEMENTS",12));left.Children.Add(options);Grid.SetRow(elements,1);elements.Margin=new Thickness(0,8,0,0);left.Children.Add(elements);
-        body.Children.Add(Panel(left));
+        options.Children.Add(Text("ELEMENTS",12));left.Children.Add(options);elements.Height=220;elements.Margin=new Thickness(0,8,0,0);left.Children.Add(elements);
+        leftScroll.Content=left;body.Children.Add(Panel(leftScroll));
         var center=new Grid{RowDefinitions=new RowDefinitions("*,Auto")};Grid.SetColumn(center,2);body.Children.Add(center);
         center.Children.Add(new Border{Child=viewport,CornerRadius=new CornerRadius(10),ClipToBounds=true});
         var viewFooter=new StackPanel{Spacing=4,Margin=new Thickness(8,8,8,0)};viewFooter.Children.Add(counts);viewFooter.Children.Add(Text("Drag: orbit  ·  Right-drag: pan  ·  Wheel: zoom  ·  Click model: select",11));viewFooter.Children.Add(backend);Grid.SetRow(viewFooter,1);center.Children.Add(viewFooter);
@@ -488,6 +490,18 @@ public sealed class MainWindow : Window
         {
             var path=Path.Combine(output,"walkthrough.punctora");var result=await RunAsync("demo",path,new JsonObject{["two_storeys"]=true});if(result==null)throw new Exception(status.Text);
             await PresentAsync(path,result,true);
+            // Logical dimensions reproduce small displays and Windows scaling.
+            Width=800;Height=500;await Task.Delay(150);
+            if(leftScroll.Extent.Height<=leftScroll.Viewport.Height)throw new Exception("Short window has no scrollable left panel");
+            leftScroll.Offset=new Vector(0,leftScroll.Extent.Height-leftScroll.Viewport.Height);await Task.Delay(100);
+            var elementPosition=elements.TranslatePoint(new Point(0,0),leftScroll)??throw new Exception("Element list has no layout position");
+            if(leftScroll.Offset.Y<=0||elementPosition.Y<0||elementPosition.Y+elements.Bounds.Height>leftScroll.Bounds.Height+1)throw new Exception("Bottom controls remain unreachable after scrolling");
+            var cancelPosition=cancel.TranslatePoint(new Point(0,0),this)??throw new Exception("Toolbar has no layout position");
+            if(cancelPosition.X<0||cancelPosition.X+cancel.Bounds.Width>Bounds.Width||cancelPosition.Y+cancel.Bounds.Height>Bounds.Height)throw new Exception("Wrapped toolbar is clipped");
+            using(var smallBitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96)))
+            {smallBitmap.Render(this);using var smallStream=File.Create(Path.Combine(output,"small-window.png"));smallBitmap.Save(smallStream,PngBitmapEncoderOptions.Default);}
+            var smallWindowScrollPassed=true;
+            Width=1440;Height=920;leftScroll.Offset=default;await Task.Delay(100);
             // A saved result can fail display while its revision has advanced.
             var oldRevision=state!["revision"]!.ToJsonString();
             var advanced=await RunAsync("save",path,ModelRequest())??throw new Exception(status.Text);
@@ -554,7 +568,7 @@ public sealed class MainWindow : Window
             await ExportToAsync(Path.Combine(output,"edited.ifc"));
             await Task.Delay(1800);for(var i=0;i<30;i++){viewport.View.Camera.Yaw+=.008f;viewport.Redraw();await Task.Delay(20);}viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(700);
             using(var bitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96))){bitmap.Render(this);using var outputStream=File.Create(Path.Combine(output,"desktop.png"));bitmap.Save(outputStream,PngBitmapEncoderOptions.Default);}
-            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["preview_failure_recovery_passed"]=previewRecoveryPassed,["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["crop_undo_restored"]=cropUndoRestored,["crop_survived_reopen"]=cropSurvivedReopen,["feature_add_delete_passed"]=featureAddDeletePassed,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
+            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["small_window_scroll_passed"]=smallWindowScrollPassed,["preview_failure_recovery_passed"]=previewRecoveryPassed,["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["crop_undo_restored"]=cropUndoRestored,["crop_survived_reopen"]=cropSurvivedReopen,["feature_add_delete_passed"]=featureAddDeletePassed,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
             dirty=false;Environment.ExitCode=0;Close();
         }
         catch(Exception e){File.WriteAllText(Path.Combine(output,"ui-error.txt"),e.ToString());dirty=false;Environment.ExitCode=1;Close();}

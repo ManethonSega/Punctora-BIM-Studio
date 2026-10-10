@@ -55,6 +55,7 @@ jobs:
             outputs/m3-*/ui-verification.json
             outputs/m3-*/ui-error.txt
             outputs/m3-*/desktop.png
+            outputs/m3-*/small-window.png
             outputs/m3-*/viewport-gl.png
           retention-days: 7
       - uses: actions/upload-artifact@v4
