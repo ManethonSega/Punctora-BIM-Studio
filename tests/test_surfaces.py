@@ -112,10 +112,13 @@ def test_invalid_provider_settings_fail_before_processing(field, value):
         replace(ReconstructionSettings(), **{field:value}).validate()
 
 
-def test_benchmark_exposes_convex_footprint_error_instead_of_claiming_success():
+def test_benchmark_distinguishes_convex_search_envelope_from_slab_geometry():
     cloud, reference, footprints = benchmark_fixture("void")
     model = reconstruct(cloud)
     metrics = accuracy_metrics(model, reference, footprints)
     assert metrics["face_recall"] == 1
     assert metrics["footprint_area_error_m2"] == pytest.approx(4.)
-    assert any("convex" in w for w in model.warnings)
+    assert metrics["footprint_area_scope"] == "storey search envelope, not exported slab geometry"
+    # Raster boundary uncertainty is bounded by one cell along all boundaries.
+    assert metrics["slab_footprint_symmetric_difference_m2"] < footprints[0].length*ReconstructionSettings().slab_raster_cell_m
+    assert model.slab_openings

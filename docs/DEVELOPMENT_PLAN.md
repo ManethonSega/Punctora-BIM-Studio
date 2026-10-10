@@ -30,6 +30,12 @@ The 0.3.0a6 High Performance pass replaces globally sampled level discovery with
 
 ## First usable release acceptance
 
+Run 4.1 is implemented in 0.3.0a12: horizontal slab-zone sequence selection,
+separate-face occupancy polygons, disconnected slab components, observed hole
+voids, source-row evidence and supported/inferred area accounting. Stair-derived
+enlargement is paused for automatic zones until Run 4.3. Multi-slice wall and
+window corrections remain Run 4.2. See [implementation and limits](RUN_4_1.md).
+
 - Import a supported registered E57 without altering it or duplicating cached points on rerun.
 - Confirm units, missing coordinate metadata and any unsupported E57 features.
 - Reconstruct storeys, walls and slabs where sufficient scan evidence exists.

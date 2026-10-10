@@ -121,12 +121,14 @@ def test_configured_exterior_thickness_is_used_and_marked_as_assumed():
     assert model.slabs[-1].kind == "NOTDEFINED"  # A scanned ceiling does not establish a roof.
 
 
-def test_slab_between_two_observed_faces_has_measured_thickness():
+def test_disjoint_faces_do_not_claim_measured_thickness():
     model = reconstruct(demo_cloud(two_storeys=True))
     intermediate = model.slabs[1]
     assert intermediate.base == pytest.approx(3.0)
     assert intermediate.thickness == pytest.approx(0.2)
-    assert intermediate.provenance["thickness"] == "measured"
+    # These demo faces are in disjoint XY footprints, so they do not measure
+    # the same slab. The short transition is supported, thickness is assumed.
+    assert intermediate.provenance["thickness"] == "inferred"
 
 
 def test_large_inter_storey_gap_is_reported_without_fabricating_a_thick_slab():

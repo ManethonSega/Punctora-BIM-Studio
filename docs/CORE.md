@@ -64,7 +64,7 @@ Parameter provenance is `measured`, `inferred`, `user_supplied` or `unknown`. Me
 ## Baseline limits
 
 - Z-density peaks propose levels; furniture or incomplete scans can produce false or missed candidates.
-- Convex horizontal footprints can bridge courtyards, concave outlines, holes and disconnected scanned areas. Candidate slabs need review.
+- Automatic slabs use nonconvex occupancy polygons and explicit enclosed-hole candidates. Storey search envelopes can remain convex; negative evidence can still be occlusion. See [Run 4.1](RUN_4_1.md).
 - Walls come from a section at 70 to 90 percent of clear height. Furniture, sparse scans, complex wall profiles and missing surfaces can affect detection.
 - Parallel observed faces estimate thickness. A single face uses a configured assumption; a boundary face is an exterior candidate, not a confirmed facade classification.
 - Slab gaps between detected levels provide candidate thicknesses, not proof of slab construction. Boundary thicknesses are assumed.

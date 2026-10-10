@@ -61,6 +61,9 @@ class Slab:
     kind: str = "FLOOR"
     provenance: dict[str, str] = field(default_factory=dict)
     review_state: str = "unreviewed"
+    confidence: float | None = None
+    evidence: dict = field(default_factory=dict)
+    preview_geometry: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -243,6 +246,15 @@ class BuildingModel:
             elif isinstance(obj, (Slab, Space)):
                 polygon_check(obj.footprint)
                 positive(obj.thickness if isinstance(obj, Slab) else obj.height, "Extrusion depth")
+                if isinstance(obj, Slab):
+                    if not isinstance(obj.preview_geometry, dict):
+                        raise ValueError("Slab preview geometry must be an object")
+                    for key in ("surface_triangles_xy", "boundary_rings_xy"):
+                        for ring in obj.preview_geometry.get(key, []):
+                            if (not isinstance(ring, (list, tuple)) or len(ring) < 3
+                                    or (key == "surface_triangles_xy" and len(ring) != 3)
+                                    or not all(len(p) == 2 and all(isfinite(x) for x in p) for p in ring)):
+                                raise ValueError("Slab preview requires finite polygon/triangle coordinates")
             else:
                 polygon_check(obj.footprint)
                 positive(obj.thickness, "Landing thickness")
@@ -314,4 +326,21 @@ class BuildingModel:
 
     def to_dict(self) -> dict:
         self.validate()
-        return {"schema_version": 2, "units": "metres", **asdict(self)}
+        result = {"schema_version": 2, "units": "metres", **asdict(self)}
+        # Derived mesh, rebuilt on every serialization so editing/removing a
+        # void cannot leave a stale solid in the desktop. Never used for IFC.
+        from shapely import constrained_delaunay_triangles
+        from shapely.geometry import Polygon
+        from shapely.ops import unary_union
+        for slab in result["slabs"]:
+            holes = [Polygon(slab_opening_footprint(o)) for o in self.slab_openings
+                     if o.host_slab_id == slab["id"] and o.review_state != "rejected"]
+            shape = Polygon(slab["footprint"]).difference(unary_union(holes))
+            pieces = [] if shape.is_empty else ([shape] if isinstance(shape, Polygon) else list(shape.geoms))
+            slab["preview_geometry"] = {
+                "surface_triangles_xy": [list(t.exterior.coords)[:-1]
+                    for t in constrained_delaunay_triangles(shape).geoms],
+                "boundary_rings_xy": [list(r.coords)[:-1] for p in pieces
+                    for r in [p.exterior, *p.interiors]],
+                "scope": "derived current footprint minus nonrejected slab voids"}
+        return result

@@ -11,10 +11,12 @@ from time import perf_counter
 import numpy as np
 from shapely.geometry import Polygon
 from shapely import contains_xy
+from shapely.ops import unary_union
 
 from . import __version__
 from .cloud_io import CloudData
 from .fixtures import demo_cloud, room_cloud
+from .model import slab_opening_footprint
 from .reconstruction import ReconstructionSettings, reconstruct
 
 CASES = ["clean", "rotated", "noisy", "sparse", "low_clutter", "thin_partition", "two_storeys", "concave", "void", "wall_gap"]
@@ -132,12 +134,22 @@ def accuracy_metrics(model, reference, footprints, plane_tolerance_m=.03, angle_
         if errors:
             offsets.append(max(errors))
     area_error = sum(abs(Polygon(s.footprint).area-p.area) for s, p in zip(sorted(model.storeys, key=lambda s:s.elevation), footprints))
+    slab_error = 0.
+    for storey, truth in zip(sorted(model.storeys, key=lambda s:s.elevation), footprints):
+        local = [s for s in model.slabs if s.storey_id == storey.id and s.kind == "FLOOR"]
+        shapes = []
+        for slab in local:
+            holes = [Polygon(slab_opening_footprint(o)) for o in model.slab_openings if o.host_slab_id == slab.id]
+            shapes.append(Polygon(slab.footprint).difference(unary_union(holes)))
+        slab_error += unary_union(shapes).symmetric_difference(truth).area
     return {"reference_faces": len(reference), "detected_reference_faces": found,
             "face_recall": found/len(reference), "unmatched_proposed_faces": len(proposals)-len(matched_proposals),
             "mean_reference_coverage": float(np.mean(coverages)),
             "overlapping_proposal_length_m": overlap,
             "maximum_matched_plane_error_m": max(offsets) if offsets else None,
             "footprint_area_error_m2": area_error,
+            "footprint_area_scope": "storey search envelope, not exported slab geometry",
+            "slab_footprint_symmetric_difference_m2": slab_error,
             "storey_count_error": abs(len(model.storeys)-len(footprints)),
             "matching": {"plane_tolerance_m": plane_tolerance_m, "angle_tolerance_deg": angle_tolerance_deg,
                          "minimum_reference_coverage": minimum_coverage}}

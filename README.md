@@ -40,7 +40,7 @@ python -m punctora_core convert-xyz floor.xyz --units m --output-dir outputs/flo
 
 Add `--compare-budgets` to `demo`, `convert-xyz`, or `convert-e57` to compare 250k, 500k, 1M, 2M and 5M candidate budgets until two consecutive geometry comparisons are stable. The output includes `performance.json` and, when requested, `budget-comparison.json`.
 
-Contours remain the default: region growing is a selectable geometric experiment, not an AI dependency. Level detection, convex floor envelopes, missing wall faces and slab thickness assumptions require review. Successful IFC validation establishes schema and tessellation checks, not scan accuracy. See [core usage and limitations](docs/CORE.md), [High Performance reconstruction](docs/HIGH_PERFORMANCE.md), [M2 fitting results](docs/M2_FITTING_VERIFICATION.md) and [M2 E57 verification](docs/M2_E57_VERIFICATION.md).
+Contours remain the default: region growing is a selectable geometric experiment, not an AI dependency. Run 4.1 selects horizontal slab zones, uses nonconvex occupancy footprints, preserves enclosed holes and reports supported/inferred area. Missing wall faces, occlusion and boundary slab thickness assumptions still require review. Successful IFC validation establishes schema and tessellation checks, not scan accuracy. See [Run 4.1](docs/RUN_4_1.md), [core usage and limitations](docs/CORE.md), [High Performance reconstruction](docs/HIGH_PERFORMANCE.md), [M2 fitting results](docs/M2_FITTING_VERIFICATION.md) and [M2 E57 verification](docs/M2_E57_VERIFICATION.md).
 
 ## First usable version
 

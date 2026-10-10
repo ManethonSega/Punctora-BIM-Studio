@@ -81,6 +81,16 @@ class ReconstructionSettings:
     t_junction_snap_tolerance_m: float = 0.2
     t_junction_minimum_angle_deg: float = 25.0
     topology_gap_tolerance_m: float = 0.05
+    slab_surface_tolerance_m: float = 0.035
+    slab_raster_cell_m: float = 0.08
+    slab_close_gap_m: float = 0.16
+    slab_minimum_component_area_m2: float = 0.25
+    slab_minimum_hole_area_m2: float = 0.25
+    slab_minimum_area_fraction: float = 0.20
+    slab_minimum_thickness_m: float = 0.08
+    slab_maximum_thickness_m: float = 0.60
+    slab_minimum_face_overlap: float = 0.45
+    slab_maximum_storey_spacing_m: float = 5.50
 
     def validate(self):
         for name, value in asdict(self).items():
@@ -122,6 +132,10 @@ class ReconstructionSettings:
             raise ValueError("level_density_fraction cannot exceed 1")
         if self.opening_minimum_edge_support > 1:
             raise ValueError("opening_minimum_edge_support cannot exceed 1")
+        if self.slab_minimum_area_fraction > 1 or self.slab_minimum_face_overlap > 1:
+            raise ValueError("Slab coverage fractions cannot exceed 1")
+        if self.slab_minimum_thickness_m >= self.slab_maximum_thickness_m:
+            raise ValueError("Slab thickness bounds are reversed")
         if self.minimum_wall_thickness_m >= self.maximum_wall_thickness_m:
             raise ValueError("Wall thickness bounds are reversed")
         for name in ["assumed_wall_thickness_m", "exterior_wall_thickness_m"]:
@@ -690,10 +704,14 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
             workers = initial_plan.workers
             level_sample = None
             level_statistics = None
+            slab_zones, slab_surfaces, slab_report = None, None, None
             if storeys is None:
                 with profiler.stage("level_detection", source_points=len(cloud.points)) as record:
                     level_sample, level_statistics = streaming_level_sample(cloud.points, settings)
-                    levels = detect_storeys(level_sample.points, settings)
+                    if cloud.working_index is not None:
+                        level_sample.cloud_indices = cloud.working_index[level_sample.cloud_indices]
+                    from .slab_zones import detect_slab_zones
+                    levels, slab_zones, slab_surfaces, slab_report = detect_slab_zones(level_sample, settings)
                     record.update(sample_points=len(level_sample.points),
                                   detected_elements={"storeys": len(levels)},
                                   method=level_statistics["method"])
@@ -751,21 +769,31 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                         model.warnings.append(
                             f"{level.id}: unresolved {gap:.3g} m vertical zone above {sorted_levels[index-1].id}; "
                             "the upper floor slab keeps its assumed thickness instead of filling the gap")
-                model.slabs.append(Slab(f"{level.id}-floor", level.id, level.footprint, base, thickness,
-                                        "FLOOR", {"thickness": state, "footprint": "inferred", "material": "unknown"}))
+                if slab_zones is None:
+                    model.slabs.append(Slab(f"{level.id}-floor", level.id, level.footprint, base, thickness,
+                                            "FLOOR", {"thickness": state, "footprint": "inferred", "material": "unknown"}))
             if not sorted_levels:
                 raise ValueError("No storeys available for reconstruction")
             last = sorted_levels[-1]
             if level_sample is not None and level_sample.voxel_size_m > settings.detection_voxel_size_m:
                 model.warnings.append(f"Level detection voxels enlarged to {level_sample.voxel_size_m:.6g} m; horizontal levels and footprints need review")
-            model.slabs.append(Slab("top-slab", last.id, last.footprint,
-                                    last.ceiling, settings.assumed_slab_thickness_m, "NOTDEFINED",
-                                    {"thickness": "inferred", "footprint": "inferred", "material": "unknown"}))
+            if slab_zones is None:
+                model.slabs.append(Slab("top-slab", last.id, last.footprint,
+                                        last.ceiling, settings.assumed_slab_thickness_m, "NOTDEFINED",
+                                        {"thickness": "inferred", "footprint": "inferred", "material": "unknown"}))
+            else:
+                from .slab_zones import slab_zone_geometry
+                model.slabs, model.slab_openings = slab_zone_geometry(
+                    slab_zones, slab_surfaces, sorted_levels, settings, model.walls)
             from .features import derive_stair_slab_openings
-            model.slab_openings, slab_opening_diagnostics = derive_stair_slab_openings(
-                model.stairs, model.slabs, model.landings,
-                margin_m=settings.stair_void_margin_m,
-                headroom_m=settings.stair_headroom_m)
+            if slab_zones is None:
+                model.slab_openings, slab_opening_diagnostics = derive_stair_slab_openings(
+                    model.stairs, model.slabs, model.landings,
+                    margin_m=settings.stair_void_margin_m,
+                    headroom_m=settings.stair_headroom_m)
+            else:
+                slab_opening_diagnostics = []
+                model.warnings.append("Observed slab gaps are pending stair-system validation; no stair-derived enlargement was performed.")
             skipped_openings = sum(item["status"] != "candidate_created"
                                    for item in slab_opening_diagnostics)
             if skipped_openings and model.stairs:
@@ -774,7 +802,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
             model.warnings.extend([
                 "All detected elements are unreviewed candidates; synthetic checks do not establish survey accuracy.",
                 "Single-face wall and boundary-slab thicknesses are assumptions; materials and structural status are unknown.",
-                "Horizontal density peaks and convex slab envelopes need review for furniture, voids and concave footprints.",
+                "Horizontal slab-zone sequences and occupancy polygons need review for occlusion and unsupported gaps.",
                 "Openings combine supported wall gaps and recessed return planes; glazing, closed leaves and occlusion still require review.",
                 "Stair systems contain measured straight-flight and landing candidates; curved flights, railings and support structure are not reconstructed.",
                 "Candidate scores are geometric support indicators, not calibrated accuracy probabilities. No whole-cloud deviation report is implemented.",
@@ -789,6 +817,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                               "wall_topology": wall_topology,
                               "inter_storey_gaps": inter_storey_gaps,
                               "slab_opening_detection": slab_opening_diagnostics,
+                              "slab_zones": slab_report,
                               "level_detection": None if level_sample is None else {
                                   "sample_points": len(level_sample.points), "voxel_size_m": level_sample.voxel_size_m,
                                   **(level_statistics or {})},

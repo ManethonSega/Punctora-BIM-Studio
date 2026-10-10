@@ -32,6 +32,11 @@ The default minimum recess is 0.03 m and minimum edge support is 0.65. Furniture
 
 ## Stairs and slab openings
 
+In automatic Run 4.1 reconstruction, slab voids now come from enclosed horizontal
+occupancy gaps and remain pending stair-system validation. The stair-derived
+headroom procedure below remains available for explicit caller-supplied storeys;
+it will be integrated with global stair systems in Run 4.3. See [Run 4.1](RUN_4_1.md).
+
 Straight flights are proposed from repeated horizontal tread patches with consistent rise, going and width. Broader horizontal patches touching flight endpoints become landing candidates. Flights sharing a landing are grouped into one stable stair system with ordered flight indices. This supports straight, L-shaped and U-shaped assemblies made from straight runs. Curved and spiral flights, railings, stringers and structural support remain outside the detector.
 
 After slabs are assembled, a stair system can produce one or more `SlabOpening` candidates when:

@@ -24,6 +24,10 @@ jobs:
       - run: python -m pip install -e ".[test]" -c requirements-core.txt
       - run: dotnet restore desktop/Punctora.Desktop/Punctora.Desktop.csproj --locked-mode
       - run: dotnet build desktop/Punctora.Desktop/Punctora.Desktop.csproj -c Release --no-restore
+      - name: Verify void-cut native slab preview
+        run: |
+          python scripts/generate_slab_preview_fixture.py outputs/slab-preview/elements.json
+          dotnet run --project scripts/SlabPreviewCheck -c Release -- outputs/slab-preview/elements.json
       - name: Linux OpenGL and fallback walkthroughs
         if: runner.os == 'Linux'
         shell: bash

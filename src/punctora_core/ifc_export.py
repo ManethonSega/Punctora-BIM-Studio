@@ -136,7 +136,11 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         matrix = np.eye(4)
         matrix[2, 3] = slab.base
         solid(entity, slab.footprint, slab.thickness, matrix)
-        provenance(entity, slab.id, slab.provenance, {"ReviewState": slab.review_state})
+        provenance(entity, slab.id, slab.provenance, {"ReviewState": slab.review_state,
+                   "GeometricSupportScore": slab.confidence,
+                   "SupportedAreaPercent": slab.evidence.get("supported_percent"),
+                   "InferredAreaPercent": slab.evidence.get("inferred_percent"),
+                   "RepresentationScope": slab.evidence.get("scope", "Caller-supplied slab")})
         slab_entities[slab.id] = entity
 
     slabs = {slab.id: slab for slab in model.slabs}

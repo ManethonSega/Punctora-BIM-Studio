@@ -71,7 +71,7 @@ public sealed class SceneData
             foreach (var node in model["slabs"]!.AsArray())
             {
                 var slab = node!.AsObject();
-                Add(elements, slab, "Slab", slab["footprint"]!.AsArray().Select(p=>XY(p!)).ToArray(), Number(slab,"base"),Number(slab,"thickness"));
+                Add(elements, slab, "Slab", slab["footprint"]!.AsArray().Select(p=>XY(p!)).ToArray(), Number(slab,"base"),Number(slab,"thickness"), mesh:slab["preview_geometry"] as JsonObject);
             }
             foreach(var node in model["slab_openings"]?.AsArray()??[])
             {
@@ -85,7 +85,10 @@ public sealed class SceneData
                     var side=new Vector2(-direction.Y,direction.X)*Number(opening,"width")/2;
                     footprint=[start-side,end-side,end+side,start+side];
                 }
-                Add(elements,opening,"SlabOpening",footprint,Number(slab,"base")-.01f,Number(slab,"thickness")+.02f,slab["storey_id"]!.GetValue<string>());
+                JsonObject? outlineMesh=null;
+                if(opening["evidence"]?["method"]?.GetValue<string>()=="enclosed_horizontal_occupancy_gap")
+                    outlineMesh=new JsonObject{["surface_triangles_xy"]=new JsonArray(),["boundary_rings_xy"]=new JsonArray(new JsonArray(footprint.Select(p=>(JsonNode)new JsonArray((double)p.X,(double)p.Y)).ToArray()))};
+                Add(elements,opening,"SlabOpening",footprint,Number(slab,"base")-.01f,Number(slab,"thickness")+.02f,slab["storey_id"]!.GetValue<string>(),outlineMesh);
             }
             foreach(var node in model["openings"]?.AsArray()??[])
             {
@@ -122,21 +125,32 @@ public sealed class SceneData
 
     public static float Number(JsonObject obj, string key) => (float)obj[key]!.GetValue<double>();
     static Vector2 XY(JsonNode p) => new((float)p[0]!.GetValue<double>(), (float)p[1]!.GetValue<double>());
-    static void Add(List<SceneElement> elements, JsonObject obj, string kind, Vector2[] polygon, float z, float height, string? storeyId=null)
+    static void Add(List<SceneElement> elements, JsonObject obj, string kind, Vector2[] polygon, float z, float height, string? storeyId=null,JsonObject? mesh=null)
     {
         var review = obj["review_state"]?.GetValue<string>() ?? "unreviewed";
         var color = review switch { "reviewed" => new Vector4(.18f,.82f,.54f,.5f), "flagged"=>new Vector4(1,.68f,.15f,.55f),
             "rejected"=>new Vector4(.9f,.25f,.35f,.16f), _=>kind switch {"Wall"=>new Vector4(.43f,.62f,1,.4f),"Stair"=>new Vector4(.9f,.45f,.72f,.7f),"Landing"=>new Vector4(.98f,.55f,.32f,.65f),"SlabOpening"=>new Vector4(.75f,.25f,.95f,.72f),"door"=>new Vector4(.95f,.65f,.25f,.5f),"window"=>new Vector4(.2f,.85f,.9f,.35f),"unknown"=>new Vector4(.95f,.85f,.25f,.45f),_=>new Vector4(.64f,.68f,.78f,.3f)} };
         var vertices = new List<float>();
         void Vertex(Vector2 p,float h) { vertices.AddRange([p.X,p.Y,h,color.X,color.Y,color.Z,color.W]); }
-        foreach (var tri in Triangulate(polygon))
+        if(mesh?["surface_triangles_xy"] is JsonArray surfaceTriangles)
+        {
+            foreach(var tri in surfaceTriangles)
+            {
+                var points=tri!.AsArray().Select(p=>XY(p!)).ToArray();
+                foreach(var point in points)Vertex(point,z);
+                foreach(var point in points.Reverse())Vertex(point,z+height);
+            }
+        }
+        else foreach (var tri in Triangulate(polygon))
         {
             foreach (var index in tri) Vertex(polygon[index],z);
             foreach (var index in tri.Reverse()) Vertex(polygon[index],z+height);
         }
-        for(var i=0;i<polygon.Length;i++)
+        Vector2[][] rings=mesh?["boundary_rings_xy"] is JsonArray boundaries
+            ?boundaries.Select(r=>r!.AsArray().Select(p=>XY(p!)).ToArray()).ToArray():[polygon];
+        foreach(var ring in rings)for(var i=0;i<ring.Length;i++)
         {
-            var a=polygon[i]; var b=polygon[(i+1)%polygon.Length];
+            var a=ring[i]; var b=ring[(i+1)%ring.Length];
             Vertex(a,z); Vertex(b,z); Vertex(b,z+height);
             Vertex(a,z); Vertex(b,z+height); Vertex(a,z+height);
         }
