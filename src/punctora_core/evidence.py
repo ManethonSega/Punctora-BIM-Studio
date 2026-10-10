@@ -14,11 +14,13 @@ def face_selection(points, face, radius, endpoint_margin):
     length = np.linalg.norm(b-a)
     direction = (b-a)/length
     normal = np.array([-direction[1], direction[0]])
-    along = (points[:, :2]-a) @ direction
-    residual = (points[:, :2]-a) @ normal
-    mask = ((np.abs(residual) <= radius) & (along >= -endpoint_margin)
-            & (along <= length+endpoint_margin)
-            & (points[:, 2] >= face["z_min"]) & (points[:, 2] <= face["z_max"]))
+    mask = (points[:, 2] >= face["z_min"]) & (points[:, 2] <= face["z_max"])
+    rows = np.flatnonzero(mask)
+    xy = points[rows, :2]-a
+    along, local_residual = xy@direction, xy@normal
+    residual = np.zeros(len(points),float)
+    residual[rows] = local_residual
+    mask[rows] = ((np.abs(local_residual) <= radius)&(along >= -endpoint_margin)&(along <= length+endpoint_margin))
     return mask, residual
 
 
@@ -92,13 +94,16 @@ def wall_batches(cloud, wall, chunk_points):
 
 def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=0.04, radius=0.01):
     for wall in walls:
+        previous_evidence = dict(wall.evidence)
         wall.observed_faces = [_refine_face(cloud.points, f, radius, endpoint_margin, chunk_points)
                                for f in wall.observed_faces]
         if not wall.observed_faces:
             continue
         first = wall.observed_faces[0]
         a, b = np.asarray(first["start"]), np.asarray(first["end"])
-        if len(wall.observed_faces) == 2 and wall.classification == "paired_faces":
+        if wall.detection_method == "multi_slice":
+            previous_evidence["refined_slices"] = [dict(f) for f in wall.observed_faces]
+        elif len(wall.observed_faces) == 2 and wall.classification == "paired_faces":
             from .reconstruction import _paired_axis
             second = wall.observed_faces[1]
             axis, thickness = _paired_axis([a, b], [second["start"], second["end"]])
@@ -114,7 +119,7 @@ def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=
             wall.start, wall.end = tuple(a+normal*wall.thickness/2), tuple(b+normal*wall.thickness/2)
         elif wall.classification != "consolidated_candidate":
             wall.start, wall.end = tuple(a), tuple(b)
-        wall.evidence = {"schema_version": 1, "scope": "observed face support, excludes unseen geometry",
+        wall.evidence = {**previous_evidence, "schema_version": 2, "scope": "observed face support, excludes unseen geometry",
                          "selector": {"radius_m": radius, "endpoint_margin_m": endpoint_margin,
                                       "frame": "working metres", "faces_field": "observed_faces"},
                          "index_semantics": "working cloud row; E57 scan index and original scan record when available",

@@ -65,6 +65,10 @@ def _merged_wall(group, keep_id, *, user_supplied):
     source_evidence = {wall.id: deepcopy(wall.evidence) for wall in group if wall.evidence}
     evidence = ({"scope": "Evidence retained from the source wall candidates.",
                  "source_wall_evidence": source_evidence} if source_evidence else {})
+    if not user_supplied and reference.detection_method == "multi_slice":
+        evidence.update(method="multi_slice", slices=[deepcopy(s) for w in group for s in w.evidence.get("slices", [])],
+                        slice_count=max(w.evidence.get("slice_count", 0) for w in group),
+                        vertical_continuity=min(w.evidence.get("vertical_continuity", 0) for w in group))
     review_states = {wall.review_state for wall in group}
     return Wall(keep_id, reference.storey_id, tuple(map(float, start)), tuple(map(float, end)),
                 float(np.average([w.base for w in group], weights=weights)),
@@ -135,7 +139,7 @@ def _angle_degrees(first_start, first_end, second_start, second_end):
 
 
 def snap_wall_topology(walls, *, corner_tolerance_m=.3, t_tolerance_m=.1,
-                       t_minimum_angle_deg=25.0):
+                       t_minimum_angle_deg=25.0, support_validator=None):
     """Snap corners and credible T-junctions from one immutable geometry snapshot.
 
     Corner endpoints are clustered through common axis intersections. T-junctions
@@ -208,6 +212,12 @@ def snap_wall_topology(walls, *, corner_tolerance_m=.3, t_tolerance_m=.1,
             rejected.append({"kind": "corner_cluster_drift", "wall_ends": [list(key) for key in members],
                              "maximum_displacement_m": max(movements.values())})
             continue
+        if support_validator is not None:
+            checks = [support_validator(next(w for w in walls if w.id == key[0]), key[1], target,
+                      [w for w in walls if w.id in {k[0] for k in members} and w.id != key[0]]) for key in members]
+            if not all(c['supported'] for c in checks):
+                rejected.append(dict(kind='unsupported_corner',wall_ends=[list(k) for k in members],target=target.tolist(),evidence=checks))
+                continue
         for key in members:
             proposed[key] = target.copy(); relations[key] = "shared_corner"
         cluster_records.append({"wall_ends": [list(key) for key in sorted(members)],
@@ -251,6 +261,11 @@ def snap_wall_topology(walls, *, corner_tolerance_m=.3, t_tolerance_m=.1,
 
     t_records = []
     for key, (distance, host_id, foot, along, host_length, angle) in sorted(t_candidates.items()):
+        if support_validator is not None:
+            check = support_validator(next(w for w in walls if w.id == key[0]),key[1],foot,[next(w for w in walls if w.id == host_id)])
+            if not check['supported']:
+                rejected.append(dict(kind='unsupported_t_junction',wall_ends=[list(key)],target=foot.tolist(),evidence=[check]))
+                continue
         proposed[key] = foot; relations[key] = "t_junction"
         t_records.append({"wall_id": key[0], "end": key[1], "host_wall_id": host_id,
                           "distance_m": distance, "host_offset_m": along,
@@ -267,6 +282,54 @@ def snap_wall_topology(walls, *, corner_tolerance_m=.3, t_tolerance_m=.1,
             "rejected": rejected,
             "endpoint_relations": [{"wall_id": key[0], "end": key[1], "relation": relation}
                                    for key, relation in sorted(relations.items())]}
+
+
+def observed_junction_support(wall,end,target,partners):
+    """Validate the observed face intersection, not a return inside solid material."""
+    bands,checks=set(),[]
+    for face in wall.observed_faces:
+        a,b=np.asarray(face['start']),np.asarray(face['end'])
+        length=np.linalg.norm(b-a)
+        if length<1e-8:
+            continue
+        direction=(b-a)/length
+        for partner in partners:
+            for other in partner.observed_faces:
+                if min(face['z_max'],other['z_max'])<=max(face['z_min'],other['z_min']):
+                    continue
+                c,d=np.asarray(other['start']),np.asarray(other['end'])
+                point=_line_intersection(a,b,c,d)
+                other_length=np.linalg.norm(d-c)
+                if point is None or other_length<1e-8 or np.linalg.norm(point-target)>wall.thickness+partner.thickness+.05:
+                    continue
+                along=float((point-a)@direction)
+                other_along=float((point-c)@(d-c)/other_length)
+                if -.050001<=along<=length+.050001 and -.050001<=other_along<=other_length+.050001:
+                    bands.add((face.get('slice_index'),face['z_min'],face['z_max']))
+                    checks.append(dict(partner_wall_id=partner.id,face_intersection=point.tolist(),
+                                       z_min=max(face['z_min'],other['z_min']),z_max=min(face['z_max'],other['z_max'])))
+    required=2 if wall.detection_method=='multi_slice' else 1
+    return dict(wall_id=wall.id,end=end,supported=len(bands)>=required,support_bands=len(bands),required_bands=required,face_intersections=checks)
+
+
+def evidence_endpoint_report(walls,topology,gap_tolerance_m=.05):
+    report=wall_connectivity_report(walls,topology,gap_tolerance_m)
+    rejected={tuple(k) for r in topology['rejected'] for k in r.get('wall_ends',[])}
+    for item in report['endpoints']:
+        key=(item['wall_id'],item['end'])
+        if key in rejected:
+            item['status']='rejected_correction'
+        elif item['status']=='shared_corner':
+            item['status']='supported_corner'
+        elif item['status']=='t_junction':
+            item['status']='supported_t_junction'
+        elif item['status'] in {'open_or_missing','connected_geometry'}:
+            wall=next(w for w in walls if w.id==item['wall_id'])
+            item['status']='intentional_open_end' if wall.evidence.get('intentional_open_ends',{}).get(item['end']) else 'unresolved_gap'
+    report['counts']={s:sum(e['status']==s for e in report['endpoints']) for s in sorted({e['status'] for e in report['endpoints']})}
+    for wall in walls:
+        wall.evidence['endpoints']=[e for e in report['endpoints'] if e['wall_id']==wall.id]
+    return report
 
 
 def wall_connectivity_report(walls, topology, gap_tolerance_m=.05):

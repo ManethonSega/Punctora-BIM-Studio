@@ -447,36 +447,8 @@ def _coalesce_faces(faces, section, settings):
 
 
 def detect_walls(points, storey: Storey, settings: ReconstructionSettings, workers=1) -> list[Wall]:
-    height = storey.ceiling-storey.elevation
-    # A section within the clear height, not a band extending beyond the ceiling.
-    mask = (points[:, 2] >= storey.elevation+0.7*height) & (points[:, 2] <= storey.elevation+0.9*height)
-    section = points[mask]
-    if len(section) < 6:
-        return []
-    faces = []
-    segments = _segments(section, settings)
-    def fit_segment(segment):
-        return _fit_face(segment, section, 2 * settings.grid_size_m)
-    if workers > 1 and len(segments) > 1:
-        with ThreadPoolExecutor(max_workers=min(workers, len(segments))) as executor:
-            fitted = executor.map(fit_segment, segments)
-    else:
-        fitted = map(fit_segment, segments)
-    for fit in fitted:
-        if fit is None:
-            continue
-        face, count, rmse = fit
-        if distance_between_points(*face) < settings.minimum_wall_length_m:
-            continue
-        # Inner/outer raster contours may refit to the same observed surface.
-        if any(segments_angle(face, old[0]) and
-               distance_points_to_line_np(np.asarray(face), *old[0]).max() < 3*settings.grid_size_m
-               for old in faces):
-            continue
-        faces.append((face, count, rmse))
-    faces = _coalesce_faces(faces, section, settings)
-    return _walls_from_faces(faces, storey, settings,
-                             (storey.elevation+0.7*height, storey.elevation+0.9*height))
+    from .wall_slices import multi_slice_walls
+    return multi_slice_walls(points, storey, settings, workers)
 
 
 def _walls_from_faces(faces, storey, settings, z_bounds):
@@ -530,10 +502,12 @@ def _walls_from_faces(faces, storey, settings, z_bounds):
 
 
 def _snap_walls(walls, settings):
+    from .wall_editing import observed_junction_support, evidence_endpoint_report
     topology = snap_wall_topology(
         walls, corner_tolerance_m=settings.corner_snap_tolerance_m,
         t_tolerance_m=settings.t_junction_snap_tolerance_m,
-        t_minimum_angle_deg=settings.t_junction_minimum_angle_deg)
+        t_minimum_angle_deg=settings.t_junction_minimum_angle_deg,
+        support_validator=observed_junction_support)
     retained = []
     dropped = []
     for wall in walls:
@@ -545,7 +519,7 @@ def _snap_walls(walls, settings):
         retained.append(wall)
     walls[:] = retained
     topology["dropped_wall_ids"] = dropped
-    topology["connectivity"] = wall_connectivity_report(
+    topology["connectivity"] = evidence_endpoint_report(
         walls, topology, settings.topology_gap_tolerance_m)
     return topology
 
@@ -632,7 +606,7 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
             height = level.ceiling-level.elevation
             sample = voxel_sample(cloud.points, settings.detection_voxel_size_m,
                                   settings.maximum_detection_points, settings.processing_chunk_points,
-                                  (level.elevation+0.7*height, level.elevation+0.9*height),
+                                  (level.elevation+.08*height, level.ceiling-.08*height),
                                   workers, backend)
             walls = detect_walls(sample.points, level, settings, workers)
             proposals = []
@@ -645,15 +619,14 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
             walls, consolidation = consolidate_walls(
                 walls, angle_deg=settings.wall_merge_angle_deg,
                 lateral_m=settings.wall_merge_lateral_tolerance_m,
-                gap_m=settings.wall_merge_gap_m,
+                gap_m=0.0 if settings.surface_method == "contour" else settings.wall_merge_gap_m,
                 thickness_m=settings.wall_merge_thickness_tolerance_m)
         else:
             consolidation = {"input_walls": len(walls), "output_walls": len(walls), "groups": []}
         record["detected_elements"] = {"walls": len(walls)}
     with profiler.stage("original_wall_fitting", storey_id=level.id, source_points=len(cloud.points)) as record:
         attach_evidence(cloud, walls, settings.processing_chunk_points,
-                        endpoint_margin=max(settings.maximum_wall_thickness_m/2, 4*settings.grid_size_m,
-                                            2*statistics.get("voxel_size_m", settings.detection_voxel_size_m)),
+                        endpoint_margin=max(.08, 3*settings.grid_size_m),
                         radius=settings.region_plane_tolerance_m if settings.surface_method == "region_growing" else settings.grid_size_m/2,
                         workers=workers)
         topology = _snap_walls(walls, settings)
@@ -662,6 +635,8 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler):
             warnings.append(f"{level.id}: discarded {len(topology['dropped_wall_ids'])} wall candidate(s) collapsed by junction snapping")
         if counts.get("unresolved_gap", 0):
             warnings.append(f"{level.id}: {counts['unresolved_gap']} wall endpoint(s) retain a small unresolved topology gap; verify against the point cloud")
+        if counts.get("rejected_correction", 0):
+            warnings.append(f"{level.id}: {counts['rejected_correction']} endpoint correction(s) rejected because observed-face support is missing")
         if counts.get("open_or_missing", 0):
             warnings.append(f"{level.id}: {counts['open_or_missing']} wall endpoint(s) are open or may indicate missing geometry; verify against the point cloud")
         record.update(sample_points=len(cloud.points), sampling="full source wall selectors",

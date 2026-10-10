@@ -108,7 +108,7 @@ def accuracy_metrics(model, reference, footprints, plane_tolerance_m=.03, angle_
         length = float(np.linalg.norm(b-a))
         direction = (b-a)/length
         normal = np.array([-direction[1], direction[0]])
-        intervals, errors = [], []
+        intervals, errors, wall_intervals = [], [], {}
         for index, (wall, face) in enumerate(proposals):
             if abs(storeys[wall.storey_id].elevation-truth["floor"]) > .05:
                 continue
@@ -120,6 +120,7 @@ def accuracy_metrics(model, reference, footprints, plane_tolerance_m=.03, angle_
             low, high = max(0., low), min(length, high)
             if angle <= angle_tolerance_deg and error <= plane_tolerance_m and high > low:
                 intervals.append((low, high))
+                wall_intervals.setdefault(wall.id, []).append((low, high))
                 errors.append(error)
                 matched_proposals.add(index)
         end, covered = 0., 0.
@@ -127,7 +128,13 @@ def accuracy_metrics(model, reference, footprints, plane_tolerance_m=.03, angle_
             covered += max(0., high-max(low, end))
             end = max(end, high)
         coverage = covered/length
-        overlap += sum(high-low for low, high in intervals)-covered
+        proposed_length = 0.
+        for local in wall_intervals.values():
+            boundary = 0.
+            for low, high in sorted(local):
+                proposed_length += max(0., high-max(low,boundary))
+                boundary = max(boundary,high)
+        overlap += proposed_length-covered
         coverages.append(coverage)
         if coverage >= minimum_coverage:
             found += 1
