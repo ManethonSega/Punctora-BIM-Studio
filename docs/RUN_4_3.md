@@ -112,3 +112,24 @@ Run 4.3's numeric stair/void checks pass, but Run 5 stays blocked until the agre
 visual and numerical completion gate passes. Missing-tread envelopes, landing
 thicknesses, uncertain opening classifications and unsupported wall corners
 remain review proposals. No scan-specific elevations or counts are hard-coded.
+
+## Preview correction in 0.3.0a15
+
+The first Windows field test exposed a native preview failure on clipped stairwell
+opening polygons. Sub-float-width edges in otherwise valid contours collapsed
+when the desktop converted XY coordinates to floats before ear clipping. The
+saved reconstruction existed, but the UI retained its previous revision, causing
+the next detection attempt to fail with a revision conflict.
+
+Landing and slab-opening previews now use constrained triangulation of their
+original double-precision polygons, just as void-cut slabs already do. Meshes are
+regenerated on edits and when opening older projects, without changing the saved
+revision. Concave boundaries are preserved. A model display failure falls back
+to the cloud while retaining the saved model and adopting its revision.
+
+Regression coverage includes the actual scan's local opening and landing
+contours, polygon area checks, legacy-project mesh refresh, and a desktop
+walkthrough that injects a display failure after an atomic save then retries.
+The full-scan model is also passed through the native scene loader. These checks
+address display and retry reliability; field acceptance of reconstruction
+accuracy remains pending.

@@ -11,6 +11,7 @@ for argument in sys.argv[1:]:
     assert report["edit_survived_reopen"] and report["ifc_exists"], report
     assert report["crop_undo_restored"] and report["crop_survived_reopen"], report
     assert report["feature_add_delete_passed"], report
+    assert report["preview_failure_recovery_passed"], report
     assert report["graphics"]["render_callbacks"] > 0, report
     assert report["graphics"]["cloud_color_mode"] == "Monochrome", report
     assert report["graphics"]["point_size_px"] == 5, report

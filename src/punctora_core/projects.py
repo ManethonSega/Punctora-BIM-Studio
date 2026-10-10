@@ -185,6 +185,9 @@ def load_project(path):
         model = BuildingModel.from_dict(state["model"])
         if model.metadata.get("project_id") != state["project_id"]:
             raise ValueError("Model identity differs from its project")
+        # Rebuild derived preview meshes, including older projects without them.
+        # This is an in-memory refresh, not a save or revision change.
+        state["model"] = json.loads(json.dumps(model.to_dict()))
     for generation in state["generations"]:
         uuid.UUID(hex=generation)
         if not safe_path(root, f"generations/{generation}").is_dir():

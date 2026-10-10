@@ -80,6 +80,7 @@ class SlabOpening:
     evidence: dict = field(default_factory=dict)
     footprint: list[tuple[float, float]] | None = None
     source_system_id: str | None = None
+    preview_geometry: dict = field(default_factory=dict)
 
 
 def slab_opening_footprint(opening: SlabOpening) -> list[tuple[float, float]]:
@@ -154,6 +155,7 @@ class Landing:
     review_state: str = "unreviewed"
     confidence: float | None = None
     evidence: dict = field(default_factory=dict)
+    preview_geometry: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -246,15 +248,6 @@ class BuildingModel:
             elif isinstance(obj, (Slab, Space)):
                 polygon_check(obj.footprint)
                 positive(obj.thickness if isinstance(obj, Slab) else obj.height, "Extrusion depth")
-                if isinstance(obj, Slab):
-                    if not isinstance(obj.preview_geometry, dict):
-                        raise ValueError("Slab preview geometry must be an object")
-                    for key in ("surface_triangles_xy", "boundary_rings_xy"):
-                        for ring in obj.preview_geometry.get(key, []):
-                            if (not isinstance(ring, (list, tuple)) or len(ring) < 3
-                                    or (key == "surface_triangles_xy" and len(ring) != 3)
-                                    or not all(len(p) == 2 and all(isfinite(x) for x in p) for p in ring)):
-                                raise ValueError("Slab preview requires finite polygon/triangle coordinates")
             else:
                 polygon_check(obj.footprint)
                 positive(obj.thickness, "Landing thickness")
@@ -315,6 +308,15 @@ class BuildingModel:
             if not Polygon(slabs[opening.host_slab_id].footprint).buffer(1e-8).covers(Polygon(footprint)):
                 raise ValueError("Slab opening must lie inside its host slab footprint")
         for obj in objects:
+            if hasattr(obj, "preview_geometry"):
+                if not isinstance(obj.preview_geometry, dict):
+                    raise ValueError("Preview geometry must be an object")
+                for key in ("surface_triangles_xy", "boundary_rings_xy"):
+                    for ring in obj.preview_geometry.get(key, []):
+                        if (not isinstance(ring, (list, tuple)) or len(ring) < 3
+                                or (key == "surface_triangles_xy" and len(ring) != 3)
+                                or not all(len(p) == 2 and all(isfinite(x) for x in p) for p in ring)):
+                            raise ValueError("Preview requires finite polygon/triangle coordinates")
             if hasattr(obj, "confidence") and obj.confidence is not None and (not isfinite(obj.confidence) or not 0 <= obj.confidence <= 1):
                 raise ValueError("Candidate confidence must lie between zero and one")
             if hasattr(obj, "evidence") and not isinstance(obj.evidence, dict):
@@ -332,15 +334,21 @@ class BuildingModel:
         from shapely import constrained_delaunay_triangles
         from shapely.geometry import Polygon
         from shapely.ops import unary_union
-        for slab in result["slabs"]:
-            holes = [Polygon(slab_opening_footprint(o)) for o in self.slab_openings
-                     if o.host_slab_id == slab["id"] and o.review_state != "rejected"]
-            shape = Polygon(slab["footprint"]).difference(unary_union(holes))
+        def preview_mesh(shape, scope):
             pieces = [] if shape.is_empty else ([shape] if isinstance(shape, Polygon) else list(shape.geoms))
-            slab["preview_geometry"] = {
+            return {
                 "surface_triangles_xy": [list(t.exterior.coords)[:-1]
                     for t in constrained_delaunay_triangles(shape).geoms],
                 "boundary_rings_xy": [list(r.coords)[:-1] for p in pieces
                     for r in [p.exterior, *p.interiors]],
-                "scope": "derived current footprint minus nonrejected slab voids"}
+                "scope": scope}
+        for slab in result["slabs"]:
+            holes = [Polygon(slab_opening_footprint(o)) for o in self.slab_openings
+                     if o.host_slab_id == slab["id"] and o.review_state != "rejected"]
+            shape = Polygon(slab["footprint"]).difference(unary_union(holes))
+            slab["preview_geometry"] = preview_mesh(shape, "derived current footprint minus nonrejected slab voids")
+        for landing in result["landings"]:
+            landing["preview_geometry"] = preview_mesh(Polygon(landing["footprint"]), "derived current landing footprint")
+        for opening, source in zip(result["slab_openings"], self.slab_openings):
+            opening["preview_geometry"] = preview_mesh(Polygon(slab_opening_footprint(source)), "derived current slab opening footprint")
         return result

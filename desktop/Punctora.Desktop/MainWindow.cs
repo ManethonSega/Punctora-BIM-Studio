@@ -52,7 +52,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a14 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
+        Title="Punctora BIM Studio | 0.3.0a15 desktop preview";Width=1440;Height=920;MinWidth=1080;MinHeight=700;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -61,7 +61,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a14",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a15",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -192,7 +192,17 @@ public sealed class MainWindow : Window
     async Task PresentAsync(string path,JsonObject value,bool fit)
     {
         viewport.CancelCropDrawing();
-        var scene=await Task.Run(()=>SceneData.Load(path,value));
+        SceneData scene;
+        string? previewFailure=null;
+        try{scene=await Task.Run(()=>SceneData.Load(path,value));}
+        catch(InvalidDataException e) when(value["model"] is JsonObject)
+        {
+            // The worker has already atomically saved this revision. A model
+            // display failure must not leave requests using the old revision.
+            var cloudOnly=value.DeepClone().AsObject();cloudOnly["model"]=null;
+            scene=await Task.Run(()=>SceneData.Load(path,cloudOnly));
+            previewFailure="Model preview failed: "+e.Message+". Saved reconstruction retained; point cloud shown. You can reopen, retry detection or export.";
+        }
         state=value;projectPath=path;viewport.SetScene(scene,fit);refreshing=true;
         try
         {
@@ -226,6 +236,7 @@ public sealed class MainWindow : Window
         }
         finally{refreshing=false;}
         ShowProperties();FilterStorey();UpdateActions();
+        if(previewFailure!=null){status.Text=previewFailure;counts.Text+=" · model preview unavailable";}
     }
     void FilterStorey()
     {
@@ -443,7 +454,7 @@ public sealed class MainWindow : Window
         if(files.FirstOrDefault()?.TryGetLocalPath() is { } path)await LoadAsync(path);
     }
     async Task LoadAsync(string path)
-    {var result=await RunAsync("open",path);if(result!=null){dirty=false;undo.Clear();await PresentAsync(path,result,true);await RunAsync("cleanup",path);}}
+    {var result=await RunAsync("open",path);if(result!=null){dirty=false;undo.Clear();await RunAsync("cleanup",path);await PresentAsync(path,result,true);}}
     async Task SaveAsync()
     {if(state==null||projectPath==null)return;var result=await RunAsync("save",projectPath,ModelRequest());if(result!=null){dirty=false;await PresentAsync(projectPath,result,false);status.Text="Project saved.";}}
     async Task CopyAsync()
@@ -456,7 +467,7 @@ public sealed class MainWindow : Window
         if(state==null||projectPath==null||!RequireClean())return;
         if(zUp.IsChecked!=true){status.Text="Confirm Z is up before fitting. A missing CRS can remain explicitly unknown for local review.";return;}
         var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["confirm_z_up"]=true,["compare_budgets"]=compareBudgets.IsChecked==true,["settings"]=new JsonObject{["surface_method"]=method.SelectedIndex==1?"region_growing":"contour"}};
-        var result=await RunAsync("reconstruct",projectPath,request);if(result!=null){dirty=false;undo.Clear();await PresentAsync(projectPath,result,false);await RunAsync("cleanup",projectPath);}
+        var result=await RunAsync("reconstruct",projectPath,request);if(result!=null){dirty=false;undo.Clear();await RunAsync("cleanup",projectPath);await PresentAsync(projectPath,result,false);}
     }
     async Task ExportAsync()
     {
@@ -477,6 +488,18 @@ public sealed class MainWindow : Window
         {
             var path=Path.Combine(output,"walkthrough.punctora");var result=await RunAsync("demo",path,new JsonObject{["two_storeys"]=true});if(result==null)throw new Exception(status.Text);
             await PresentAsync(path,result,true);
+            // A saved result can fail display while its revision has advanced.
+            var oldRevision=state!["revision"]!.ToJsonString();
+            var advanced=await RunAsync("save",path,ModelRequest())??throw new Exception(status.Text);
+            var broken=advanced.DeepClone().AsObject();
+            broken["model"]!["landings"]!.AsArray().Add(new JsonObject{
+                ["id"]="broken-preview-only",["storey_id"]=broken["model"]!["storeys"]![0]!["id"]!.DeepClone(),
+                ["footprint"]=new JsonArray(new JsonArray(0d,0d),new JsonArray(1d,0d),new JsonArray(2d,0d)),["base"]=0d,["thickness"]=.1});
+            await PresentAsync(path,broken,false);
+            if(state!["revision"]!.ToJsonString()==oldRevision||!status.Text!.Contains("Model preview failed"))throw new Exception("Preview failure did not adopt saved revision");
+            state["model"]=advanced["model"]!.DeepClone();
+            await SaveAsync();if(status.Text!="Project saved.")throw new Exception("Retry after preview failure failed: "+status.Text);
+            var previewRecoveryPassed=true;
             foreach(var index in new[]{1,0,2}){cloudColor.SelectedIndex=index;viewport.Redraw();await Task.Delay(30);}
             pointSize.Value=5;if(viewport.View.CloudColor!=CloudColorMode.Monochrome||Math.Abs(viewport.View.PointSize-5)>.001)throw new Exception("Point-cloud display controls did not reach the viewport");
             var bounds=viewport.View.Scene;var insetX=(bounds.PointMaximum.X-bounds.PointMinimum.X)*.1;var insetY=(bounds.PointMaximum.Y-bounds.PointMinimum.Y)*.1;
@@ -531,7 +554,7 @@ public sealed class MainWindow : Window
             await ExportToAsync(Path.Combine(output,"edited.ifc"));
             await Task.Delay(1800);for(var i=0;i<30;i++){viewport.View.Camera.Yaw+=.008f;viewport.Redraw();await Task.Delay(20);}viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(700);
             using(var bitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96))){bitmap.Render(this);using var outputStream=File.Create(Path.Combine(output,"desktop.png"));bitmap.Save(outputStream,PngBitmapEncoderOptions.Default);}
-            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["crop_undo_restored"]=cropUndoRestored,["crop_survived_reopen"]=cropSurvivedReopen,["feature_add_delete_passed"]=featureAddDeletePassed,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
+            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["preview_failure_recovery_passed"]=previewRecoveryPassed,["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["crop_undo_restored"]=cropUndoRestored,["crop_survived_reopen"]=cropSurvivedReopen,["feature_add_delete_passed"]=featureAddDeletePassed,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
             dirty=false;Environment.ExitCode=0;Close();
         }
         catch(Exception e){File.WriteAllText(Path.Combine(output,"ui-error.txt"),e.ToString());dirty=false;Environment.ExitCode=1;Close();}

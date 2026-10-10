@@ -85,7 +85,7 @@ public sealed class SceneData
                     var side=new Vector2(-direction.Y,direction.X)*Number(opening,"width")/2;
                     footprint=[start-side,end-side,end+side,start+side];
                 }
-                JsonObject? outlineMesh=null;
+                JsonObject? outlineMesh=opening["preview_geometry"] as JsonObject;
                 if(opening["evidence"]?["method"]?.GetValue<string>()=="enclosed_horizontal_occupancy_gap")
                     outlineMesh=new JsonObject{["surface_triangles_xy"]=new JsonArray(),["boundary_rings_xy"]=new JsonArray(new JsonArray(footprint.Select(p=>(JsonNode)new JsonArray((double)p.X,(double)p.Y)).ToArray()))};
                 Add(elements,opening,"SlabOpening",footprint,Number(slab,"base")-.01f,Number(slab,"thickness")+.02f,slab["storey_id"]!.GetValue<string>(),outlineMesh);
@@ -113,7 +113,7 @@ public sealed class SceneData
                 var landing=node!.AsObject();
                 if(landing["evidence"]?["floor_integrated"]?.GetValue<bool>()==true)continue;
                 Add(elements,landing,"Landing",landing["footprint"]!.AsArray().Select(p=>XY(p!)).ToArray(),
-                    Number(landing,"base"),Number(landing,"thickness"));
+                    Number(landing,"base"),Number(landing,"thickness"),mesh:landing["preview_geometry"] as JsonObject);
             }
         }
         foreach(var element in elements)
@@ -159,9 +159,27 @@ public sealed class SceneData
     }
     public static List<int[]> Triangulate(Vector2[] polygon)
     {
-        var signed=0f;
-        for(var i=0;i<polygon.Length;i++) signed+=Cross(polygon[i],polygon[(i+1)%polygon.Length]);
-        var ids=Enumerable.Range(0,polygon.Length).ToList(); if(signed<0) ids.Reverse();
+        // Raster contours and clipped stair envelopes contain collinear points
+        // and edges smaller than float precision. Remove only redundant points,
+        // preserving the supported concave outline and original vertex indices.
+        double Turn(Vector2 a,Vector2 b,Vector2 c)=>(double)(b.X-a.X)*(c.Y-a.Y)-(double)(b.Y-a.Y)*(c.X-a.X);
+        var ids=Enumerable.Range(0,polygon.Length).ToList();
+        var changed=true;
+        while(changed&&ids.Count>3)
+        {
+            changed=false;
+            for(var j=0;j<ids.Count;j++)
+            {
+                var a=polygon[ids[(j+ids.Count-1)%ids.Count]];var b=polygon[ids[j]];var c=polygon[ids[(j+1)%ids.Count]];
+                var length=Vector2.Distance(a,c);
+                if(a==b||b==c||(Math.Abs(Turn(a,b,c))<=1e-7*Math.Max(1,length)&&Vector2.Dot(b-a,b-c)<=0))
+                {ids.RemoveAt(j);changed=true;break;}
+            }
+        }
+        var signed=0d;
+        for(var i=0;i<ids.Count;i++)signed+=Turn(polygon[ids[0]],polygon[ids[i]],polygon[ids[(i+1)%ids.Count]]);
+        if(Math.Abs(signed)<1e-12)throw new InvalidDataException("Preview footprint has zero area");
+        if(signed<0) ids.Reverse();
         var result=new List<int[]>();
         while(ids.Count>3)
         {
@@ -169,8 +187,8 @@ public sealed class SceneData
             for(var j=0;j<ids.Count;j++)
             {
                 var a=ids[(j+ids.Count-1)%ids.Count]; var b=ids[j]; var c=ids[(j+1)%ids.Count];
-                if(Cross(polygon[b]-polygon[a],polygon[c]-polygon[b])<=1e-8) continue;
-                bool Inside(Vector2 p)=>Cross(polygon[b]-polygon[a],p-polygon[a])>=-1e-8 && Cross(polygon[c]-polygon[b],p-polygon[b])>=-1e-8 && Cross(polygon[a]-polygon[c],p-polygon[c])>=-1e-8;
+                if(Turn(polygon[a],polygon[b],polygon[c])<=1e-12) continue;
+                bool Inside(Vector2 p)=>Turn(polygon[a],polygon[b],p)>=0 && Turn(polygon[b],polygon[c],p)>=0 && Turn(polygon[c],polygon[a],p)>=0;
                 if(ids.Any(k=>k!=a&&k!=b&&k!=c&&Inside(polygon[k]))) continue;
                 result.Add([a,b,c]); ids.RemoveAt(j); found=true; break;
             }

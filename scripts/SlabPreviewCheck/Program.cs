@@ -37,7 +37,30 @@ try
         }
         if(Math.Abs(area-expectedArea)>Math.Max(.001,expectedArea*.001))throw new Exception("Desktop slab cap differs from void-cut mesh");
     }
-    Console.WriteLine($"Native preview verified: {model["slabs"]!.AsArray().Count} slabs, {checkedFaces} void-cut cap triangles");
+    foreach(var kind in new[]{"landings","slab_openings"})foreach(var node in model[kind]?.AsArray()??[])
+    {
+        if(node!["evidence"]?["floor_integrated"]?.GetValue<bool>()==true)continue;
+        if(kind=="slab_openings"&&node["evidence"]?["method"]?.GetValue<string>()=="enclosed_horizontal_occupancy_gap")continue;
+        var elements=scene.Elements.Where(e=>e.Id==node["id"]!.GetValue<string>()).ToArray();
+        if(elements.Length!=1)throw new Exception("Missing polygon preview");
+        var mesh=node["preview_geometry"]!["surface_triangles_xy"]!.AsArray();
+        if(mesh.Count==0)throw new Exception("Empty polygon cap");
+        var vertices=elements[0].Triangles;
+        var expectedArea=0d;var actualArea=0d;
+        for(var i=0;i<mesh.Count;i++)
+        {
+            var tri=mesh[i]!;
+            double X(int j)=>tri[j]![0]!.GetValue<double>();double Y(int j)=>tri[j]![1]!.GetValue<double>();
+            expectedArea+=Math.Abs((X(1)-X(0))*(Y(2)-Y(0))-(Y(1)-Y(0))*(X(2)-X(0)))/2;
+            var a=Camera.Position(vertices,i*42);var b=Camera.Position(vertices,i*42+7);var c=Camera.Position(vertices,i*42+14);
+            actualArea+=Math.Abs((double)(b.X-a.X)*(c.Y-a.Y)-(double)(b.Y-a.Y)*(c.X-a.X))/2;
+        }
+        if(Math.Abs(expectedArea-actualArea)>Math.Max(1e-6,expectedArea*.001))throw new Exception("Polygon cap area changed in desktop preview");
+    }
+    var redundant=new Vector2[]{new(0,0),new(1,0),new(1,0),new(2,0),new(2,2),new(1,2),new(1,1),new(0,1),new(0,0)};
+    var capArea=SceneData.Triangulate(redundant).Sum(t=>{var a=redundant[t[0]];var b=redundant[t[1]];var c=redundant[t[2]];return Math.Abs((b.X-a.X)*(c.Y-a.Y)-(b.Y-a.Y)*(c.X-a.X))/2;});
+    if(Math.Abs(capArea-3)>1e-6)throw new Exception("Concave fallback triangulation changed polygon area");
+    Console.WriteLine($"Native preview verified: {model["slabs"]!.AsArray().Count} slabs, {checkedFaces} void-cut cap triangles, all landing and void contours");
 }
 finally
 {
