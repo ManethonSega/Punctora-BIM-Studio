@@ -16,6 +16,9 @@ public sealed class SceneData
     public Vector3 Maximum { get; init; } = new(1);
     public Vector3 PointMinimum { get; init; } = new(-1);
     public Vector3 PointMaximum { get; init; } = new(1);
+    public double HeightMinimum { get; init; }
+    public double HeightMaximum { get; init; } = 1;
+    public string HeightScaleScope { get; init; } = "complete imported cloud in local metres";
     public static SceneData Load(string projectPath, JsonObject state)
     {
         var assets = Path.Combine(Path.GetDirectoryName(projectPath)!, state["assets_directory"]!.GetValue<string>());
@@ -42,6 +45,13 @@ public sealed class SceneData
             minimum = Vector3.Min(minimum, position); maximum = Vector3.Max(maximum, position);
         }
         var pointMinimum=minimum;var pointMaximum=maximum;
+        var heightScale=state["preview"]?["height_scale"];
+        var importBounds=state["import_manifest"]?["working_bounds_m"];
+        var heightMinimum=heightScale?["minimum_z_m"]?.GetValue<double>()??importBounds?["minimum"]?[2]?.GetValue<double>()??pointMinimum.Z;
+        var heightMaximum=heightScale?["maximum_z_m"]?.GetValue<double>()??importBounds?["maximum"]?[2]?.GetValue<double>()??pointMaximum.Z;
+        if(!double.IsFinite(heightMinimum)||!double.IsFinite(heightMaximum)||heightMaximum<heightMinimum)
+            throw new InvalidDataException("Invalid project height scale");
+        var heightScope=heightScale is not null||importBounds is not null?"complete imported cloud in local metres":"legacy preview bounds; complete cloud bounds unavailable";
         var elements = new List<SceneElement>();
         if (state["model"] is JsonObject model)
         {
@@ -122,6 +132,7 @@ public sealed class SceneData
             {var position=Camera.Position(element.Triangles,i);minimum=Vector3.Min(minimum,position);maximum=Vector3.Max(maximum,position);}
         return new SceneData { Points = points, Elements = elements, Minimum = minimum, Maximum = maximum,
             PointMinimum=pointMinimum,PointMaximum=pointMaximum,
+            HeightMinimum=heightMinimum,HeightMaximum=heightMaximum,HeightScaleScope=heightScope,
             TotalPoints = state["preview"]!["source_point_count"]!.GetValue<long>() };
     }
 

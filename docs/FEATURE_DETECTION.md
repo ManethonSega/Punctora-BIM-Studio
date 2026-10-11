@@ -31,7 +31,7 @@ Openings use two independent geometric signals inside a bounded host-wall envelo
 - supported empty regions, for visibly open doors and windows;
 - supported recessed return planes, for closed leaves or glazing measurably behind the surrounding wall face.
 
-Both paths require a rectangular component, plausible dimensions and supported jamb/head edges. Evidence records occupancy, frame support, wall-face reference depth and recess contrast. Floor contact and height propose a door, a supported sill proposes a window, and ambiguous geometry remains `unknown`. An unknown candidate cuts only an `IfcOpeningElement`; it does not invent an `IfcDoor` or `IfcWindow` filling.
+Both paths require a rectangular component, plausible dimensions and supported jamb/head edges. Evidence records occupancy, frame support, wall-face reference depth and recess contrast. A floor-connected portal without a measured sill, with bounded jambs/head and clearance below the ceiling, proposes a door. Low sill and height alone are insufficient. Repeated façade frames have a dedicated detector; floor-to-ceiling glazing remains a window and strongly supported continuous frame systems propose curtain assemblies. See [Run 4 glazing](RUN_4_GLAZING.md) for evidence, IFC fallback and real-project acceptance. An unknown candidate cuts only an `IfcOpeningElement`; it does not invent an `IfcDoor` or `IfcWindow` filling.
 
 The default minimum recess is 0.03 m and minimum edge support is 0.65. Furniture outside the wall envelope is excluded, but wall-mounted objects, occlusion, reflective glazing and sparse returns can still cause false or missed candidates. These thresholds require annotated real-scan validation.
 

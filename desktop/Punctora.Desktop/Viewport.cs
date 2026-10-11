@@ -239,6 +239,8 @@ public sealed class SceneViewport : Grid
         ["point_buffer_bytes"]=SoftwareMode?0:gpu.VisiblePointCount*7*4,
         ["mesh_buffer_bytes"]=SoftwareMode?0:View.Scene.Elements.Sum(e=>e.Triangles.Length)*4,
         ["cloud_color_mode"]=View.CloudColor.ToString(),["point_size_px"]=View.PointSize,
+        ["height_minimum_z_m"]=View.Scene.HeightMinimum,["height_maximum_z_m"]=View.Scene.HeightMaximum,
+        ["height_scale_scope"]=View.Scene.HeightScaleScope,
         ["timing_scope"]="Frame cadence during movement and CPU submission time; excludes GPU completion and physical display presentation"};
     static double Mean(List<double> values)=>values.Count==0?0:values.Average();
 }
@@ -285,7 +287,7 @@ public sealed class SoftwareViewport(ViewSettings view) : Control
                 var p=Camera.Project(pos,Bounds.Size,matrix);
                 if(p is not { } projected||projected.Z is <0 or >1||projected.X<0||projected.X>Bounds.Width||projected.Y<0||projected.Y>Bounds.Height)continue;
                 var rgb=PointCloudPalette.Color(view.CloudColor,preview[offset+3],preview[offset+4],preview[offset+5],
-                    pos.Z,scene.PointMinimum.Z,scene.PointMaximum.Z);
+                    pos.Z,(float)scene.HeightMinimum,(float)scene.HeightMaximum);
                 var color=Color.FromRgb(Channel(rgb.X),Channel(rgb.Y),Channel(rgb.Z));
                 paints.Add(new Paint(projected.Z,[new Point(projected.X,projected.Y)],color,false));
             }
@@ -428,7 +430,7 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
             var matrix=view.Camera.Matrix(Bounds.Size);
             gl.UniformMatrix4fv(matrixUniform,1,false,&matrix);
             gl.Uniform1f(zMinUniform,view.ZMin);gl.Uniform1f(zMaxUniform,view.ZMax);
-            gl.Uniform1f(pointSizeUniform,view.PointSize);gl.Uniform1f(cloudMinUniform,view.Scene.PointMinimum.Z);gl.Uniform1f(cloudMaxUniform,view.Scene.PointMaximum.Z);
+            gl.Uniform1f(pointSizeUniform,view.PointSize);gl.Uniform1f(cloudMinUniform,(float)view.Scene.HeightMinimum);gl.Uniform1f(cloudMaxUniform,(float)view.Scene.HeightMaximum);
             gl.Uniform1i(highlightUniform,0);gl.Uniform1f(opacityUniform,1);
             ModelDrawCalls=0;
             if(view.Model)

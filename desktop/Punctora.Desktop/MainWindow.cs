@@ -16,6 +16,7 @@ public sealed class MainWindow : Window
 {
     readonly WorkerClient worker=new();
     readonly SceneViewport viewport;
+    readonly HeightLegend heightLegend=new();
     readonly TextBlock status=Text("Open a project, import an E57 or try the example.",12);
     readonly TextBlock backend=Text("Initializing graphics",11);
     readonly TextBlock frameDiagnostics=Text("Frame diagnostics appear while moving the view.",11);
@@ -57,7 +58,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a20 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
+        Title="Punctora BIM Studio | 0.3.0a21 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -67,7 +68,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a20",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a21",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new WrapPanel{Orientation=Orientation.Horizontal,ItemSpacing=8,LineSpacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -79,12 +80,12 @@ public sealed class MainWindow : Window
         var left=new StackPanel{Margin=new Thickness(12)};
         var options=new StackPanel{Spacing=9};options.Children.Add(Text("VIEW & ELEMENT DETECTION",12));options.Children.Add(storeys);
         var cloud=new CheckBox{Content="Point cloud",IsChecked=true};var model=new CheckBox{Content="Model candidates",IsChecked=true};
-        cloud.IsCheckedChanged+=(_,_)=>{viewport.View.Cloud=cloud.IsChecked==true;viewport.Redraw();};
+        cloud.IsCheckedChanged+=(_,_)=>{viewport.View.Cloud=cloud.IsChecked==true;UpdateHeightLegend();viewport.Redraw();};
         model.IsCheckedChanged+=(_,_)=>{viewport.View.Model=model.IsChecked==true;viewport.Redraw();};options.Children.Add(cloud);options.Children.Add(model);
         options.Children.Add(Text("Point cloud colours",11));options.Children.Add(cloudColor);
         options.Children.Add(Text("Preview quality",11));options.Children.Add(previewQuality);
         previewQuality.SelectionChanged+=(_,_)=>viewport.SetQuality((PreviewQuality)Math.Max(0,previewQuality.SelectedIndex));
-        cloudColor.SelectionChanged+=(_,_)=>{viewport.View.CloudColor=cloudColor.SelectedIndex switch{1=>CloudColorMode.Original,2=>CloudColorMode.Monochrome,_=>CloudColorMode.Height};viewport.Redraw();};
+        cloudColor.SelectionChanged+=(_,_)=>{viewport.View.CloudColor=cloudColor.SelectedIndex switch{1=>CloudColorMode.Original,2=>CloudColorMode.Monochrome,_=>CloudColorMode.Height};UpdateHeightLegend();viewport.Redraw();};
         var pointSizeLabel=Text("Point size: 2.5 px",11);options.Children.Add(pointSizeLabel);options.Children.Add(pointSize);
         pointSize.PropertyChanged+=(_,e)=>{if(e.Property==Slider.ValueProperty){viewport.View.PointSize=(float)pointSize.Value;pointSizeLabel.Text=$"Point size: {pointSize.Value:F1} px";viewport.Redraw();}};
         options.Children.Add(Text("PROJECT CROP",12));options.Children.Add(cropBottom);options.Children.Add(cropTop);
@@ -104,6 +105,7 @@ public sealed class MainWindow : Window
         leftScroll.Content=left;body.Children.Add(Panel(leftScroll));
         var center=new Grid{RowDefinitions=new RowDefinitions("*,Auto")};Grid.SetColumn(center,2);body.Children.Add(center);
         center.Children.Add(new Border{Child=viewport,CornerRadius=new CornerRadius(10),ClipToBounds=true});
+        center.Children.Add(heightLegend);
         var viewFooter=new StackPanel{Spacing=4,Margin=new Thickness(8,8,8,0)};viewFooter.Children.Add(counts);viewFooter.Children.Add(Text("Drag: orbit  ·  Right-drag: pan  ·  Wheel: zoom  ·  Click model: select",11));viewFooter.Children.Add(frameDiagnostics);viewFooter.Children.Add(backend);Grid.SetRow(viewFooter,1);center.Children.Add(viewFooter);
         var inspector=new StackPanel{Spacing=10,Margin=new Thickness(14)};inspector.Children.Add(selectedTitle);inspector.Children.Add(fieldsPanel);inspector.Children.Add(Text("Review state",11));inspector.Children.Add(review);inspector.Children.Add(Text("Wall classification",11));inspector.Children.Add(classification);
         inspector.Children.Add(approveSlabCut);
@@ -204,6 +206,12 @@ public sealed class MainWindow : Window
         ["crop"]=state["crop"]!.DeepClone(),["model_crop"]=state["model_crop"]!.DeepClone(),["model_crop_stale"]=state["model_crop_stale"]!.DeepClone()};
     JsonObject DraftSnapshot()=>new(){["model"]=state!["model"]?.DeepClone(),["crop"]=state["crop"]!.DeepClone(),
         ["model_crop"]=state["model_crop"]!.DeepClone(),["model_crop_stale"]=state["model_crop_stale"]!.DeepClone()};
+    void UpdateHeightLegend()
+    {
+        heightLegend.SetScale(viewport.View.Scene.HeightMinimum,viewport.View.Scene.HeightMaximum);
+        heightLegend.IsVisible=state is not null&&viewport.View.Cloud&&viewport.View.CloudColor==CloudColorMode.Height;
+        heightLegend.Tag=viewport.View.Scene.HeightScaleScope;
+    }
     async Task PresentAsync(string path,JsonObject value,bool fit)
     {
         viewport.CancelCropDrawing();
@@ -218,7 +226,7 @@ public sealed class MainWindow : Window
             scene=await Task.Run(()=>SceneData.Load(path,cloudOnly));
             previewFailure="Model preview failed: "+e.Message+". Saved reconstruction retained; point cloud shown. You can reopen, retry detection or export.";
         }
-        state=value;projectPath=path;viewport.SetScene(scene,fit);refreshing=true;
+        state=value;projectPath=path;viewport.SetScene(scene,fit);UpdateHeightLegend();refreshing=true;
         try
         {
             var crop=state["crop"]!.AsObject();
@@ -352,6 +360,8 @@ public sealed class MainWindow : Window
         if(kind=="slab_openings")evidence.Text=$"IFC slab cut: {(obj["preview_geometry"]?["ifc_cut_eligible"]?.GetValue<bool>()==true?"validated / approved":"review only; slab remains filled")}\nValidation basis: {obj["evidence"]?["validation_basis"]}\nMarking reviewed alone does not approve a cut. Use the approval checkbox and Apply correction.\n\nStair validation: {obj["evidence"]?["stair_validation"]??obj["evidence"]?["validation_state"]}\nObserved overlap: {obj["evidence"]?["observed_overlap_m2"]} m2\nAdditional cut: {obj["evidence"]?["additional_cut_area_m2"]} m2\nBoundary justification: {obj["evidence"]?["boundary_justification"]}\n\n"+evidence.Text;
         if(kind=="walls"&&obj["evidence"]?["endpoints"] is JsonArray ends)evidence.Text="Endpoint evidence:\n"+string.Join("\n",ends.Select(e=>$"{e!["end"]}: {e["status"]}"))+"\n\n"+evidence.Text;
         if(kind=="openings")evidence.Text=$"Jamb positions: {obj["evidence"]?["jamb_positions_m"]?.ToJsonString()??"unknown"} m\nSill/head elevations: {obj["evidence"]?["sill_elevation_m"]} / {obj["evidence"]?["head_elevation_m"]} m\nSigned filling depth: {obj["evidence"]?["signed_interior_depth_m"]?.ToJsonString()??"unobserved"} m\nFrame support: {obj["evidence"]?["edge_support"]?.ToJsonString()??"unknown"}\n\n"+evidence.Text;
+        if(kind=="openings"&&obj["evidence"]?["facade_system"] is JsonObject facade)
+            evidence.Text=$"Glazing: {obj["evidence"]?["classification"]}\nFaçade proposal: {facade["representation"]} ({facade["panel_count"]} bays)\nEditing or flagging a bay disables the whole façade assembly; individual windows remain.\n\n"+evidence.Text;
         UpdateActions();
     }
     static double Parse(string text)
@@ -507,6 +517,12 @@ public sealed class MainWindow : Window
         {
             var path=Path.Combine(output,"walkthrough.punctora");var result=await RunAsync("demo",path,new JsonObject{["two_storeys"]=true});if(result==null)throw new Exception(status.Text);
             await PresentAsync(path,result,true);
+            await Task.Delay(150);
+            var heightMinimum=viewport.View.Scene.HeightMinimum;var heightMaximum=viewport.View.Scene.HeightMaximum;
+            if(!heightLegend.IsVisible||heightLegend.Bounds.Height<100||heightLegend.Bounds.Width<100)
+                throw new Exception("Height legend missing from preview");
+            using(var legendBitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96)))
+            {legendBitmap.Render(this);using var legendStream=File.Create(Path.Combine(output,"height-legend.png"));legendBitmap.Save(legendStream,PngBitmapEncoderOptions.Default);}
             // Logical dimensions reproduce small displays and Windows scaling.
             Width=800;Height=500;await Task.Delay(150);
             if(leftScroll.Extent.Height<=leftScroll.Viewport.Height)throw new Exception("Short window has no scrollable left panel");
@@ -532,6 +548,7 @@ public sealed class MainWindow : Window
             await SaveAsync();if(status.Text!="Project saved.")throw new Exception("Retry after preview failure failed: "+status.Text);
             var previewRecoveryPassed=true;
             foreach(var index in new[]{1,0,2}){cloudColor.SelectedIndex=index;viewport.Redraw();await Task.Delay(30);}
+            if(heightLegend.IsVisible)throw new Exception("Height legend stayed visible in monochrome mode");
             pointSize.Value=5;if(viewport.View.CloudColor!=CloudColorMode.Monochrome||Math.Abs(viewport.View.PointSize-5)>.001)throw new Exception("Point-cloud display controls did not reach the viewport");
             foreach(var index in new[]{1,2,3,0})
             {
@@ -548,7 +565,8 @@ public sealed class MainWindow : Window
                 stressPoints[i*7+3]=.5f;stressPoints[i*7+4]=.6f;stressPoints[i*7+5]=.8f;stressPoints[i*7+6]=1;
             }
             viewport.SetScene(new SceneData{Points=stressPoints,Elements=originalScene.Elements,TotalPoints=210_000_000,
-                Minimum=originalScene.Minimum,Maximum=originalScene.Maximum,PointMinimum=originalScene.PointMinimum,PointMaximum=originalScene.PointMaximum});
+                Minimum=originalScene.Minimum,Maximum=originalScene.Maximum,PointMinimum=originalScene.PointMinimum,PointMaximum=originalScene.PointMaximum,
+                HeightMinimum=originalScene.HeightMinimum,HeightMaximum=originalScene.HeightMaximum,HeightScaleScope=originalScene.HeightScaleScope});
             await Task.Delay(500);
             var uploadCount=viewport.Diagnostics()["point_buffer_uploads"]!.GetValue<int>();
             var modelBeforeOrbit=state["model"]!.ToJsonString();
@@ -580,6 +598,10 @@ public sealed class MainWindow : Window
             await UndoAsync();var cropUndoRestored=state!["crop"]!["polygon"]==null&&!state["model_crop_stale"]!.GetValue<bool>();if(!cropUndoRestored)throw new Exception("Crop undo failed");
             await ApplyCropValueAsync(testCrop,"verification crop");await SaveAsync();await LoadAsync(path);
             var cropSurvivedReopen=state!["crop"]!["polygon"]?.AsArray().Count==4&&state["model_crop_stale"]!.GetValue<bool>();if(!cropSurvivedReopen)throw new Exception("Crop was lost on reopening");
+            if(viewport.View.Scene.HeightMinimum!=heightMinimum||viewport.View.Scene.HeightMaximum!=heightMaximum
+                ||orbitDiagnostics["height_minimum_z_m"]!.GetValue<double>()!=heightMinimum
+                ||orbitDiagnostics["height_maximum_z_m"]!.GetValue<double>()!=heightMaximum)
+                throw new Exception("Project height scale changed while orbiting, cropping or reopening");
             await ClearCropAsync();await SaveAsync();if(state!["model_crop_stale"]!.GetValue<bool>())throw new Exception("Clearing crop did not restore model/crop alignment");
             var sample=state!["model"]!["walls"]![0]!;
             var openingCount=state["model"]!["openings"]!.AsArray().Count;selectedId=sample["id"]!.GetValue<string>();ShowProperties();

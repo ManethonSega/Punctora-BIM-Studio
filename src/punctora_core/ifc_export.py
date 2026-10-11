@@ -13,6 +13,7 @@ import ifcopenshell.validate
 from . import __version__
 from .ifc_geometry import IFCGeometry
 from .model import BuildingModel, slab_opening_footprint, slab_opening_is_validated
+from .glazed_facades import supported_facade_groups
 
 
 def _guid(project, identifier):
@@ -172,7 +173,58 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         provenance(entity, space.id, space.provenance)
 
     hosts = {wall.id: wall for wall in model.walls}
+    glazing_style = file.create_entity('IfcSurfaceStyle', Name='Glazing proposal display', Side='BOTH', Styles=[
+        file.create_entity('IfcSurfaceStyleRendering',
+            SurfaceColour=file.create_entity('IfcColourRgb',Red=.2,Green=.75,Blue=.9),
+            Transparency=.65,ReflectanceMethod='NOTDEFINED')])
+    def glazing_display(product):
+        file.create_entity('IfcStyledItem',Item=product.Representation.Representations[0].Items[0],
+                           Styles=[glazing_style],Name='Inferred glazing appearance; composition unverified')
+    curtain_panels = set()
+    for identifier, openings in sorted(supported_facade_groups(model).items()):
+        evidence = openings[0].evidence['facade_system']
+        host = hosts[openings[0].host_wall_id]
+        frame = wall_frames[host.id].copy()
+        frame[:3, 3] += frame[:3, 0]*evidence['offset'] + np.array([0.,0.,evidence['sill']])
+        void = root('IfcOpeningElement', identifier+'-void', predefined='OPENING')
+        solid(void, rectangle(evidence['width'], host.thickness+.02), evidence['height'], frame)
+        api('feature.add_feature', feature=void, element=wall_entities[host.id])
+        parent = root('IfcCurtainWall', identifier, predefined='NOTDEFINED')
+        api('spatial.assign_container', products=[parent], relating_structure=storeys[host.storey_id])
+        api('geometry.edit_object_placement', product=parent, matrix=frame)
+        api('feature.add_filling', opening=void, element=parent)
+        provenance(parent, identifier, {'assembly':'inferred','material':'unknown'}, {
+            'RepresentationScope':evidence['scope'], 'GeometricEvidence':json.dumps(evidence,sort_keys=True),
+            'PanelCount':len(openings), 'FrameDepthStatus':'inferred envelope; detailed profiles unverified'})
+        # The parent carries no competing solid body. Its geometry is the sum
+        # of measured bay envelopes and the observed narrow intervening frames.
+        for opening in openings:
+            panel_frame = wall_frames[host.id].copy()
+            panel_frame[:3,3] += panel_frame[:3,0]*opening.offset + panel_frame[:3,1]*(
+                evidence['face_offset_from_axis_m']+(opening.evidence.get('signed_interior_depth_m') or 0.))
+            panel_frame[2,3] += opening.sill
+            panel = root('IfcPlate', opening.id, predefined='CURTAIN_PANEL')
+            api('aggregate.assign_object', products=[panel], relating_object=parent)
+            solid(panel, rectangle(opening.width,.01), opening.height,panel_frame)
+            glazing_display(panel)
+            provenance(panel,opening.id,{**opening.provenance,'panel_depth':'inferred','material':'unknown'}, {
+                'ReviewState':opening.review_state,'GeometricEvidence':json.dumps(opening.evidence,sort_keys=True),
+                'RepresentationScope':'Observed bay envelope; 10 mm display/export depth inferred; glass composition unknown'})
+            curtain_panels.add(opening.id)
+        for index, mullion in enumerate(evidence['mullions']):
+            if mullion['width'] <= 0:
+                continue
+            member_frame = wall_frames[host.id].copy()
+            member_frame[:3,3] += member_frame[:3,0]*mullion['offset']+member_frame[:3,1]*evidence['face_offset_from_axis_m']
+            member_frame[2,3] += evidence['sill']
+            member = root('IfcMember',identifier+f'-mullion-{index+1}',predefined='MULLION')
+            api('aggregate.assign_object',products=[member],relating_object=parent)
+            solid(member,rectangle(mullion['width'],.06),evidence['height'],member_frame)
+            provenance(member,identifier+f'-mullion-{index+1}',{'width':'measured','frame_depth':'inferred','material':'unknown'})
+
     for opening in model.openings:
+        if opening.id in curtain_panels or opening.review_state == 'rejected':
+            continue
         host, host_entity = hosts[opening.host_wall_id], wall_entities[opening.host_wall_id]
         frame = wall_frames[opening.host_wall_id].copy()
         frame[:3, 3] += frame[:3, 0]*opening.offset + np.array([0.0, 0.0, opening.sill])
@@ -188,6 +240,8 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         api("spatial.assign_container", products=[filling], relating_structure=storeys[host.storey_id])
         # A simple filling envelope, not a measured sash/leaf construction.
         solid(filling, rectangle(opening.width, host.thickness/4), opening.height, frame)
+        if opening.kind == 'window':
+            glazing_display(filling)
         kind = root(class_name+"Type", opening.id+"-type", predefined="NOTDEFINED")
         if opening.kind == "window":
             kind.PartitioningType = "NOTDEFINED"
@@ -198,7 +252,8 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         api("feature.add_filling", opening=void, element=filling)
         provenance(filling, opening.id, {**opening.provenance, "filling_depth": "inferred", "material": "unknown"},
                    {"RepresentationScope": "simple filling envelope; sash/leaf construction unknown",
-                    "ReviewState": opening.review_state, "GeometricSupportScore": opening.confidence})
+                    "ReviewState": opening.review_state, "GeometricSupportScore": opening.confidence,
+                    "GeometricEvidence": json.dumps(opening.evidence, sort_keys=True)})
 
     stair_systems = {}
     for stair in model.stairs:

@@ -9,6 +9,13 @@ processing. Cancelling a job keeps the latest valid snapshot and marks it
 `cancelled`. Backend fields report actual Punctora compute use; viewport GPU
 rendering is separate and is not reported as reconstruction acceleration.
 
+The cumulative `run2/interactive-preview` candidate is now 0.3.0a21 and contains
+Runs 1 through 4. Adaptive preview draws 75,000 to 100,000 points during movement
+and restores up to 500,000 after it settles. Height mode includes the fixed
+complete-cloud **Local height Z [m]** legend. Glazed façade candidates and their
+IFC window/curtain-wall fallback are described in [Run 4 glazing](RUN_4_GLAZING.md).
+Physical Intel UHD and the two target survey projects remain acceptance checks.
+
 ## Windows preview
 
 Download `Punctora-BIM-Studio-M3-win-x64` from a successful **M3 desktop preview** run on [GitHub Actions](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/workflows/desktop.yml). Extract the artifact, then extract the contained ZIP. Keep all extracted files together and run **Punctora.Desktop.exe**. The portable preview includes .NET 10.0.0, Python 3.12.10 and pinned worker dependencies; it does not need developer tools. This is a preview build. Clean-machine installer acceptance remains M4 work.

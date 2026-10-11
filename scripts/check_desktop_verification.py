@@ -16,6 +16,10 @@ for argument in sys.argv[1:]:
     assert report["preview_failure_recovery_passed"], report
     assert report["small_window_scroll_passed"], report
     assert report["interactive_preview_passed"], report
+    assert report['orbit']['height_minimum_z_m']==report['graphics']['height_minimum_z_m'],report
+    assert report['orbit']['height_maximum_z_m']==report['graphics']['height_maximum_z_m'],report
+    assert report['graphics']['height_scale_scope']=='complete imported cloud in local metres',report
+    assert (directory / 'height-legend.png').stat().st_size>1000
     assert report["orbit"]["coalesced_mouse_moves"] >= 90, report
     assert report["orbit"]["pending_camera_frames"] <= 1, report
     if "OpenGL" in report["viewport_backend"]:

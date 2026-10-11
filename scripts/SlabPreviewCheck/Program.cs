@@ -10,8 +10,18 @@ try
 {
     File.WriteAllBytes(Path.Combine(temporary,"assets","preview.bin"),new byte[24]);
     var state=new JsonObject{["assets_directory"]="assets",["model"]=model,
-        ["preview"]=new JsonObject{["path"]="preview.bin",["point_count"]=1,["source_point_count"]=1L}};
+        ["preview"]=new JsonObject{["path"]="preview.bin",["point_count"]=1,["source_point_count"]=1L,
+            ["height_scale"]=new JsonObject{["minimum_z_m"]=-4.123456789,["maximum_z_m"]=12.987654321}}};
     var scene=SceneData.Load(Path.Combine(temporary,"check.punctora"),state);
+    if(scene.HeightMinimum!=-4.123456789||scene.HeightMaximum!=12.987654321||scene.PointMinimum.Z!=0)
+        throw new Exception("Complete cloud f64 height bounds replaced by display sample bounds");
+    state["crop"]=new JsonObject{["z_min"]=0d,["z_max"]=1d};
+    var cropScene=SceneData.Load(Path.Combine(temporary,"check.punctora"),state);
+    if(cropScene.HeightMinimum!=scene.HeightMinimum||cropScene.HeightMaximum!=scene.HeightMaximum)
+        throw new Exception("Crop changed the project height scale");
+    var original=PointCloudPalette.Color(CloudColorMode.Height,0,0,0,0,(float)scene.HeightMinimum,(float)scene.HeightMaximum);
+    var croppedColor=PointCloudPalette.Color(CloudColorMode.Height,0,0,0,0,(float)cropScene.HeightMinimum,(float)cropScene.HeightMaximum);
+    if(original!=croppedColor)throw new Exception("Crop changed point height colours");
     var unchanged=state.ToJsonString();
     var density=new PreviewDensity();
     density.Input(10);

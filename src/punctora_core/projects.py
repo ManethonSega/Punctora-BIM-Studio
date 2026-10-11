@@ -284,7 +284,7 @@ def load_cloud(path, state):
                      "coordinate_mapping": manifest["coordinate_mapping"]})
 
 
-def write_preview(cloud, directory, generation):
+def write_preview(cloud, directory, generation, working_bounds=None):
     count = min(PREVIEW_LIMIT, len(cloud.points))
     ids = spatial_preview_indices(cloud.points, count)
     preview = np.empty((count, 6), dtype="<f4")
@@ -297,7 +297,20 @@ def write_preview(cloud, directory, generation):
         valid = cloud.color_valid[ids] if cloud.color_valid is not None else np.ones(count, dtype=bool)
         preview[valid, 3:] = np.clip(color[valid] / scale, 0, 1)
     preview.tofile(directory / "preview.bin")
+    # E57 import already measured the complete cloud. Reuse those f64 bounds
+    # instead of inferring a height scale from the display sample or crop.
+    if working_bounds is not None:
+        minimum_z = float(working_bounds['minimum'][2])
+        maximum_z = float(working_bounds['maximum'][2])
+    else:
+        minimum_z, maximum_z = float('inf'), float('-inf')
+        for begin in range(0, len(cloud.points), 200_000):
+            z = cloud.points[begin:begin+200_000, 2]
+            minimum_z = min(minimum_z, float(z.min()))
+            maximum_z = max(maximum_z, float(z.max()))
     return {"format": "xyzrgb-f32-le", "path": f"generations/{generation}/preview.bin",
+            "height_scale": {"minimum_z_m": minimum_z, "maximum_z_m": maximum_z,
+                             "scope": "complete imported cloud in local metres"},
             "point_count": count, "source_point_count": len(cloud.points),
             "sampling": ("deterministic spatial-cell sample from up to "
                          f"{count * PREVIEW_CANDIDATE_MULTIPLIER:,} distributed source rows; display only"),
@@ -375,7 +388,7 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
                 cloud, manifest, kind = demo_cloud(two_storeys), None, "fixture"
                 np.save(stage / "points.npy", cloud.points, allow_pickle=False)
             progress(70, "Preparing preview")
-            preview = write_preview(cloud, stage, job_id)
+            preview = write_preview(cloud, stage, job_id, manifest['working_bounds_m'] if manifest else None)
             model = None
             if not source:
                 progress(80, "Reconstructing example")
@@ -538,6 +551,8 @@ def edit_model(state, data, element_id, changes):
         setattr(element, field, value)
         if field not in {"name", "review_state", "ifc_cut_approved"}:
             element.provenance[field] = "user_supplied"
+    if element in model.openings and element.evidence.get('facade_system') and set(changes)-{"review_state"}:
+        element.evidence["facade_geometry_stale"] = True
     if element in model.slab_openings:
         if set(changes)-{"review_state", "ifc_cut_approved"}:
             element.ifc_cut_approved = False
