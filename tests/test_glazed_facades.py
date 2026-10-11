@@ -188,3 +188,35 @@ def test_floor_height_glazing_without_vertical_sill_falls_back_to_windows():
     assert len(openings)==6 and all(o.kind=='window' for o in openings)
     assert all(o.evidence['facade_system']['representation']=='repeated_windows' for o in openings)
     assert all(o.evidence['classification']=='floor_to_ceiling_glazing' for o in openings)
+
+
+@pytest.mark.parametrize('recess',[False,True])
+@pytest.mark.parametrize('height,kind',[(2.1,'door'),(2.8,'window')])
+def test_double_width_portal_uses_frame_evidence_and_keeps_full_height_glazing(recess,height,kind):
+    x,z=np.meshgrid(np.arange(0,5,.02),np.arange(0,3,.02))
+    points=np.column_stack([x.ravel(),np.full(x.size,.1),z.ravel()])
+    inside=(points[:,0]>=.8)&(points[:,0]<2.6)&(points[:,2]<height)
+    if recess:
+        points[inside,1]=.03
+    else:
+        points=points[~inside]
+    x,y=np.meshgrid(np.arange(0,5,.02),np.arange(-1,1,.02))
+    floor=np.column_stack([x.ravel(),y.ravel(),np.zeros(x.size)])
+    points=np.vstack([points,floor])
+    cloud=CloudData(points,scan_index=np.zeros(len(points),np.uint32),
+                    source_record_index=np.arange(len(points),dtype=np.uint64)+np.uint64(2**53+1))
+    wall=Wall('w','s',(0,0),(5,0),0,3,.2,
+              observed_faces=[{'start':[0,.1],'end':[5,.1],'z_min':0.,'z_max':3.}])
+    index=SpatialPointIndex.build(cloud,.2,memory_budget_bytes=256000)
+    try:
+        openings=detect_openings(cloud,[wall],ReconstructionSettings(),spatial_index=index)
+    finally:
+        index.close()
+    assert len(openings)==1 and openings[0].kind==kind
+    evidence=openings[0].evidence
+    assert evidence['doorway_evidence']['supported']==(kind=='door')
+    assert min(evidence['edge_support_fractions'])>=.65
+    file=create_ifc(model_for(wall,openings))
+    assert len(file.by_type('IfcDoor'))==int(kind=='door')
+    assert len(file.by_type('IfcWindow'))==int(kind=='window')
+    assert validate_ifc(file)['valid']

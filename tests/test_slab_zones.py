@@ -31,6 +31,28 @@ def test_zone_sequence_rejects_landings_and_pairs_faces():
     assert all(0 <= idx < len(points) for c in report["candidates"] for idx in c["source_point_evidence"]["lower_working_indices"])
 
 
+@pytest.mark.parametrize('patch_heights',[(.3,), (2.5,), (.3,2.5)])
+def test_small_horizontal_patches_do_not_shift_building_floor_or_ceiling(patch_heights):
+    sample=planes([0.,3.])
+    xy=np.array([(x,y) for x in np.arange(1,2.01,.04) for y in np.arange(1,3.01,.04)])
+    patches=np.concatenate([np.column_stack([xy,np.full(len(xy),z)]) for z in patch_heights])
+    points=np.vstack([sample.points,patches])
+    sample=DetectionSample(points,np.arange(len(points)),.04,len(points))
+    levels,zones,surfaces,report=detect_slab_zones(sample,ReconstructionSettings())
+    assert len(levels)==1
+    assert (levels[0].elevation,levels[0].ceiling)==pytest.approx((0.,3.))
+    assert all(not zone['paired'] for zone in zones)
+    rejected=[c for c in report['candidates']
+              if 'insufficient_independent_face_coverage' in c['rejection_reasons']]
+    assert rejected and all(not c['selected'] for c in rejected)
+    assert all(min(c['lower_face_overlap_fraction'],c['upper_face_overlap_fraction'])<.45 for c in rejected)
+    slabs,_=slab_zone_geometry(zones,surfaces,levels,ReconstructionSettings())
+    assert len(slabs)==2
+    assert slabs[0].base+slabs[0].thickness==pytest.approx(0.)
+    assert slabs[1].base==pytest.approx(3.)
+    assert all(s.provenance['thickness']=='inferred' for s in slabs)
+
+
 def test_occupancy_keeps_concavity_components_and_large_hole():
     shape = Polygon([(0,0),(6,0),(6,2),(4,2),(4,4),(0,4)],
                     holes=[[(1,1),(2,1),(2,2),(1,2)]])

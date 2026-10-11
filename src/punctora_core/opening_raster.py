@@ -124,8 +124,11 @@ def _one_wall(cloud,wall,settings,visit=lambda _: None):
                 # A horizontal floor can fill row zero. A sill requires
                 # original face returns spanning a vertical interval there.
                 sill_support=float(vertical_sill[x:x+width].mean())
+            # Use the accepted opening span for single and double portals.
+            # A separate 1.5 m cap discarded supported double doorways;
+            # classification still requires the observed floor/frame evidence.
             portal=(z<=1 and sill_support<.15 and wall.height-sill-h>=.35
-                    and .65<=w<=1.5 and h>=1.65)
+                    and .65<=w<=3.2 and h>=1.65)
             floor_glazing=sill<=.2 and wall.height-sill-h<=.25
             kind='door' if portal else 'window' if floor_glazing or .05<=sill<=1.8 else 'unknown'
             strips={'left_jamb':filled[z:z+height,x-2:x],'right_jamb':filled[z:z+height,x+width:x+width+2],

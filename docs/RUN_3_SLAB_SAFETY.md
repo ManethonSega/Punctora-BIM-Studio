@@ -39,6 +39,15 @@ reopened from the actual IFC, rather than the original occupancy masks.
 
 ## Fragment consolidation
 
+Slab face pairing requires the existing overlap threshold to be met on both
+independent face areas. Containment of a small horizontal patch inside a large
+floor or ceiling is insufficient to infer that larger slab's thickness or
+shift a storey's height limits. Candidates retain both coverage fractions and
+an explicit rejection reason. The original large scan exposed this failure:
+small patches previously shifted both boundaries and clipped wall/opening
+evidence. Single supported boundaries remain usable with inferred thickness;
+no customer elevations or footprints are hardcoded.
+
 Coplanar roof/ceiling fragments can be joined across supported scan seams up to
 the existing `slab_close_gap_m` limit (default 0.16 m). The bridge requires a
 substantial adjacent boundary and a bounded inferred area. It preserves
@@ -55,8 +64,10 @@ independent global stair detection and real IFC cut volumes, unconfirmed stair
 proposals, and bounded seam consolidation. Native preview verification checks
 filled slab caps, approved voids and visible review markers.
 
-The customer E57/project with the reported 33 false holes is not available in
-this workspace. Field acceptance remains pending: rerun detection in this
+The original 210,167,583-point E57 is now available and its complete original
+record sequence has been verified. The later accepted project model is still
+needed for exact before/after geometry comparison. Field acceptance remains
+pending: rerun detection in this
 candidate, confirm zero fixture cuts, inspect the real staircase and required
 clearance, and check that uncertain candidates stay out of exported IFC.
 Generated regressions and Windows CI cannot establish that project-specific

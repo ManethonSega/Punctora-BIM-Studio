@@ -1,6 +1,6 @@
 # Run 4: glazed façade reconstruction and height legend
 
-Candidate version: 0.3.0a21. This continues on `run2/interactive-preview`,
+Candidate version: 0.3.0a23. This continues on `run2/interactive-preview`,
 the cumulative candidate containing Runs 1 through 4. Main is unchanged.
 
 ## Dedicated frame geometry
@@ -25,7 +25,11 @@ Evidence distinguishes observed jamb positions from clipped opening bounds.
 
 Floor-to-ceiling bays remain windows. Automatic ordinary doors require a
 floor-connected portal without a supported sill, supported jambs/head, a
-bounded width and separation between the head and storey ceiling. Low sill
+bounded width and separation between the head and storey ceiling. Single and
+double doorways share the accepted ordinary opening span of up to 3.2 m;
+the former separate 1.5 m door cap incorrectly rejected supported double
+portals. Regression cases check both empty and recessed 1.8 m portals,
+IFC door export, and ceiling-height glazing remaining `IfcWindow`. Low sill
 and sufficient height alone cannot classify a door. Material and operability
 are still inferred or unknown; these are geometric proposals requiring review.
 Floor returns are distinguished from a sill by the vertical extent of original
@@ -96,7 +100,12 @@ one window, 12 doors, one stair flight and 46 opening entities. Its accompanying
 210,167,583-point diagnostics report 2,616 passes and 5,879.84 seconds. These are
 old-run measurements, not results from the new index or façade detector.
 
-The 210-million-point cloud has not been located. A screenshot cannot verify
+The original 210,167,583-point E57 has now been downloaded from seven split
+archive parts. Archive CRC verification passed. All records imported with f64
+coordinates, uint32 scan IDs and uint64 original E57 record IDs; the complete
+scan/record sequence was checked without drops. This provides the original
+evidence for recognition investigation. Import and scoped geometry checks are
+not full-project recognition acceptance. A screenshot cannot verify
 the new geometric classification on that cloud. Generated fixtures, successful
 import and CI cannot close the real-project exit requirements. Rerun both
 projects on the customer computer, inspect façade and staircase IFC, check zero

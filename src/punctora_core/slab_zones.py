@@ -147,11 +147,18 @@ def detect_slab_zones(sample, settings):
             thickness = upper.elevation-lower.elevation
             if thickness > settings.slab_maximum_thickness_m:
                 break
-            overlap = lower.geometry.intersection(upper.geometry).area/min(lower.geometry.area, upper.geometry.area)
+            intersection = lower.geometry.intersection(upper.geometry).area
+            overlap = intersection/min(lower.geometry.area, upper.geometry.area)
+            both_face_overlap = intersection/max(lower.geometry.area, upper.geometry.area)
             angle = float(np.degrees(np.arccos(np.clip(np.dot(lower.normal,upper.normal),-1,1))))
             if (thickness >= settings.slab_minimum_thickness_m and overlap >= settings.slab_minimum_face_overlap
                     and angle <= 5.):
-                candidates.append({"lower": i, "upper": j, "paired": True})
+                # A small table, landing or ceiling patch may lie almost
+                # entirely inside a floor face. That cannot establish the
+                # thickness of the entire larger slab or move its storey.
+                candidates.append({"lower": i, "upper": j, "paired": True,
+                    "rejection_reasons": [] if both_face_overlap >= settings.slab_minimum_face_overlap
+                    else ["insufficient_independent_face_coverage"]})
             elif (j == i+1 and thickness >= settings.slab_minimum_thickness_m
                   and overlap < .01 and min(lower.geometry.area, upper.geometry.area) >= minimum_area):
                 # Separate partial floor plates can delimit a short vertical
@@ -162,12 +169,16 @@ def detect_slab_zones(sample, settings):
     for candidate in candidates:
         a, b = surfaces[candidate["lower"]], surfaces[candidate["upper"]]
         area = max(a.geometry.area, b.geometry.area)
+        intersection = a.geometry.intersection(b.geometry).area
         candidate.update(bottom_m=a.elevation, top_m=b.elevation,
                          horizontal_support_area_m2=area,
-                         upper_lower_overlap_fraction=(a.geometry.intersection(b.geometry).area/
-                             min(a.geometry.area, b.geometry.area)),
+                         upper_lower_overlap_fraction=intersection/area,
+                         lower_face_overlap_fraction=intersection/a.geometry.area,
+                         upper_face_overlap_fraction=intersection/b.geometry.area,
+                         face_overlap_scope="intersection coverage required on both independent faces",
                          confidence=min(.95, .45+.25*area/largest+(.2 if candidate["paired"] else 0)),
-                         rejection_reasons=[] if area >= minimum_area else ["insufficient_building_scale_horizontal_support"])
+                         rejection_reasons=candidate.get("rejection_reasons", []) +
+                             ([] if area >= minimum_area else ["insufficient_building_scale_horizontal_support"]))
         candidate["score"] = (1.+area/largest+(1.2 if candidate["paired"] else 0)
                               +(.6*min(a.geometry.area,b.geometry.area)/largest if candidate["paired"] else 0)
                               -(.8*abs(b.elevation-a.elevation-settings.assumed_slab_thickness_m)
