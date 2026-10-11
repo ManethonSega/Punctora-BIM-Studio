@@ -49,6 +49,8 @@ def _one_wall(cloud,wall,settings,visit=lambda _: None):
         signed=np.full((nz,raster_width),np.nan,np.float32)
         counts=np.zeros((nz,raster_width),np.int64)
         sums=np.zeros((nz,raster_width),float)
+        floor_face_min=np.full(raster_width,np.inf)
+        floor_face_max=np.full(raster_width,-np.inf)
         support=0
         for begin in range(0,len(cloud.points),settings.processing_chunk_points):
             points=cloud.points[begin:begin+settings.processing_chunk_points]
@@ -65,6 +67,9 @@ def _one_wall(cloud,wall,settings,visit=lambda _: None):
             returns[h,x]=1
             near=np.abs(d)<=max(.02,settings.grid_size_m)
             face[h[near],x[near]]=1
+            low=near&(h==0)
+            np.minimum.at(floor_face_min,x[low],z[keep][low])
+            np.maximum.at(floor_face_max,x[low],z[keep][low])
             np.add.at(counts,(h,x),1)
             np.add.at(sums,(h,x),d)
             np.minimum.at(depth,(h,x),np.abs(d).astype(np.float32))
@@ -81,12 +86,14 @@ def _one_wall(cloud,wall,settings,visit=lambda _: None):
         np.divide(sums,counts,out=signed,where=counts>0)
         filled=cv2.morphologyEx(face,cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
         from .glazed_facades import frame_bays
-        facade = frame_bays(wall, filled, returns, depth, signed, reference, cell, settings, padding)
+        vertical_sill=(floor_face_max-floor_face_min)>=min(.015,cell*.3)
+        facade = frame_bays(wall, filled, returns, depth, signed, reference, cell, settings, padding, vertical_sill)
         candidates.extend(facade)
         # Ordinary bounded openings keep the original host raster and rules.
         # Façade frame evidence may extend just beyond fitted host endpoints;
         # its exported bay envelopes are clipped to the finite host span.
         face,filled,returns,depth,signed=(a[:,padding:padding+nx] for a in (face,filled,returns,depth,signed))
+        vertical_sill=vertical_sill[padding:padding+nx]
         missing=1-filled
         count,labels,stats,_=cv2.connectedComponentsWithStats(missing,8)
         boxes=[]
@@ -113,6 +120,10 @@ def _one_wall(cloud,wall,settings,visit=lambda _: None):
             # separation between the head and the storey ceiling.
             sill_strip=filled[:max(1,z),x:x+width]
             sill_support=float(sill_strip.mean()) if sill_strip.size else 0.
+            if z<=1:
+                # A horizontal floor can fill row zero. A sill requires
+                # original face returns spanning a vertical interval there.
+                sill_support=float(vertical_sill[x:x+width].mean())
             portal=(z<=1 and sill_support<.15 and wall.height-sill-h>=.35
                     and .65<=w<=1.5 and h>=1.65)
             floor_glazing=sill<=.2 and wall.height-sill-h<=.25
@@ -141,6 +152,7 @@ def _one_wall(cloud,wall,settings,visit=lambda _: None):
                           classification='floor_to_ceiling_glazing' if floor_glazing else kind,
                           doorway_evidence={'supported':portal,'floor_connected':z<=1,
                               'sill_support_fraction':sill_support,'head_clearance_m':wall.height-sill-h,
+                              'sill_basis':'original face vertical extent in floor cell' if z<=1 else 'supported above-floor frame',
                               'bounded_jambs_and_head':True},
                           cell_size_m=cell,face_offset_from_axis_m=reference,edge_support=edge,edge_support_fractions=list(edge.values()),
                           jamb_positions_m=[x*cell,(x+width)*cell],sill_elevation_m=wall.base+actual_sill,

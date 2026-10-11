@@ -150,3 +150,41 @@ def test_full_reconstruction_finds_facade_without_supplied_wall_geometry():
         assert validate_ifc(file)['valid']
     finally:
         model._spatial_index.close()
+
+
+@pytest.mark.parametrize('recess',[False,True])
+def test_floor_returns_do_not_turn_normal_door_into_a_window(recess):
+    from test_features import wall_cloud,recessed_filling_cloud
+    cloud=recessed_filling_cloud() if recess else wall_cloud()
+    x,y=np.meshgrid(np.arange(0,5,.025),np.arange(-1,1,.025))
+    floor=np.column_stack([x.ravel(),y.ravel(),np.zeros(x.size)])
+    wall=Wall('w','s',(0,0),(5,0),0,3,.2)
+    openings=detect_openings(CloudData(np.vstack([cloud.points,floor])),[wall],ReconstructionSettings())
+    assert [o.kind for o in openings]==['door','window']
+    assert openings[0].sill==0 and openings[0].height==pytest.approx(2.1)
+    assert openings[0].evidence['doorway_evidence']['sill_support_fraction']==0
+
+
+def test_repeated_doorways_with_floor_returns_are_not_a_glazed_facade():
+    x,z=np.meshgrid(np.arange(0,6.1,.02),np.arange(0,3,.02))
+    points=np.column_stack([x.ravel(),np.zeros(x.size),z.ravel()])
+    missing=np.zeros(len(points),bool)
+    for i in range(6):
+        missing|=(points[:,0]>=.1+i)&(points[:,0]<1.+i)&(points[:,2]<2.1)
+    points=points[~missing]
+    x,y=np.meshgrid(np.arange(0,6.1,.02),np.arange(-1,1,.02))
+    floor=np.column_stack([x.ravel(),y.ravel(),np.zeros(x.size)])
+    wall=Wall('w','s',(0,0),(6.1,0),0,3,.2)
+    openings=detect_openings(CloudData(np.vstack([points,floor])),[wall],ReconstructionSettings())
+    assert len(openings)==6 and all(o.kind=='door' for o in openings)
+    assert all('facade_system' not in o.evidence for o in openings)
+
+
+def test_floor_height_glazing_without_vertical_sill_falls_back_to_windows():
+    cloud,wall=facade(sill=0.)
+    x,y=np.meshgrid(np.arange(125.,138.,.02),np.arange(-39.,-37.,.02))
+    floor=np.column_stack([x.ravel(),y.ravel(),np.zeros(x.size)])
+    openings=detect_openings(CloudData(np.vstack([cloud.points,floor])),[wall],ReconstructionSettings())
+    assert len(openings)==6 and all(o.kind=='window' for o in openings)
+    assert all(o.evidence['facade_system']['representation']=='repeated_windows' for o in openings)
+    assert all(o.evidence['classification']=='floor_to_ceiling_glazing' for o in openings)

@@ -8,7 +8,7 @@ import numpy as np
 from .model import Opening
 
 
-def frame_bays(wall, face, returns, depth, signed, reference, cell, settings, padding=0):
+def frame_bays(wall, face, returns, depth, signed, reference, cell, settings, padding=0, vertical_sill=None):
     nz, nx = face.shape
     count, labels, stats, _ = cv2.connectedComponentsWithStats(1-face, 8)
     bays = []
@@ -20,7 +20,11 @@ def frame_bays(wall, face, returns, depth, signed, reference, cell, settings, pa
         strips = [face[z:z+h,max(0,x-2):x],face[z:z+h,x+w:min(nx,x+w+2)],
                   face[max(0,z-2):z,x:x+w],face[z+h:min(nz,z+h+2),x:x+w]]
         edges = [float(a.mean()) if a.size else 0. for a in strips]
-        if min(edges) < settings.opening_minimum_edge_support:
+        if z==1 and vertical_sill is not None:
+            edges[2]=float(vertical_sill[x:x+w].mean())
+        floor_height=(z<=1 and wall.height-(z+h)*cell<=.25)
+        required_edges=edges[:2]+edges[3:] if floor_height else edges
+        if min(required_edges) < settings.opening_minimum_edge_support:
             continue
         interior = returns[z:z+h,x:x+w] > 0
         occupancy = float(interior.mean())
@@ -65,6 +69,7 @@ def frame_bays(wall, face, returns, depth, signed, reference, cell, settings, pa
         head_support = float(face[top:min(nz,top+2),a['x']:b['x']+b['w']].mean())
         aligned = len({(p['z'],p['h']) for p in sequence}) == 1
         continuous = (len(sequence)>=4 and aligned and max(gaps)<=.16
+                      and min(p['edges'][2] for p in sequence)>=settings.opening_minimum_edge_support
                       and min(bottom_support,head_support)>=.75)
         identifier = f"{wall.id}-facade-{a['x']}-{z}"
         frame = dict(host_wall_id=wall.id,host_geometry=[*wall.start,*wall.end,wall.base,wall.height,wall.thickness],
@@ -93,7 +98,7 @@ def frame_bays(wall, face, returns, depth, signed, reference, cell, settings, pa
                 raster_frame=dict(along_origin_xy=list(wall.start),
                     along_direction_xy=((np.asarray(wall.end)-wall.start)/np.linalg.norm(np.asarray(wall.end)-wall.start)).tolist(),
                     z_origin_m=wall.base,face_offset_from_axis_m=reference,shape_rows_columns=[nz,nx],along_padding_m=padding*cell),
-                doorway_evidence={'supported':False,'reason':'supported sill and repeated façade frame'},
+                doorway_evidence={'supported':False,'reason':'repeated façade frame with supported sill or ceiling-height head'},
                 scope=frame['scope'])
             result.append(Opening('',wall.id,'window',bay['offset'],sill,bay['width'],height,
                           {'dimensions':'measured','kind':'inferred','material':'unknown'},

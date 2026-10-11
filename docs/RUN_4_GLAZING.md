@@ -9,12 +9,14 @@ The opening stage reuses the existing spatial index and original local points.
 It searches independently supported rectangular bays on observed local depth
 planes, including sparse frame planes behind or in front of a dominant glass
 return plane. A small depth histogram is collected during the first raster
-pass, rather than adding a cloud traversal. Up to three local planes are
-examined, and their actual repeated point visits remain in diagnostics.
+pass, rather than adding a cloud traversal. Secondary depth planes are added
+only while fewer than three planes are queued; existing observed planes are
+retained. Actual repeated point visits remain in diagnostics.
 The complete cloud is not resampled or converted to f32 for reconstruction.
 
-Repeated bays require supported vertical jambs, sill and head rails, consistent
-height and spacing, and empty or consistently recessed interiors. Long façade
+Repeated bays require supported vertical jambs and head rails, plus a supported
+sill or a ceiling-height head, consistent height and spacing, and empty or
+consistently recessed interiors. Long façade
 sequences do not inherit the ordinary opening width/height caps. The sequence
 must contain at least two bays and span 4.5 m. Frame support is inspected up to
 0.2 m past fitted host endpoints, because fitting can shorten a host to its
@@ -26,6 +28,11 @@ floor-connected portal without a supported sill, supported jambs/head, a
 bounded width and separation between the head and storey ceiling. Low sill
 and sufficient height alone cannot classify a door. Material and operability
 are still inferred or unknown; these are geometric proposals requiring review.
+Floor returns are distinguished from a sill by the vertical extent of original
+face points in the lowest raster cell. A flat floor alone cannot establish a
+sill or turn a sequence of ordinary doorways into a glazed façade.
+Repeated ceiling-height glazing without vertical sill evidence uses individual
+windows, rather than claiming a supported continuous curtain-wall assembly.
 
 ## IFC policy
 
