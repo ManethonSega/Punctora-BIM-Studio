@@ -51,3 +51,37 @@ def test_legacy_project_preview_is_rebuilt_without_changing_revision(tmp_path):
     assert reopened["revision"] == old["revision"]
     assert path.read_bytes() == before
     assert all(e["preview_geometry"]["surface_triangles_xy"] for kind in ["landings", "slab_openings"] for e in reopened["model"][kind])
+
+
+def test_render_simplification_preserves_voids_and_exact_ifc_geometry():
+    from copy import deepcopy
+    import numpy as np
+    import ifcopenshell.geom
+    from punctora_core.ifc_export import create_ifc
+    # Dense survey contour with submillimetre detail that has no screen value.
+    boundary = [(i / 20, .0004 * (i % 2)) for i in range(201)] + [(10, 10), (0, 10)]
+    model = BuildingModel("Render only", storeys=[Storey("level", "Level", 0, 3, boundary)],
+        slabs=[Slab("floor", "level", boundary, -.2, .2)],
+        slab_openings=[SlabOpening("hole", "floor", (4, 4), (5, 4), 1)])
+    original = deepcopy(model.slabs[0].footprint)
+    snapshot = model.to_dict()
+    mesh = snapshot["slabs"][0]["preview_geometry"]
+    exact = unary_union([Polygon(t) for t in mesh["surface_triangles_xy"]])
+    render = unary_union([Polygon(t) for t in mesh["render_surface_triangles_xy"]])
+    assert len(mesh["render_surface_triangles_xy"]) < len(mesh["surface_triangles_xy"]) / 2
+    assert len(render.interiors) == len(exact.interiors) == 1
+    assert render.hausdorff_distance(exact) <= .002 + 1e-9
+    assert render.symmetric_difference(exact).area <= exact.area * .001
+    assert model.slabs[0].footprint == snapshot["slabs"][0]["footprint"] == original
+
+    def vertices(source):
+        file = create_ifc(source)
+        settings = ifcopenshell.geom.settings()
+        settings.set(settings.USE_WORLD_COORDS, True)
+        shape = ifcopenshell.geom.create_shape(settings, file.by_type("IfcSlab")[0])
+        return np.asarray(shape.geometry.verts).reshape(-1, 3).copy()
+
+    before = vertices(model)
+    # Reopening a serialized preview must not substitute the render contours.
+    after = vertices(BuildingModel.from_dict(snapshot))
+    assert np.array_equal(before, after)

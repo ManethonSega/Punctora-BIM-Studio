@@ -13,6 +13,12 @@ for argument in sys.argv[1:]:
     assert report["feature_add_delete_passed"], report
     assert report["preview_failure_recovery_passed"], report
     assert report["small_window_scroll_passed"], report
+    assert report["interactive_preview_passed"], report
+    assert report["orbit"]["coalesced_mouse_moves"] >= 90, report
+    assert report["orbit"]["pending_camera_frames"] <= 1, report
+    if "OpenGL" in report["viewport_backend"]:
+        assert 75_000 <= report["orbit"]["active_points"] <= 100_000, report
+    assert report["graphics"]["preview_quality"] == "Adaptive", report
     assert (directory / "small-window.png").stat().st_size > 1000
     assert report["graphics"]["render_callbacks"] > 0, report
     assert report["graphics"]["cloud_color_mode"] == "Monochrome", report

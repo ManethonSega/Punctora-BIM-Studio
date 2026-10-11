@@ -18,6 +18,8 @@ public sealed class MainWindow : Window
     readonly SceneViewport viewport;
     readonly TextBlock status=Text("Open a project, import an E57 or try the example.",12);
     readonly TextBlock backend=Text("Initializing graphics",11);
+    readonly TextBlock frameDiagnostics=Text("Frame diagnostics appear while moving the view.",11);
+    readonly ComboBox previewQuality=new(){ItemsSource=new[]{"Adaptive","Low","Medium","High"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly TextBlock projectTitle=Text("No project open",18);
     readonly TextBlock counts=Text("",11);
     readonly TextBlock warnings=Text("Review candidates against the scan before accepting geometry.",12);
@@ -54,16 +56,17 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a18 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
+        Title="Punctora BIM Studio | 0.3.0a19 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
+        viewport.FrameDiagnosticsChanged=value=>frameDiagnostics.Text=value;
         viewport.ElementSelected=id=>{selectedId=id;var index=Array.IndexOf(elementIds,id);elements.SelectedIndex=index;ShowProperties();viewport.View.Selected=id;viewport.Redraw();};
         var root=new Grid{RowDefinitions=new RowDefinitions("Auto,Auto,*,Auto"),Margin=new Thickness(18,14)};
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a18",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a19",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new WrapPanel{Orientation=Orientation.Horizontal,ItemSpacing=8,LineSpacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -78,6 +81,8 @@ public sealed class MainWindow : Window
         cloud.IsCheckedChanged+=(_,_)=>{viewport.View.Cloud=cloud.IsChecked==true;viewport.Redraw();};
         model.IsCheckedChanged+=(_,_)=>{viewport.View.Model=model.IsChecked==true;viewport.Redraw();};options.Children.Add(cloud);options.Children.Add(model);
         options.Children.Add(Text("Point cloud colours",11));options.Children.Add(cloudColor);
+        options.Children.Add(Text("Preview quality",11));options.Children.Add(previewQuality);
+        previewQuality.SelectionChanged+=(_,_)=>viewport.SetQuality((PreviewQuality)Math.Max(0,previewQuality.SelectedIndex));
         cloudColor.SelectionChanged+=(_,_)=>{viewport.View.CloudColor=cloudColor.SelectedIndex switch{1=>CloudColorMode.Original,2=>CloudColorMode.Monochrome,_=>CloudColorMode.Height};viewport.Redraw();};
         var pointSizeLabel=Text("Point size: 2.5 px",11);options.Children.Add(pointSizeLabel);options.Children.Add(pointSize);
         pointSize.PropertyChanged+=(_,e)=>{if(e.Property==Slider.ValueProperty){viewport.View.PointSize=(float)pointSize.Value;pointSizeLabel.Text=$"Point size: {pointSize.Value:F1} px";viewport.Redraw();}};
@@ -98,7 +103,7 @@ public sealed class MainWindow : Window
         leftScroll.Content=left;body.Children.Add(Panel(leftScroll));
         var center=new Grid{RowDefinitions=new RowDefinitions("*,Auto")};Grid.SetColumn(center,2);body.Children.Add(center);
         center.Children.Add(new Border{Child=viewport,CornerRadius=new CornerRadius(10),ClipToBounds=true});
-        var viewFooter=new StackPanel{Spacing=4,Margin=new Thickness(8,8,8,0)};viewFooter.Children.Add(counts);viewFooter.Children.Add(Text("Drag: orbit  ·  Right-drag: pan  ·  Wheel: zoom  ·  Click model: select",11));viewFooter.Children.Add(backend);Grid.SetRow(viewFooter,1);center.Children.Add(viewFooter);
+        var viewFooter=new StackPanel{Spacing=4,Margin=new Thickness(8,8,8,0)};viewFooter.Children.Add(counts);viewFooter.Children.Add(Text("Drag: orbit  ·  Right-drag: pan  ·  Wheel: zoom  ·  Click model: select",11));viewFooter.Children.Add(frameDiagnostics);viewFooter.Children.Add(backend);Grid.SetRow(viewFooter,1);center.Children.Add(viewFooter);
         var inspector=new StackPanel{Spacing=10,Margin=new Thickness(14)};inspector.Children.Add(selectedTitle);inspector.Children.Add(fieldsPanel);inspector.Children.Add(Text("Review state",11));inspector.Children.Add(review);inspector.Children.Add(Text("Wall classification",11));inspector.Children.Add(classification);
         apply=Button("Apply correction",ApplyAsync);inspector.Children.Add(apply);
         inspector.Children.Add(Text("FEATURE CORRECTIONS",11));
@@ -235,7 +240,7 @@ public sealed class MainWindow : Window
             warnings.Text=string.Join("\n\n",state["warnings"]!.AsArray().Select(n=>n!.GetValue<string>()).Concat(model?["warnings"]?.AsArray().Select(n=>n!.GetValue<string>())??[]).Distinct());
             var performance=model?["metadata"]?["performance"] as JsonObject;
             var computeBackend=performance?["compute_backend"]?.GetValue<string>();
-            if(computeBackend!=null)backend.Text=$"Geometry backend: {computeBackend} · {performance?["cpu_workers"]?.GetValue<int>()??0} CPU workers";
+            backend.Text=viewport.Backend;
             var cropState=cropPolygon!=null||cropLow!=null||cropHigh!=null
                 ?(state["model_crop_stale"]!.GetValue<bool>()?" · crop changed, detection required":" · crop active"):"";
             counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {model?["walls"]?.AsArray().Count??0} walls, {model?["slabs"]?.AsArray().Count??0} slabs, {model?["slab_openings"]?.AsArray().Count??0} slab openings, {model?["openings"]?.AsArray().Count??0} wall openings, {model?["stairs"]?.AsArray().Count??0} flights, {model?["landings"]?.AsArray().Count??0} landings · local metres{cropState}";
@@ -520,6 +525,42 @@ public sealed class MainWindow : Window
             var previewRecoveryPassed=true;
             foreach(var index in new[]{1,0,2}){cloudColor.SelectedIndex=index;viewport.Redraw();await Task.Delay(30);}
             pointSize.Value=5;if(viewport.View.CloudColor!=CloudColorMode.Monochrome||Math.Abs(viewport.View.PointSize-5)>.001)throw new Exception("Point-cloud display controls did not reach the viewport");
+            foreach(var index in new[]{1,2,3,0})
+            {
+                previewQuality.SelectedIndex=index;
+                if(viewport.View.Density.Quality!=(PreviewQuality)index)throw new Exception("Preview quality control did not reach renderer");
+            }
+            var originalScene=viewport.View.Scene;
+            var stressPoints=new float[500_000*7];
+            for(var i=0;i<500_000;i++)
+            {
+                var p=originalScene.PointMinimum+(originalScene.PointMaximum-originalScene.PointMinimum)*new System.Numerics.Vector3(
+                    (i%997)/996f,((i*313L)%991)/990f,((i*419L)%983)/982f);
+                stressPoints[i*7]=p.X;stressPoints[i*7+1]=p.Y;stressPoints[i*7+2]=p.Z;
+                stressPoints[i*7+3]=.5f;stressPoints[i*7+4]=.6f;stressPoints[i*7+5]=.8f;stressPoints[i*7+6]=1;
+            }
+            viewport.SetScene(new SceneData{Points=stressPoints,Elements=originalScene.Elements,TotalPoints=210_000_000,
+                Minimum=originalScene.Minimum,Maximum=originalScene.Maximum,PointMinimum=originalScene.PointMinimum,PointMaximum=originalScene.PointMaximum});
+            await Task.Delay(500);
+            var uploadCount=viewport.Diagnostics()["point_buffer_uploads"]!.GetValue<int>();
+            var modelBeforeOrbit=state["model"]!.ToJsonString();
+            var yawBefore=viewport.View.Camera.Yaw;
+            viewport.BeginDiagnosticOrbit();
+            for(var i=0;i<90;i++)
+            {
+                for(var j=0;j<16;j++)viewport.DiagnosticOrbit(new Avalonia.Point(i+j/16d,0));
+                if(viewport.PendingFrames>1)throw new Exception("Camera requests queued more than one frame");
+                await Task.Delay(16);
+            }
+            var orbitDiagnostics=viewport.Diagnostics();
+            await Task.Delay(500);
+            if(viewport.View.Density.Moving||viewport.View.Density.Limit!=500_000)throw new Exception("Adaptive point density did not settle");
+            if(viewport.CoalescedMoves<90||Math.Abs(viewport.View.Camera.Yaw-(yawBefore-89.9375f*.008f))>.0001)throw new Exception("Latest camera input was lost or replayed");
+            if(viewport.Diagnostics()["point_buffer_uploads"]!.GetValue<int>()!=uploadCount)throw new Exception("Camera movement uploaded the point buffer");
+            if(state["model"]!.ToJsonString()!=modelBeforeOrbit)throw new Exception("Preview movement changed IFC source geometry");
+            if(!viewport.SoftwareMode&&viewport.ActivePoints!=500_000)throw new Exception("Full 500k resting buffer was not restored");
+            var restoredDiagnostics=viewport.Diagnostics();
+            viewport.SetScene(originalScene);await Task.Delay(100);
             var bounds=viewport.View.Scene;var insetX=(bounds.PointMaximum.X-bounds.PointMinimum.X)*.1;var insetY=(bounds.PointMaximum.Y-bounds.PointMinimum.Y)*.1;
             var testCrop=new JsonObject{["polygon"]=new JsonArray(
                 new JsonArray((double)(bounds.PointMinimum.X+insetX),(double)(bounds.PointMinimum.Y+insetY)),
@@ -572,7 +613,7 @@ public sealed class MainWindow : Window
             await ExportToAsync(Path.Combine(output,"edited.ifc"));
             await Task.Delay(1800);for(var i=0;i<30;i++){viewport.View.Camera.Yaw+=.008f;viewport.Redraw();await Task.Delay(20);}viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(700);
             using(var bitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96))){bitmap.Render(this);using var outputStream=File.Create(Path.Combine(output,"desktop.png"));bitmap.Save(outputStream,PngBitmapEncoderOptions.Default);}
-            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["small_window_scroll_passed"]=smallWindowScrollPassed,["preview_failure_recovery_passed"]=previewRecoveryPassed,["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["crop_undo_restored"]=cropUndoRestored,["crop_survived_reopen"]=cropSurvivedReopen,["feature_add_delete_passed"]=featureAddDeletePassed,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
+            File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["interactive_preview_passed"]=true,["orbit"]=orbitDiagnostics,["restore"]=restoredDiagnostics,["preview_fixture"]="generated 500k points, simulated 210M source count",["small_window_scroll_passed"]=smallWindowScrollPassed,["preview_failure_recovery_passed"]=previewRecoveryPassed,["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["crop_undo_restored"]=cropUndoRestored,["crop_survived_reopen"]=cropSurvivedReopen,["feature_add_delete_passed"]=featureAddDeletePassed,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
             dirty=false;Environment.ExitCode=0;Close();
         }
         catch(Exception e){File.WriteAllText(Path.Combine(output,"ui-error.txt"),e.ToString());dirty=false;Environment.ExitCode=1;Close();}
@@ -583,10 +624,18 @@ public sealed class MainWindow : Window
         try
         {
             var clock=Stopwatch.StartNew();await LoadAsync(path);if(state==null)throw new Exception(status.Text);var loadMs=clock.Elapsed.TotalMilliseconds;
-            await Task.Delay(1800);for(var i=0;i<30;i++){viewport.View.Camera.Yaw+=.008f;viewport.Redraw();await Task.Delay(20);}viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(800);
+            await Task.Delay(1800);
+            var beforePreview=state["model"]?.ToJsonString();
+            for(var i=0;i<360;i++){viewport.View.Camera.Yaw+=.004f;viewport.Movement();await Task.Delay(8);}
+            var orbit=viewport.Diagnostics();
+            await Task.Delay(220);
+            var restored=viewport.ActivePoints;
+            if(!viewport.SoftwareMode&&restored!=Math.Min(500_000,viewport.View.PreviewPoints.Length/7))throw new Exception("Adaptive preview did not restore its resting density");
+            if(state["model"]?.ToJsonString()!=beforePreview)throw new Exception("Camera movement changed the export model");
+            viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(200);
             using(var bitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96)))
             {bitmap.Render(this);using var stream=File.Create(Path.Combine(output,"desktop.png"));bitmap.Save(stream,PngBitmapEncoderOptions.Default);}
-            File.WriteAllText(Path.Combine(output,"preview-verification.json"),new JsonObject{["viewport_backend"]=viewport.Backend,["load_project_ms"]=loadMs,["source_points"]=viewport.View.Scene.TotalPoints,["preview_points"]=viewport.View.Scene.Points.Length/7,["warnings_retained"]=state["warnings"]!.DeepClone(),["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
+            File.WriteAllText(Path.Combine(output,"preview-verification.json"),new JsonObject{["viewport_backend"]=viewport.Backend,["load_project_ms"]=loadMs,["source_points"]=viewport.View.Scene.TotalPoints,["preview_points"]=viewport.View.Scene.Points.Length/7,["warnings_retained"]=state["warnings"]!.DeepClone(),["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics(),["orbit"]=orbit,["restored_points"]=restored,["export_model_unchanged"]=true}.ToJsonString());
             Environment.ExitCode=0;Close();
         }
         catch(Exception e){File.WriteAllText(Path.Combine(output,"ui-error.txt"),e.ToString());Environment.ExitCode=1;Close();}

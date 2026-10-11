@@ -12,12 +12,37 @@ try
     var state=new JsonObject{["assets_directory"]="assets",["model"]=model,
         ["preview"]=new JsonObject{["path"]="preview.bin",["point_count"]=1,["source_point_count"]=1L}};
     var scene=SceneData.Load(Path.Combine(temporary,"check.punctora"),state);
+    var unchanged=state.ToJsonString();
+    var density=new PreviewDensity();
+    density.Input(10);
+    if(density.Limit!=100_000||density.Settle(159))throw new Exception("Adaptive moving budget or restore timer changed");
+    density.Frame(35);
+    if(density.Limit!=75_000||!density.Settle(160)||density.Limit!=500_000)throw new Exception("Adaptive budget did not restore");
+    foreach(var (quality, moving, resting) in new[]{(PreviewQuality.Low,75_000,100_000),(PreviewQuality.Medium,100_000,250_000),(PreviewQuality.High,100_000,500_000)})
+    {
+        density.Quality=quality;density.Input(200);
+        if(density.Limit!=moving)throw new Exception("Quality moving budget changed");
+        density.Settle(350);
+        if(density.Limit!=resting)throw new Exception("Quality resting budget changed");
+    }
+    var source=new float[500_000*7];
+    for(var i=0;i<500_000;i++){source[i*7]=i;source[i*7+6]=1;}
+    var progressive=PreviewBuffers.Points(source,_=>true);
+    if(progressive.Length!=source.Length||Enumerable.Range(0,500_000).Select(i=>progressive[i*7]).Distinct().Count()!=500_000)throw new Exception("Progressive buffer lost or duplicated a preview point");
+    var orbitPoints=Enumerable.Range(0,75_000).Select(i=>progressive[i*7]).ToArray();
+    if(orbitPoints.Max()-orbitPoints.Min()<499_000)throw new Exception("Moving subset is spatially concentrated");
+    var cropped=PreviewBuffers.Points(source,p=>p.X>=400_000);
+    if(cropped.Length!=100_000*7||cropped.Where((_,i)=>i%7==0).Any(x=>x<400_000))throw new Exception("Progressive crop changed");
+    var duplicateMesh=PreviewBuffers.Model(scene.Elements.Concat(scene.Elements));
+    var unique=PreviewBuffers.Model(scene.Elements);
+    if(duplicateMesh.Vertices.Length!=unique.Vertices.Length||duplicateMesh.RemovedTriangles==0||duplicateMesh.Batches.Count>=scene.Elements.Count*2)throw new Exception("Material batching retained overlapping surfaces");
+    if(state.ToJsonString()!=unchanged)throw new Exception("Render preparation changed the export model");
     var checkedFaces=0;
     foreach(var slabNode in model["slabs"]!.AsArray())
     {
         var slab=slabNode!.AsObject();
         var element=scene.Elements.Single(e=>e.Id==slab["id"]!.GetValue<string>());
-        var expected=slab["preview_geometry"]!["surface_triangles_xy"]!.AsArray();
+        var expected=(slab["preview_geometry"]!["render_surface_triangles_xy"]??slab["preview_geometry"]!["surface_triangles_xy"])!.AsArray();
         var top=(float)(slab["base"]!.GetValue<double>()+slab["thickness"]!.GetValue<double>());
         var area=0d;
         for(var i=0;i<element.Triangles.Length;i+=21)
@@ -43,7 +68,7 @@ try
         if(kind=="slab_openings"&&node["evidence"]?["method"]?.GetValue<string>()=="enclosed_horizontal_occupancy_gap")continue;
         var elements=scene.Elements.Where(e=>e.Id==node["id"]!.GetValue<string>()).ToArray();
         if(elements.Length!=1)throw new Exception("Missing polygon preview");
-        var mesh=node["preview_geometry"]!["surface_triangles_xy"]!.AsArray();
+        var mesh=(node["preview_geometry"]!["render_surface_triangles_xy"]??node["preview_geometry"]!["surface_triangles_xy"])!.AsArray();
         if(mesh.Count==0)throw new Exception("Empty polygon cap");
         var vertices=elements[0].Triangles;
         var expectedArea=0d;var actualArea=0d;

@@ -336,11 +336,23 @@ class BuildingModel:
         from shapely.ops import unary_union
         def preview_mesh(shape, scope):
             pieces = [] if shape.is_empty else ([shape] if isinstance(shape, Polygon) else list(shape.geoms))
+            # Desktop-only contours. Keep the exact mesh and model footprint
+            # for evidence and export; never simplify the IFC geometry.
+            render_shape = shape.simplify(.002, preserve_topology=True)
+            if (not render_shape.is_valid or render_shape.is_empty
+                    or shape.symmetric_difference(render_shape).area > max(1e-6, shape.area * .001)):
+                render_shape = shape
+            render_pieces = [] if render_shape.is_empty else ([render_shape] if isinstance(render_shape, Polygon) else list(render_shape.geoms))
             return {
                 "surface_triangles_xy": [list(t.exterior.coords)[:-1]
                     for t in constrained_delaunay_triangles(shape).geoms],
                 "boundary_rings_xy": [list(r.coords)[:-1] for p in pieces
                     for r in [p.exterior, *p.interiors]],
+                "render_surface_triangles_xy": [list(t.exterior.coords)[:-1]
+                    for t in constrained_delaunay_triangles(render_shape).geoms],
+                "render_boundary_rings_xy": [list(r.coords)[:-1] for p in render_pieces
+                    for r in [p.exterior, *p.interiors]],
+                "render_simplification_tolerance_m": .002,
                 "scope": scope}
         for slab in result["slabs"]:
             holes = [Polygon(slab_opening_footprint(o)) for o in self.slab_openings

@@ -133,7 +133,7 @@ public sealed class SceneData
             "rejected"=>new Vector4(.9f,.25f,.35f,.16f), _=>kind switch {"Wall"=>new Vector4(.43f,.62f,1,.4f),"Stair"=>new Vector4(.9f,.45f,.72f,.7f),"Landing"=>new Vector4(.98f,.55f,.32f,.65f),"SlabOpening"=>new Vector4(.75f,.25f,.95f,.72f),"door"=>new Vector4(.95f,.65f,.25f,.5f),"window"=>new Vector4(.2f,.85f,.9f,.35f),"unknown"=>new Vector4(.95f,.85f,.25f,.45f),_=>new Vector4(.64f,.68f,.78f,.3f)} };
         var vertices = new List<float>();
         void Vertex(Vector2 p,float h) { vertices.AddRange([p.X,p.Y,h,color.X,color.Y,color.Z,color.W]); }
-        if(mesh?["surface_triangles_xy"] is JsonArray surfaceTriangles)
+        if((mesh?["render_surface_triangles_xy"]??mesh?["surface_triangles_xy"]) is JsonArray surfaceTriangles)
         {
             foreach(var tri in surfaceTriangles)
             {
@@ -147,7 +147,7 @@ public sealed class SceneData
             foreach (var index in tri) Vertex(polygon[index],z);
             foreach (var index in tri.Reverse()) Vertex(polygon[index],z+height);
         }
-        Vector2[][] rings=mesh?["boundary_rings_xy"] is JsonArray boundaries
+        Vector2[][] rings=(mesh?["render_boundary_rings_xy"]??mesh?["boundary_rings_xy"]) is JsonArray boundaries
             ?boundaries.Select(r=>r!.AsArray().Select(p=>XY(p!)).ToArray()).ToArray():[polygon];
         foreach(var ring in rings)for(var i=0;i<ring.Length;i++)
         {
@@ -217,8 +217,10 @@ public sealed class Camera
     }
     public static Vector3 Position(float[] data,int start)=>new(data[start],data[start+1],data[start+2]);
     public Vector3? Project(Vector3 point,Size size)
+        =>Project(point,size,Matrix(size));
+    public static Vector3? Project(Vector3 point,Size size,Matrix4x4 matrix)
     {
-        var p=Vector4.Transform(new Vector4(point,1),Matrix(size));
+        var p=Vector4.Transform(new Vector4(point,1),matrix);
         if(p.W<=0) return null;
         return new Vector3((p.X/p.W+1)*(float)size.Width/2,(1-p.Y/p.W)*(float)size.Height/2,p.Z/p.W);
     }
