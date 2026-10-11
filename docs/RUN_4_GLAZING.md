@@ -1,6 +1,6 @@
 # Run 4: glazed façade reconstruction and height legend
 
-Candidate version: 0.3.0a23. This continues on `run2/interactive-preview`,
+Candidate version: 0.3.0a24. This continues on `run2/interactive-preview`,
 the cumulative candidate containing Runs 1 through 4. Main is unchanged.
 
 ## Dedicated frame geometry
@@ -52,8 +52,11 @@ role and glass composition are unverified and recorded as such in IFC.
 Glazing panels and normal windows receive a shared translucent display style;
 that presentation style does not assert a measured glass material.
 
-Rejected bays are omitted. Missing, flagged, edited or rehosted bays, or a
-changed host, disable the whole-zone cut and assembly. Remaining nonrejected
+Rejected bays are omitted. Missing, flagged or edited bays, or a changed host,
+disable the whole-zone cut and assembly. Openings whose host changes during
+automatic wall-face reconciliation retain their measured global position and
+are checked again on the final host; repeated-window groups are then rebuilt
+from final wall geometry. Remaining nonrejected
 bays fall back to individual windows. Raw model geometry is also checked
 against the saved detection snapshot, so a direct edit cannot reuse stale
 assembly evidence. Slab-opening validation from Run 3 is unaffected.
@@ -103,12 +106,15 @@ old-run measurements, not results from the new index or façade detector.
 The original 210,167,583-point E57 has now been downloaded from seven split
 archive parts. Archive CRC verification passed. All records imported with f64
 coordinates, uint32 scan IDs and uint64 original E57 record IDs; the complete
-scan/record sequence was checked without drops. This provides the original
-evidence for recognition investigation. Import and scoped geometry checks are
-not full-project recognition acceptance. A screenshot cannot verify
-the new geometric classification on that cloud. Generated fixtures, successful
-import and CI cannot close the real-project exit requirements. Rerun both
-projects on the customer computer, inspect façade and staircase IFC, check zero
-fixture slab cuts, measure Intel UHD orbit FPS/restore delay, and measure complete
-reconstruction including evidence export. The under-20-minute gate, 30 FPS Intel
-UHD gate and successful staircase geometry comparison remain pending.
+scan/record sequence was checked without drops. Version 0.3.0a24 has also been
+checked against every original point. Final wall reconciliation carries a
+supported façade bay across its changed host instead of discarding it, removes
+duplicate openings on opposite wall faces and rebuilds the repeated-window
+group from the final walls. The resulting IFC contains normal window elements
+for the supported repeated façade where continuous curtain-wall evidence is
+insufficient. See [original-cloud validation](A24_ORIGINAL_CLOUD_VALIDATION.md).
+
+The same-computer under-20-minute gate, physical Intel UHD 30 FPS gate and the
+separate `RS 138 Treppenhaus Sued` rerun remain pending field acceptance. A
+successful Linux original-cloud comparison and Windows CI do not substitute
+for those hardware measurements.

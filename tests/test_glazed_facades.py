@@ -6,9 +6,11 @@ import ifcopenshell.util.element
 import ifcopenshell.util.shape
 from punctora_core.cloud_io import CloudData
 from punctora_core.features import detect_openings
-from punctora_core.glazed_facades import supported_facade_groups
+from punctora_core.glazed_facades import (refresh_repeated_window_groups,
+                                         supported_facade_groups,
+                                         tag_repeated_window_groups)
 from punctora_core.ifc_export import create_ifc, validate_ifc
-from punctora_core.model import BuildingModel, Storey, Wall
+from punctora_core.model import BuildingModel, Opening, Storey, Wall
 from punctora_core.projects import edit_model
 from punctora_core.reconstruction import ReconstructionSettings, reconstruct
 from punctora_core.spatial_index import SpatialPointIndex
@@ -86,6 +88,46 @@ def test_wider_piers_export_repeated_windows_without_curtain_wall():
     file=create_ifc(model)
     assert len(file.by_type('IfcWindow'))==6 and not file.by_type('IfcCurtainWall')
     assert validate_ifc(file)['valid']
+
+
+def test_aligned_independent_windows_form_real_facade_zone_without_removing_piers():
+    wall=Wall('facade','s',(0,0),(8.72,0),0.,3.,.2)
+    openings=[]
+    for index,offset in enumerate([2.95,4.25,5.05,6.35,7.10],1):
+        openings.append(Opening(f'w{index}','facade','window',offset,1.4,.55,1.25,
+            evidence={'face_offset_from_axis_m':.1,
+                      'edge_support':{'left_jamb':1.,'right_jamb':1.,'sill':1.,'head':1.},
+                      'classification':'window'}))
+    tag_repeated_window_groups(wall,openings)
+    systems={opening.evidence['facade_system']['system_id'] for opening in openings}
+    assert len(systems)==1
+    frame=openings[0].evidence['facade_system']
+    assert frame['representation']=='repeated_windows'
+    assert frame['panel_count']==5 and frame['width']==pytest.approx(4.70)
+    assert frame['pier_widths_m']==pytest.approx([.75,.25,.75,.20])
+    file=create_ifc(model_for(wall,openings))
+    assert len(file.by_type('IfcWindow'))==5 and not file.by_type('IfcCurtainWall')
+    assert validate_ifc(file)['valid']
+
+
+def test_repeated_window_zone_can_cross_adjacent_reconciled_hosts():
+    first=Wall('paired','s',(0,0),(4,0),0.,3.,.2,'paired_faces')
+    second=Wall('tail','s',(4,0),(6,0),0.,3.,.2,'single_face_candidate')
+    openings=[]
+    for index,centre in enumerate([.575,1.875,2.675,3.975,4.725],1):
+        host=first if centre<4 else second
+        local=centre if host is first else centre-4
+        openings.append(Opening(f'w{index}',host.id,'window',local-.275,1.4,.55,1.25,
+            evidence={'face_offset_from_axis_m':.1,
+                      'edge_support':{'left_jamb':1.,'right_jamb':1.,'sill':1.,'head':1.},
+                      'classification':'window'}))
+    refresh_repeated_window_groups([first,second],openings)
+    frames={opening.evidence['facade_system']['system_id'] for opening in openings}
+    assert len(frames)==1
+    frame=openings[0].evidence['facade_system']
+    assert frame['representation']=='repeated_windows'
+    assert frame['panel_count']==5 and frame['width']==pytest.approx(4.7)
+    assert frame['host_wall_ids']==['paired','tail']
 
 
 @pytest.mark.parametrize('change',[{'width':1.8},{'review_state':'rejected'},{'review_state':'flagged'},{'kind':'door'}])

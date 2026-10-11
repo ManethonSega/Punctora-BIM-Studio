@@ -11,6 +11,7 @@ from punctora_core.stair_voids import reconcile_stair_voids
 from punctora_core.model import BuildingModel, Landing, Slab, SlabOpening, Stair, Storey
 from punctora_core.reconstruction import ReconstructionSettings
 from punctora_core.ifc_export import write_ifc
+from punctora_core.sampling import DetectionSample
 
 
 def flight_points(start=(0, 0), angle=0, base=0, missing=(), risers=True):
@@ -205,3 +206,29 @@ def test_sparse_horizontal_noise_between_treads_does_not_merge_all_height_bins()
     assert len(flights) == 1
     assert flights[0].steps == 8
     assert flights[0].rise == pytest.approx(.17,abs=.01)
+
+
+def test_focused_source_retry_recovers_flight_discarded_by_full_height_voxels(monkeypatch):
+    # The building-wide voxel phase can retain dominant floor records instead
+    # of narrow tread records. A focused retry must sample the original cloud,
+    # preserve its row indices and account for the extra source passes.
+    x,y = np.meshgrid(np.arange(-3,3,.08),np.arange(-3,3,.08))
+    floor = np.column_stack([x.ravel(),y.ravel(),np.full(x.size,.2)])
+    treads = flight_points(risers=False)
+    points = np.vstack([floor,treads])
+    samples = [
+        DetectionSample(floor,np.arange(len(floor)),.035,len(points),2),
+        DetectionSample(treads,np.arange(len(floor),len(points)),.035,len(points),2),
+    ]
+    calls = []
+    def controlled_sample(*args,**kwargs):
+        calls.append(kwargs.get('z_bounds',args[4] if len(args)>4 else None))
+        return samples[len(calls)-1]
+    monkeypatch.setattr('punctora_core.features.voxel_sample',controlled_sample)
+    stats = []
+    flights = detect_stairs(CloudData(points),levels(),ReconstructionSettings(),statistics=stats)
+    assert len(calls) == 2
+    assert len(flights) == 1 and flights[0].steps == 8
+    assert [item['full_cloud_passes'] for item in stats] == [2,2]
+    assert stats[1]['focused_retry'] is True
+    assert flights[0].evidence['source_working_row_examples_by_tread'][0][0] >= len(floor)

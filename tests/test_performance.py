@@ -18,6 +18,16 @@ def test_cpu_backend_and_bounded_voxel_sampling_are_deterministic():
     assert backend.report()["backend"] == "CPU"
 
 
+def test_two_voxel_representatives_keep_original_boundary_rows_deterministically():
+    points=np.asarray([[.001,.001,.001],[.002,.002,.002],[.003,.003,.003],
+                       [.101,.101,.101],[.102,.102,.102]])
+    first=voxel_sample(points,.05,10,2,workers=2,representatives_per_voxel=2)
+    second=voxel_sample(points,.05,10,1,workers=1,representatives_per_voxel=2)
+    np.testing.assert_array_equal(first.cloud_indices,[0,2,3,4])
+    np.testing.assert_array_equal(first.cloud_indices,second.cloud_indices)
+    np.testing.assert_array_equal(first.points,points[first.cloud_indices])
+
+
 def test_resource_plan_reserves_source_and_exposes_parallel_budget():
     settings = ReconstructionSettings(maximum_detection_points=100_000,
                                       processing_chunk_points=2_000)

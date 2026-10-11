@@ -7,7 +7,10 @@ import pytest
 from punctora_core import projects
 from punctora_core.model import BuildingModel, Opening, Storey, Wall
 from punctora_core.wall_editing import (consolidate_walls, merge_walls, snap_wall_topology,
-                                       split_wall, wall_connectivity_report)
+                                       merge_reconciled_openings,
+                                       reconcile_opening_supported_faces,
+                                       rehost_reconciled_openings, split_wall,
+                                       wall_connectivity_report)
 
 
 def model_with_fragments():
@@ -31,6 +34,69 @@ def test_automatic_consolidation_joins_fragments_but_not_nearby_parallel_wall():
     assert merged.fit_rmse_m == pytest.approx((20*.01**2+30*.02**2)**.5/50**.5)
     assert merged.start[0] == pytest.approx(0, abs=.02)
     assert merged.end[0] == pytest.approx(4, abs=.02)
+
+
+def test_matching_openings_reconcile_partial_parallel_faces_and_keep_tails():
+    faces=lambda y:[dict(start=[0,y],end=[6,y],z_min=0,z_max=3),
+                    dict(start=[0,y],end=[6,y],z_min=0,z_max=3)]
+    first=Wall('a','s',(0,0),(6,0),0,3,.2,'single_face_candidate',
+               observed_faces=faces(0),evidence_count=100)
+    second=Wall('b','s',(2,.2),(8,.2),0,3,.2,'single_face_candidate',
+                observed_faces=[dict(start=[2,.2],end=[8,.2],z_min=0,z_max=3)]*2,
+                evidence_count=120)
+    openings=[Opening('a1','a','window',2.5,1.,1.,1.),
+              Opening('a2','a','window',4.,1.,1.,1.),
+              Opening('b1','b','window',.5,1.,1.,1.),
+              Opening('b2','b','window',2.,1.,1.,1.)]
+    walls,affected,replaced,report=reconcile_opening_supported_faces([first,second],openings)
+    paired=[wall for wall in walls if wall.classification=='paired_faces']
+    assert len(paired)==1 and paired[0].thickness==pytest.approx(.2)
+    assert abs(paired[0].end[0]-paired[0].start[0])==pytest.approx(4.)
+    assert len(walls)==3 and len(affected)==3 and replaced=={'a','b'}
+    assert report[0]['action']=='pair' and report[0]['matching_opening_count']==2
+
+
+def test_opening_reconciliation_converts_intervals_for_reversed_wall_axis():
+    observed=lambda a,b,y:[dict(start=[a,y],end=[b,y],z_min=0,z_max=3)]*2
+    paired=Wall('paired','s',(2,.1),(6,.1),0,3,.2,'paired_faces',
+                observed_faces=observed(2,6,0)+observed(2,6,.2))
+    reverse=Wall('reverse','s',(8,.3),(2,.3),0,3,.2,'single_face_candidate',
+                 observed_faces=observed(8,2,.3),evidence={'vertical_continuity':.5})
+    openings=[Opening('p','paired','window',1,1,1,1),
+              Opening('r','reverse','window',4,1,1,1)]
+    walls,affected,replaced,report=reconcile_opening_supported_faces([paired,reverse],openings)
+    assert report[0]['action']=='trim_existing_pair' and replaced=={'reverse'}
+    remainder=next(wall for wall in walls if wall.id.startswith('reverse-remainder'))
+    assert sorted((remainder.start[0],remainder.end[0]))==pytest.approx([6,8])
+
+
+def test_one_matching_opening_does_not_reconcile_two_long_independent_walls():
+    faces=lambda y:[dict(start=[0,y],end=[8,y],z_min=0,z_max=3),
+                    dict(start=[0,y],end=[8,y],z_min=0,z_max=3)]
+    first=Wall('a','s',(0,0),(8,0),0,3,.2,observed_faces=faces(0))
+    second=Wall('b','s',(0,.3),(8,.3),0,3,.2,observed_faces=faces(.3))
+    openings=[Opening('a1','a','door',2,0,.8,2.1),Opening('b1','b','door',2,0,.8,2.1)]
+    walls,affected,replaced,report=reconcile_opening_supported_faces([first,second],openings)
+    assert walls==[first,second] and not affected and not replaced and not report
+
+
+def test_supported_opening_survives_face_reconciliation_at_final_host_boundary():
+    faces=lambda a,b,y:[dict(start=[a,y],end=[b,y],z_min=0,z_max=3)]*2
+    paired=Wall('paired','s',(0,.1),(4,.1),0,3,.2,'paired_faces',
+                observed_faces=faces(0,4,0)+faces(0,4,.2))
+    source=Wall('source','s',(-1,.3),(5,.3),0,3,.2,'single_face_candidate',
+                observed_faces=faces(-1,5,.3))
+    old=[Opening('paired-window','paired','window',2,1,1,1,confidence=.8),
+         Opening('same-window','source','window',3,1,1,1,confidence=.8),
+         Opening('edge-window','source','window',1.5,1,.6,1,confidence=.9)]
+    final,affected,replaced,report=reconcile_opening_supported_faces([paired,source],old)
+    assert report and replaced=={'source'}
+    carried=rehost_reconciled_openings(old,[paired,source],final,replaced)
+    merged=merge_reconciled_openings([old[0]],carried,[],final)
+    assert len(merged)==2
+    edge=next(opening for opening in merged if opening.width==pytest.approx(.6))
+    assert edge.host_wall_id=='paired'
+    assert edge.evidence['reconciled_host']['source_wall_id']=='source'
 
 
 def test_manual_merge_reassigns_opening_and_retains_stable_wall_id():

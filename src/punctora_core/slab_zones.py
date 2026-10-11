@@ -263,6 +263,26 @@ def consolidate_scan_fragments(geometry, maximum_gap):
     return geometry.union(bridge), float(bridge.area)
 
 
+def matching_storey_boundary(first, second):
+    """Confirm that two storey-height faces describe the same plate envelope.
+
+    This permits a well-supported floor face to complete ceiling/roof regions
+    hidden by scanning occlusion. It deliberately uses the nonconvex observed
+    faces for the result; convex hulls are used only to compare their envelopes.
+    """
+    if first.is_empty or second.is_empty:
+        return False, {}
+    intersection = first.intersection(second).area
+    observed_overlap = intersection / max(1e-12, min(first.area, second.area))
+    area_ratio = min(first.area, second.area) / max(first.area, second.area)
+    a, b = first.convex_hull, second.convex_hull
+    envelope_iou = a.intersection(b).area / max(1e-12, a.union(b).area)
+    report = {"observed_overlap_fraction": float(observed_overlap),
+              "observed_area_ratio": float(area_ratio),
+              "envelope_iou": float(envelope_iou)}
+    return (observed_overlap >= .80 and area_ratio >= .65 and envelope_iou >= .85), report
+
+
 def _face_holes(face):
     return [Polygon(r) for p in _polygons(face.raw_geometry) for r in p.interiors]
 
@@ -291,6 +311,13 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
         lower, upper = surfaces[zone["lower"]], surfaces[zone["upper"]]
         geometry = lower.geometry.union(upper.geometry) if zone["paired"] else upper.geometry
         raw = lower.raw_geometry.union(upper.raw_geometry) if zone["paired"] else upper.raw_geometry
+        projected_area, projection_report = 0.0, {}
+        if index == len(zones)-1 and not zone["paired"] and index:
+            counterpart = surfaces[zones[index-1]["upper"]].geometry
+            matching, projection_report = matching_storey_boundary(geometry, counterpart)
+            if matching:
+                projected_area = counterpart.difference(geometry).area
+                geometry = geometry.union(counterpart)
         geometry, seam_area = consolidate_scan_fragments(geometry, settings.slab_close_gap_m)
         face_holes = [_face_holes(lower), _face_holes(upper)]
         owner = storeys[min(index, len(storeys)-1)]
@@ -340,6 +367,10 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
                         "maximum_closed_gap_m": settings.slab_close_gap_m,
                         "wall_outline_inferred_area_m2": piece.intersection(addition).area,
                         "scan_seam_inferred_area_m2": seam_area,
+                        "counterpart_projection_inferred_area_m2": piece.intersection(
+                            counterpart.difference(upper.geometry)).area
+                            if projected_area and index == len(zones)-1 else 0.0,
+                        "counterpart_projection_basis": projection_report or None,
                         "cut_policy": "occupancy_gaps_require_independent_validation",
                         "net_polygon_area_m2": exported.area, "supported_area_m2": support,
                         "inferred_area_m2": inferred, "supported_percent": 100*support/exported.area,

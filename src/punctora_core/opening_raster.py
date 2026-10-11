@@ -183,6 +183,8 @@ def _one_wall(cloud,wall,settings,visit=lambda _: None):
             continue
         accepted.append(candidate)
     accepted.sort(key=lambda c:(c.offset,c.sill))
+    from .glazed_facades import tag_repeated_window_groups
+    tag_repeated_window_groups(wall, accepted)
     for index,candidate in enumerate(accepted,1):
         candidate.id=f'{wall.id}-opening-{index}'
     return accepted

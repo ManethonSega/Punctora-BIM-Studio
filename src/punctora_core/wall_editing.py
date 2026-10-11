@@ -103,6 +103,400 @@ def consolidate_walls(walls, *, angle_deg=2.0, lateral_m=.08, gap_m=.35, thickne
     return result, {"input_walls": len(walls), "output_walls": len(result), "groups": merged}
 
 
+def trim_walls_covered_by_paired_faces(walls, *, angle_deg=2.0, lateral_m=.08,
+                                       minimum_length_m=.5):
+    """Remove single-face spans already represented by a measured face pair.
+
+    Partial face pairing can leave another candidate on one of the same source
+    planes. Keep its unsupported tails, but do not export an overlapping wall
+    solid or detect the same openings a second time over the paired span.
+    """
+    paired = [wall for wall in walls if wall.classification == "paired_faces"]
+    result, report = [], []
+    cosine = np.cos(np.deg2rad(angle_deg))
+
+    def plane_values(wall, normal):
+        return [float(np.mean(np.asarray([face["start"], face["end"]]), axis=0)@normal)
+                for face in wall.observed_faces]
+
+    def clipped_face(face, direction, low, high):
+        points = np.asarray([face["start"], face["end"]], dtype=float)
+        values = points@direction
+        order = np.argsort(values)
+        points, values = points[order], values[order]
+        a, b = max(low, float(values[0])), min(high, float(values[1]))
+        if b-a <= 1e-9:
+            return None
+        span = values[1]-values[0]
+        start = points[0]+(a-values[0])/span*(points[1]-points[0])
+        end = points[0]+(b-values[0])/span*(points[1]-points[0])
+        return {**face, "start": start.tolist(), "end": end.tolist()}
+
+    for wall in walls:
+        if wall.classification == "paired_faces":
+            result.append(wall)
+            continue
+        start, end, direction, length = _axis(wall)
+        normal = np.array([-direction[1], direction[0]])
+        wall_planes = plane_values(wall, normal)
+        cuts = []
+        for host in paired:
+            host_start, host_end, host_direction, _ = _axis(host)
+            if abs(direction@host_direction) < cosine:
+                continue
+            host_planes = plane_values(host, normal)
+            if not wall_planes or not host_planes or min(abs(a-b) for a in wall_planes for b in host_planes) > lateral_m:
+                continue
+            values = sorted((float(host_start@direction), float(host_end@direction)))
+            low, high = max(float(start@direction), values[0]), min(float(end@direction), values[1])
+            if high-low >= minimum_length_m:
+                cuts.append((low, high, host.id))
+        if not cuts:
+            result.append(wall)
+            continue
+        low, high = sorted((float(start@direction), float(end@direction)))
+        intervals = [(low, high)]
+        for cut_low, cut_high, _ in sorted(cuts):
+            intervals = [(a, b) for first, last in intervals
+                         for a, b in ((first, min(last, cut_low)), (max(first, cut_high), last))
+                         if b-a >= minimum_length_m]
+        kept = []
+        for index, (piece_low, piece_high) in enumerate(intervals, 1):
+            piece = deepcopy(wall)
+            origin_normal = float(start@normal)
+            piece.start = tuple(direction*piece_low+normal*origin_normal)
+            piece.end = tuple(direction*piece_high+normal*origin_normal)
+            piece.observed_faces = [clipped for face in wall.observed_faces
+                if (clipped := clipped_face(face, direction, piece_low, piece_high)) is not None]
+            if not piece.observed_faces:
+                continue
+            if index > 1:
+                piece.id = f"{wall.id}-tail-{index}"
+            piece.evidence = {**piece.evidence, "paired_face_trimming": {
+                "source_wall_id": wall.id,
+                "excluded_paired_wall_ids": sorted({identifier for _, _, identifier in cuts}),
+                "scope": "unmatched observed face tail outside measured paired-wall spans"}}
+            kept.append(piece)
+        result.extend(kept)
+        report.append({"wall_id": wall.id,
+                       "paired_wall_ids": sorted({identifier for _, _, identifier in cuts}),
+                       "retained_tail_ids": [piece.id for piece in kept]})
+    return result, report
+
+
+def reconcile_opening_supported_faces(walls, openings, *, angle_deg=2.0,
+                                      minimum_thickness_m=.08, maximum_thickness_m=.6,
+                                      minimum_length_m=.5):
+    """Resolve parallel wall faces only when they repeat the same openings.
+
+    The provisional opening raster supplies evidence unavailable to the wall
+    slices alone. It distinguishes an occluded opposite wall face from an
+    unrelated recessed filling plane without guessing from distance alone.
+    """
+    wall_by_id = {wall.id: wall for wall in walls}
+    openings_by_wall = {}
+    for opening in openings:
+        openings_by_wall.setdefault(opening.host_wall_id, []).append(opening)
+    cosine = np.cos(np.deg2rad(angle_deg))
+
+    def opening_record(opening, wall):
+        start, end, direction, _ = _axis(wall)
+        centre = start+direction*(opening.offset+opening.width/2)
+        return opening, centre
+
+    def plane_clusters(wall, normal):
+        values = sorted(float(np.mean(np.asarray([face["start"], face["end"]]), axis=0)@normal)
+                        for face in wall.observed_faces)
+        groups = []
+        for value in values:
+            if not groups or value-groups[-1][-1] > .04:
+                groups.append([value])
+            else:
+                groups[-1].append(value)
+        return [float(np.median(group)) for group in groups if len(group) >= 2] or values
+
+    candidates = []
+    for index, first in enumerate(walls):
+        first_openings = openings_by_wall.get(first.id, [])
+        if not first_openings:
+            continue
+        a, b, direction, first_length = _axis(first)
+        normal = np.array([-direction[1], direction[0]])
+        first_interval = sorted((float(a@direction), float(b@direction)))
+        for second in walls[index+1:]:
+            second_openings = openings_by_wall.get(second.id, [])
+            if not second_openings:
+                continue
+            c, d, other_direction, second_length = _axis(second)
+            if abs(direction@other_direction) < cosine:
+                continue
+            second_interval = sorted((float(c@direction), float(d@direction)))
+            low, high = max(first_interval[0], second_interval[0]), min(first_interval[1], second_interval[1])
+            overlap = high-low
+            if overlap < minimum_length_m:
+                continue
+            matched, used = [], set()
+            first_records = [opening_record(opening, first) for opening in first_openings]
+            second_records = [opening_record(opening, second) for opening in second_openings]
+            for opening, centre in first_records:
+                choices = []
+                for candidate_index, (other, other_centre) in enumerate(second_records):
+                    if candidate_index in used or (opening.kind != other.kind
+                            and "unknown" not in {opening.kind, other.kind}):
+                        continue
+                    along = abs(float((other_centre-centre)@direction))
+                    if (along <= .15 and abs(opening.width-other.width) <= .2
+                            and abs(opening.sill-other.sill) <= .1
+                            and abs(opening.height-other.height) <= .15):
+                        choices.append((along, candidate_index, other))
+                if choices:
+                    _, candidate_index, other = min(choices)
+                    used.add(candidate_index); matched.append((opening.id, other.id))
+            shorter_fraction = overlap/min(first_length, second_length)
+            continuity = min(first.evidence.get("vertical_continuity", 1.),
+                             second.evidence.get("vertical_continuity", 1.))
+            if not matched or (len(matched) < 2
+                    and "paired_faces" not in {first.classification, second.classification}
+                    and (shorter_fraction < .8 or continuity > .5)):
+                continue
+            first_planes, second_planes = plane_clusters(first, normal), plane_clusters(second, normal)
+            plane_pairs = [(abs(x-y), x, y) for x in first_planes for y in second_planes]
+            valid = [item for item in plane_pairs
+                     if minimum_thickness_m <= item[0] <= maximum_thickness_m]
+            if not valid and min(plane_pairs)[0] > minimum_thickness_m:
+                continue
+            separation, first_plane, second_plane = (min(valid) if valid else min(plane_pairs))
+            candidates.append({"first": first, "second": second, "low": low, "high": high,
+                "matches": matched, "separation": separation,
+                "first_plane": first_plane, "second_plane": second_plane,
+                "action": ("trim_existing_pair" if first.classification == "paired_faces" else
+                           "trim_existing_pair" if second.classification == "paired_faces" else
+                           "pair" if valid else "same_plane")})
+
+    candidates.sort(key=lambda item: (-len(item["matches"]), -(item["high"]-item["low"]),
+                                      item["first"].id, item["second"].id))
+    allocated = {wall.id: [] for wall in walls}
+    pair_records, accepted = [], []
+    def available(identifier, low, high):
+        return all(min(high, b)-max(low, a) <= .05 for a, b in allocated[identifier])
+    def interval_for(item, wall):
+        reference_start, _, reference_direction, _ = _axis(item["first"])
+        reference_normal = np.array([-reference_direction[1], reference_direction[0]])
+        plane = float(reference_start@reference_normal)
+        endpoints = [reference_direction*value+reference_normal*plane
+                     for value in (item["low"], item["high"])]
+        wall_direction = _axis(wall)[2]
+        return sorted(float(point@wall_direction) for point in endpoints)
+    for item in candidates:
+        first, second = item["first"], item["second"]
+        if item["action"] == "trim_existing_pair":
+            target = second if first.classification == "paired_faces" else first
+            low, high = interval_for(item, target)
+            if not available(target.id, low, high):
+                continue
+            allocated[target.id].append((low, high)); accepted.append(item)
+        elif item["action"] == "same_plane":
+            target = min((first, second), key=lambda wall: (wall.evidence_count, wall.id))
+            low, high = interval_for(item, target)
+            if not available(target.id, low, high):
+                continue
+            allocated[target.id].append((low, high)); accepted.append(item)
+        else:
+            first_low, first_high = interval_for(item, first)
+            second_low, second_high = interval_for(item, second)
+            if (not available(first.id, first_low, first_high)
+                    or not available(second.id, second_low, second_high)):
+                continue
+            allocated[first.id].append((first_low, first_high))
+            allocated[second.id].append((second_low, second_high))
+            pair_records.append(item); accepted.append(item)
+    if not accepted:
+        return walls, [], set(), []
+
+    affected_ids = {identifier for identifier, intervals in allocated.items() if intervals}
+    final, affected = [], []
+    for wall in walls:
+        intervals = allocated[wall.id]
+        if not intervals:
+            final.append(wall); continue
+        start, _, direction, length = _axis(wall)
+        normal = np.array([-direction[1], direction[0]])
+        origin_value, origin_normal = float(start@direction), float(start@normal)
+        pieces = [(origin_value, origin_value+length)]
+        for cut_low, cut_high in sorted(intervals):
+            pieces = [(a, b) for first, last in pieces
+                      for a, b in ((first, min(last, cut_low)), (max(first, cut_high), last))
+                      if b-a >= minimum_length_m]
+        for piece_index, (low, high) in enumerate(pieces, 1):
+            piece = deepcopy(wall)
+            piece.id = f"{wall.id}-remainder-{piece_index}"
+            piece.start = tuple(direction*low+normal*origin_normal)
+            piece.end = tuple(direction*high+normal*origin_normal)
+            piece.observed_faces = [face for face in (clipped_face_for_interval(
+                face, direction, low, high) for face in wall.observed_faces) if face is not None]
+            if piece.observed_faces:
+                piece.evidence = {"method": "opening_supported_face_remainder",
+                    "source_wall_id": wall.id, "source_wall_evidence": deepcopy(wall.evidence)}
+                final.append(piece); affected.append(piece)
+    for index, item in enumerate(pair_records, 1):
+        first, second = item["first"], item["second"]
+        direction = _axis(first)[2]; normal = np.array([-direction[1], direction[0]])
+        low, high = item["low"], item["high"]
+        centre_plane = (item["first_plane"]+item["second_plane"])/2
+        observed = [dict(start=(direction*low+normal*plane).tolist(),
+                         end=(direction*high+normal*plane).tolist(),
+                         z_min=max(first.base, second.base),
+                         z_max=min(first.base+first.height, second.base+second.height))
+                    for plane in (item["first_plane"], item["second_plane"])]
+        paired_wall = Wall(f"{first.id}-opening-pair-{index}", first.storey_id,
+            tuple(direction*low+normal*centre_plane), tuple(direction*high+normal*centre_plane),
+            max(first.base, second.base), min(first.base+first.height, second.base+second.height)-max(first.base,second.base),
+            item["separation"], "paired_faces",
+            {"axis": "measured", "thickness": "measured", "height": "inferred",
+             "material": "unknown", "load_bearing": "unknown"},
+            first.evidence_count+second.evidence_count,
+            max(first.fit_rmse_m or 0., second.fit_rmse_m or 0.),
+            observed_faces=observed,
+            evidence={"method": "matching_openings_on_parallel_faces",
+                      "source_wall_ids": [first.id, second.id],
+                      "matching_opening_ids": [identifier for pair in item["matches"] for identifier in pair],
+                      "source_wall_evidence": {first.id: deepcopy(first.evidence), second.id: deepcopy(second.evidence)}},
+            detection_method="opening_supported_pair")
+        final.append(paired_wall); affected.append(paired_wall)
+    report = [{"first_wall_id": item["first"].id, "second_wall_id": item["second"].id,
+               "action": item["action"], "matching_opening_count": len(item["matches"]),
+               "overlap_m": item["high"]-item["low"], "plane_separation_m": item["separation"]}
+              for item in accepted]
+    return final, affected, affected_ids, report
+
+
+def rehost_reconciled_openings(openings, source_walls, final_walls,
+                               replaced_wall_ids, *, angle_deg=2.0,
+                               maximum_axis_distance_m=.65,
+                               endpoint_margin_m=.1):
+    """Carry measured openings from removed faces onto the final wall axis.
+
+    Re-detecting openings after face reconciliation remains authoritative, but
+    a shorter final host can put a frame edge outside the new raster and lose a
+    previously supported bay.  Preserve that evidence in global coordinates,
+    then let :func:`merge_reconciled_openings` discard any duplicate found by
+    the final-host raster.
+    """
+    sources = {wall.id: wall for wall in source_walls}
+    cosine = np.cos(np.deg2rad(angle_deg))
+    carried = []
+    for opening in openings:
+        if opening.host_wall_id not in replaced_wall_ids:
+            continue
+        source = sources.get(opening.host_wall_id)
+        if source is None:
+            continue
+        source_start, _, source_direction, _ = _axis(source)
+        centre = source_start+source_direction*(opening.offset+opening.width/2)
+        candidates = []
+        for wall in final_walls:
+            if wall.storey_id != source.storey_id:
+                continue
+            start, _, direction, length = _axis(wall)
+            if abs(float(source_direction@direction)) < cosine:
+                continue
+            along = float((centre-start)@direction)
+            if (along-opening.width/2 < -endpoint_margin_m
+                    or along+opening.width/2 > length+endpoint_margin_m):
+                continue
+            normal = np.array([-direction[1], direction[0]])
+            distance = abs(float((centre-start)@normal))
+            if distance > maximum_axis_distance_m:
+                continue
+            # Prefer a measured face pair, then the closest compatible axis.
+            candidates.append((distance, wall.classification != "paired_faces",
+                               abs(along-length/2), wall.id, wall, along))
+        if not candidates:
+            continue
+        *_, wall, along = min(candidates)
+        item = deepcopy(opening)
+        original_id, original_host = item.id, item.host_wall_id
+        item.host_wall_id = wall.id
+        item.offset = max(0., min(float(along-item.width/2),
+                                  _axis(wall)[3]-item.width))
+        item.evidence = deepcopy(item.evidence)
+        item.evidence.pop("facade_system", None)
+        item.evidence["reconciled_host"] = {
+            "source_opening_id": original_id,
+            "source_wall_id": original_host,
+            "host_wall_id": wall.id,
+            "axis_distance_m": min(candidates)[0],
+            "scope": "Opening dimensions retained in global coordinates after evidence-supported wall-face reconciliation",
+        }
+        carried.append(item)
+    return carried
+
+
+def merge_reconciled_openings(unaffected, carried, refreshed, walls,
+                              *, angle_deg=2.0):
+    """Merge final-host detections with carried evidence and remove repeats."""
+    wall_by_id = {wall.id: wall for wall in walls}
+    cosine = np.cos(np.deg2rad(angle_deg))
+
+    def geometry(opening):
+        wall = wall_by_id.get(opening.host_wall_id)
+        if wall is None:
+            return None
+        start, _, direction, _ = _axis(wall)
+        return wall, direction, start+direction*(opening.offset+opening.width/2)
+
+    def duplicates(first, second):
+        first_geometry, second_geometry = geometry(first), geometry(second)
+        if first_geometry is None or second_geometry is None:
+            return False
+        first_wall, first_direction, first_centre = first_geometry
+        second_wall, second_direction, second_centre = second_geometry
+        if (first_wall.storey_id != second_wall.storey_id
+                or abs(float(first_direction@second_direction)) < cosine
+                or (first.kind != second.kind and "unknown" not in {first.kind, second.kind})
+                or abs(first.sill-second.sill) > .1
+                or abs(first.height-second.height) > .15
+                or abs(first.width-second.width) > .2):
+            return False
+        delta = second_centre-first_centre
+        normal = np.array([-first_direction[1], first_direction[0]])
+        return (abs(float(delta@first_direction)) <= .15
+                and abs(float(delta@normal)) <= .45)
+
+    # Final-host measurements take precedence over old-host evidence.  Stable
+    # input ordering then keeps unaffected opening IDs predictable.
+    ranked = ([(2, opening) for opening in refreshed]
+              + [(1, opening) for opening in unaffected]
+              + [(0, opening) for opening in carried])
+    ranked.sort(key=lambda item: (-item[0], -(item[1].confidence or 0.),
+                                  item[1].host_wall_id, item[1].offset))
+    accepted = []
+    for _, opening in ranked:
+        if not any(duplicates(opening, previous) for previous in accepted):
+            accepted.append(opening)
+    accepted.sort(key=lambda opening: (opening.host_wall_id, opening.offset,
+                                        opening.sill, opening.width))
+    counts = {}
+    for opening in accepted:
+        counts[opening.host_wall_id] = counts.get(opening.host_wall_id, 0)+1
+        opening.id = f"{opening.host_wall_id}-opening-{counts[opening.host_wall_id]}"
+    return accepted
+
+
+def clipped_face_for_interval(face, direction, low, high):
+    """Clip an observed face to a projected interval while retaining metadata."""
+    points = np.asarray([face["start"], face["end"]], dtype=float)
+    values = points@direction
+    order = np.argsort(values); points, values = points[order], values[order]
+    a, b = max(low, float(values[0])), min(high, float(values[1]))
+    if b-a <= 1e-9:
+        return None
+    span = values[1]-values[0]
+    start = points[0]+(a-values[0])/span*(points[1]-points[0])
+    end = points[0]+(b-values[0])/span*(points[1]-points[0])
+    return {**face, "start": start.tolist(), "end": end.tolist()}
+
+
 def _cross(first, second):
     return float(first[0]*second[1]-first[1]*second[0])
 

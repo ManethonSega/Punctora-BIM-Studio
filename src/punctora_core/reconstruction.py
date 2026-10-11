@@ -25,7 +25,8 @@ from .model import BuildingModel, Slab, Space, Storey, Wall
 from .sampling import (DetectionSample, adaptive_point_limit, available_memory_bytes,
                        point_batches, resolved_cpu_workers, voxel_sample)
 from .surfaces import region_growing
-from .wall_editing import consolidate_walls, snap_wall_topology, wall_connectivity_report
+from .wall_editing import (consolidate_walls, snap_wall_topology,
+                           wall_connectivity_report)
 from .compute import ComputeBackend
 from .performance import ResourcePlan, StageProfiler
 from threadpoolctl import threadpool_limits
@@ -414,6 +415,29 @@ def _paired_axis(first, second):
     return [a+low*direction+offset/2*normal, a+high*direction+offset/2*normal], abs(offset)
 
 
+def _face_parts_outside_overlap(face, other, minimum_length):
+    """Return measured face tails outside its overlap with a parallel face."""
+    points = np.asarray(face, dtype=float)
+    counterpart = np.asarray(other, dtype=float)
+    direction = points[1]-points[0]
+    direction /= np.linalg.norm(direction)
+    first = sorted(float(point@direction) for point in points)
+    second = sorted(float(point@direction) for point in counterpart)
+    common_low, common_high = max(first[0], second[0]), min(first[1], second[1])
+    if common_high <= common_low:
+        return []
+    start, end = points
+    start_value, end_value = float(start@direction), float(end@direction)
+    def point_at(value):
+        scale = (value-start_value)/(end_value-start_value)
+        return start+scale*(end-start)
+    result = []
+    for low, high in ((first[0], common_low), (common_high, first[1])):
+        if high-low >= minimum_length:
+            result.append([point_at(low), point_at(high)])
+    return result
+
+
 def _coalesce_faces(faces, section, settings):
     """Unify overlapping refitted contours on the same observed plane.
 
@@ -476,6 +500,17 @@ def _walls_from_faces(faces, storey, settings, z_bounds, pair_validator=None):
             candidate, separation = _paired_axis(face, other)
             if (settings.minimum_wall_thickness_m <= separation <= settings.maximum_wall_thickness_m
                     and check_overlap_parallel_segments(face, other, settings.minimum_wall_length_m)):
+                # Pair only the common measured span. Retain a longer face's
+                # unmatched tails as single-face candidates instead of either
+                # discarding them or exporting two overlapping wall solids.
+                for source, other_source, source_count, source_rmse in (
+                        (face, other, count, rmse),
+                        (other, face, other_count, other_rmse)):
+                    source_length = np.linalg.norm(np.asarray(source[1])-source[0])
+                    for part in _face_parts_outside_overlap(
+                            source, other_source, settings.minimum_wall_length_m):
+                        fraction = np.linalg.norm(np.asarray(part[1])-part[0])/source_length
+                        faces.append((part, max(1, int(round(source_count*fraction))), source_rmse))
                 axis, thickness, provenance = candidate, separation, "measured"
                 label, count, rmse = "paired_faces", count+other_count, max(rmse, other_rmse)
                 used.add(j)
@@ -635,6 +670,10 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
                 lateral_m=settings.wall_merge_lateral_tolerance_m,
                 gap_m=0.0 if settings.surface_method == "contour" else settings.wall_merge_gap_m,
                 thickness_m=settings.wall_merge_thickness_tolerance_m)
+            # Keep all observed faces through the provisional opening raster.
+            # Matching openings provide the evidence needed to reconcile an
+            # occluded opposite face without deleting supported façade bays.
+            consolidation["paired_face_trimming"] = []
         else:
             consolidation = {"input_walls": len(walls), "output_walls": len(walls), "groups": []}
         record["detected_elements"] = {"walls": len(walls)}
@@ -674,6 +713,43 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
         record.update(spatial_index.report(opening_stage))
         record.update(sample_points=len(cloud.points) if settings.detect_openings_enabled else 0,
                       sampling="spatial wall-cell selectors", detected_elements={"openings": len(openings)})
+    if settings.detect_openings_enabled:
+        from .wall_editing import (merge_reconciled_openings,
+                                   reconcile_opening_supported_faces,
+                                   rehost_reconciled_openings)
+        reconciled, affected, replaced_ids, reconciliation = reconcile_opening_supported_faces(
+            walls, openings, angle_deg=settings.wall_merge_angle_deg,
+            minimum_thickness_m=settings.minimum_wall_thickness_m,
+            maximum_thickness_m=settings.maximum_wall_thickness_m,
+            minimum_length_m=settings.minimum_wall_length_m)
+        if reconciliation:
+            with profiler.stage("wall_opening_reconciliation", storey_id=level.id,
+                                source_points=len(cloud.points)) as record:
+                reconcile_stage = f"wall_opening_reconciliation_{level.id}"
+                spatial_index.observe(reconcile_stage, record)
+                attach_evidence(source_cloud, affected, settings.processing_chunk_points,
+                                endpoint_margin=max(.08, 3*settings.grid_size_m),
+                                radius=settings.grid_size_m/2, workers=workers,
+                                spatial_index=spatial_index, stage=reconcile_stage)
+                refreshed = detect_openings(source_cloud, affected, settings, workers,
+                                            spatial_index, reconcile_stage)
+                unaffected = [opening for opening in openings
+                              if opening.host_wall_id not in replaced_ids]
+                carried = rehost_reconciled_openings(
+                    openings, walls, reconciled, replaced_ids,
+                    angle_deg=settings.wall_merge_angle_deg)
+                walls = reconciled
+                openings = merge_reconciled_openings(unaffected, carried, refreshed, walls)
+                from .glazed_facades import refresh_repeated_window_groups
+                refresh_repeated_window_groups(walls, openings)
+                spaces = spaces_for_storey(level, walls, settings.minimum_space_area_m2, warnings)
+                record.update(spatial_index.report(reconcile_stage),
+                              reconciliation=reconciliation,
+                              affected_wall_count=len(affected),
+                              detected_elements={"walls": len(walls), "openings": len(openings),
+                                                 "spaces": len(spaces)})
+            warnings.append(
+                f"{level.id}: reconciled {len(reconciliation)} parallel wall-face span(s) using matching opening evidence")
     # Stairs cross clear-height and storey boundaries. Detect once globally
     # after slab zones, never independently inside each storey worker.
     stairs, landings = [], []

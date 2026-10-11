@@ -86,8 +86,12 @@ def point_batches(points, chunk_points=100_000, z_bounds=None):
 
 
 def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
-                 chunk_points=100_000, z_bounds=None, workers=1, backend=None):
-    """Keep the first record in each voxel; enlarge voxels instead of truncating.
+                 chunk_points=100_000, z_bounds=None, workers=1, backend=None,
+                 representatives_per_voxel=1):
+    """Keep deterministic source records per voxel; enlarge rather than truncate.
+
+    One representative keeps the first original row. Two keeps the first and
+    last row, which is useful when callers need both faces of a thin feature.
 
     Each parallel wave holds at most maximum_points + workers*chunk_points
     candidate records. Results remain deterministic across worker counts.
@@ -97,8 +101,16 @@ def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
     if (not np.isfinite(voxel_size_m) or voxel_size_m <= 0
             or not isinstance(maximum_points, int) or isinstance(maximum_points, bool) or maximum_points < 3
             or not isinstance(chunk_points, int) or isinstance(chunk_points, bool) or chunk_points <= 0
-            or not isinstance(workers, int) or isinstance(workers, bool) or workers <= 0):
+            or not isinstance(workers, int) or isinstance(workers, bool) or workers <= 0
+            or representatives_per_voxel not in {1, 2}):
         raise ValueError("Invalid voxel sampling limits")
+    def representatives(scaled):
+        _, first = np.unique(scaled, axis=0, return_index=True)
+        if representatives_per_voxel == 1:
+            return first
+        _, reverse = np.unique(scaled[::-1], axis=0, return_index=True)
+        last = len(scaled)-1-reverse
+        return np.unique(np.concatenate([first,last]))
     starts = list(range(0, len(points), chunk_points))
     def selected_chunk(begin):
         batch = points[begin:begin+chunk_points]
@@ -129,8 +141,7 @@ def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
                           else np.floor((batch-origin)/size+1e-9))
                 if not np.isfinite(scaled).all() or scaled.max() > np.iinfo(np.int64).max / 2:
                     raise ValueError("Coordinate extent exceeds the voxel index limit")
-                _, first = np.unique(scaled.astype(np.int64), axis=0, return_index=True)
-                return indices[first]
+                return indices[representatives(scaled.astype(np.int64))]
             for wave in range(0, len(starts), workers):
                 local = list(executor.map(local_voxels, starts[wave:wave+workers]))
                 candidates = np.concatenate([retained, *local])
@@ -141,8 +152,7 @@ def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
                           else np.floor((coordinates-origin)/size+1e-9))
                 if not np.isfinite(scaled).all() or scaled.max() > np.iinfo(np.int64).max / 2:
                     raise ValueError("Coordinate extent exceeds the voxel index limit")
-                _, first = np.unique(scaled.astype(np.int64), axis=0, return_index=True)
-                retained = np.sort(candidates[first])
+                retained = np.sort(candidates[representatives(scaled.astype(np.int64))])
                 if len(retained) > maximum_points:
                     overflow = True
                     break

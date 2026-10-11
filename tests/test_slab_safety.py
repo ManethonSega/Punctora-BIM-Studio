@@ -7,7 +7,9 @@ import ifcopenshell.util.shape
 from shapely.geometry import Polygon, box
 from shapely.ops import unary_union
 from punctora_core.model import BuildingModel, Slab, SlabOpening, Storey, slab_opening_is_validated
-from punctora_core.slab_zones import Surface, slab_zone_geometry, consolidate_scan_fragments
+from punctora_core.slab_zones import (Surface, slab_zone_geometry,
+                                      consolidate_scan_fragments,
+                                      matching_storey_boundary)
 from punctora_core.reconstruction import ReconstructionSettings
 from punctora_core.features import detect_stairs, derive_stair_slab_openings
 from punctora_core.stair_voids import reconcile_stair_voids
@@ -137,6 +139,25 @@ def test_scan_seams_consolidate_without_hull_or_distant_bridge():
     model=zone_model(unary_union([a,b]),unary_union([a,b]))
     assert len(model.slabs)==1
     assert model.slabs[0].evidence['scan_seam_inferred_area_m2']==pytest.approx(.4)
+
+
+def test_matching_floor_face_completes_occluded_roof_without_changing_setbacks():
+    floor=box(0,0,10,10)
+    occluded_roof=floor.difference(box(7,7,10,10))
+    assert matching_storey_boundary(floor,occluded_roof)[0]
+    surfaces=[Surface(0,floor,floor,np.arange(100),1.,(0.,0.,1.)),
+              Surface(3,occluded_roof,occluded_roof,np.arange(100,200),1.,(0.,0.,1.))]
+    zones=[dict(lower=0,upper=0,paired=False,bottom_m=0.,top_m=0.,
+                estimated_thickness_m=.2,confidence=.8),
+           dict(lower=1,upper=1,paired=False,bottom_m=3.,top_m=3.,
+                estimated_thickness_m=.2,confidence=.8)]
+    storey=Storey('s','Storey',0,3,list(floor.exterior.coords)[:-1])
+    slabs,_=slab_zone_geometry(zones,surfaces,[storey],ReconstructionSettings())
+    roof=next(slab for slab in slabs if slab.kind=='NOTDEFINED')
+    assert Polygon(roof.footprint).area==pytest.approx(100)
+    assert roof.evidence['counterpart_projection_inferred_area_m2']==pytest.approx(9)
+    setback=box(0,0,7,10)
+    assert not matching_storey_boundary(floor,setback)[0]
 
 
 def test_unconfirmed_stair_proposals_and_stale_sources_remain_filled():

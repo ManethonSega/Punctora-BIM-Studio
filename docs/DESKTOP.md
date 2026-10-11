@@ -9,7 +9,7 @@ processing. Cancelling a job keeps the latest valid snapshot and marks it
 `cancelled`. Backend fields report actual Punctora compute use; viewport GPU
 rendering is separate and is not reported as reconstruction acceleration.
 
-The cumulative `run2/interactive-preview` candidate is now 0.3.0a22 and contains
+The cumulative `run2/interactive-preview` candidate is now 0.3.0a24 and contains
 Runs 1 through 4. Adaptive preview draws 75,000 to 100,000 points during movement
 and restores up to 500,000 after it settles. Height mode includes the fixed
 complete-cloud **Local height Z [m]** legend. Glazed façade candidates and their
