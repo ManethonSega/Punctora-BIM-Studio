@@ -24,6 +24,10 @@ jobs:
       - run: python -m pip install -e ".[test]" -c requirements-core.txt
       - run: dotnet restore desktop/Punctora.Desktop/Punctora.Desktop.csproj --locked-mode
       - run: dotnet build desktop/Punctora.Desktop/Punctora.Desktop.csproj -c Release --no-restore
+      - name: Verify large desktop worker transfers
+        run: |
+          python scripts/generate_worker_transport_fixture.py outputs/worker-transfer/check.punctora
+          dotnet run --project scripts/WorkerProtocolCheck -c Release -- outputs/worker-transfer/check.punctora
       - name: Verify void-cut native slab preview
         run: |
           python scripts/generate_slab_preview_fixture.py outputs/slab-preview/elements.json
