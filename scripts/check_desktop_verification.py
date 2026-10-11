@@ -8,6 +8,8 @@ from punctora_core.ifc_export import validate_ifc
 for argument in sys.argv[1:]:
     directory = Path(argument)
     report = json.loads((directory / "ui-verification.json").read_text())
+    if directory.name == "m3-gl":
+        assert "OpenGL" in report["viewport_backend"], "OpenGL CI must not silently pass through CPU fallback"
     assert report["edit_survived_reopen"] and report["ifc_exists"], report
     assert report["crop_undo_restored"] and report["crop_survived_reopen"], report
     assert report["feature_add_delete_passed"], report
