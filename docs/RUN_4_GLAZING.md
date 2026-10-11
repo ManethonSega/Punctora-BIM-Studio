@@ -79,11 +79,27 @@ door/window and staircase regressions remain required. Native walkthroughs
 check legend visibility, mode switching and stable scale during orbit,
 cropping and reopening; CI retains a legend screenshot.
 
-Neither the target façade image/scan nor the 210,167,583-point project nor
-`RS 138 Treppenhaus Sued.e57` is available in this workspace. The available
-Word survey guidelines contain no façade images. Generated fixtures and CI
-cannot close those real-project exit requirements. Rerun both projects in this
-candidate, inspect the façade and staircase IFC, check zero fixture slab cuts,
-measure Intel UHD orbit FPS/restore delay, and measure complete reconstruction
-including evidence export on the same computer. The under-20-minute gate and
-30 FPS Intel UHD gate remain pending until those measurements pass.
+The project folder supplied a façade screenshot and an archive containing
+`RS 138 Treppenhaus Sued.e57`. The complete staircase scan imported successfully:
+39,068,825 raw and valid records, f64 points, uint32 scan IDs and uint64 original
+record IDs. Its working Z bounds are 0 to 12.97705 m. Import took 17.55 seconds
+on the Linux worker; this is not a reconstruction or Windows timing result.
+Full reconstruction stopped at the existing insufficient-RAM guard in the
+constrained worker (approximately 2 GiB total). No RAM-policy bypass or substitute
+downsampled cloud was used to claim acceptance.
+
+Two historical RS 138 project snapshots from 0.3.0a1 also export valid IFC:
+20 or 55 walls and five slabs. They contain no doors, windows or stairs, so they
+cannot establish preservation of the later successful staircase reconstruction.
+The supplied 0.3.0a15 IFC belongs to the large-project baseline: 139 walls,
+one window, 12 doors, one stair flight and 46 opening entities. Its accompanying
+210,167,583-point diagnostics report 2,616 passes and 5,879.84 seconds. These are
+old-run measurements, not results from the new index or façade detector.
+
+The 210-million-point cloud has not been located. A screenshot cannot verify
+the new geometric classification on that cloud. Generated fixtures, successful
+import and CI cannot close the real-project exit requirements. Rerun both
+projects on the customer computer, inspect façade and staircase IFC, check zero
+fixture slab cuts, measure Intel UHD orbit FPS/restore delay, and measure complete
+reconstruction including evidence export. The under-20-minute gate, 30 FPS Intel
+UHD gate and successful staircase geometry comparison remain pending.
