@@ -81,6 +81,52 @@ class SlabOpening:
     footprint: list[tuple[float, float]] | None = None
     source_system_id: str | None = None
     preview_geometry: dict = field(default_factory=dict)
+    ifc_cut_approved: bool = False
+
+
+def confirmed_stair_geometry(stair) -> bool:
+    """Require explicit acceptance or independently fitted tread observations."""
+    if stair.review_state in {"rejected", "flagged"}:
+        return False
+    if stair.review_state == "reviewed":
+        return True
+    if stair.evidence.get("source_geometry_changed"):
+        return False
+    return (stair.evidence.get("method") == "global_tread_riser_lattice"
+            and len(stair.evidence.get("observed_step_indices", [])) >= 3
+            and sum(count > 0 for count in stair.evidence.get("tread_support_counts", [])) >= 3)
+
+
+def confirmed_landing_geometry(landing) -> bool:
+    if landing.review_state in {"rejected", "flagged"}:
+        return False
+    if landing.review_state == "reviewed":
+        return True
+    return (not landing.evidence.get("source_geometry_changed")
+            and landing.evidence.get("method") == "horizontal_patch_at_flight_endpoint"
+            and landing.evidence.get("support_points", 0) >= 20)
+
+
+def slab_opening_is_validated(opening, stairs=(), landings=()) -> bool:
+    """One fail-closed policy for legacy projects, preview and IFC geometry."""
+    if opening.review_state == "rejected":
+        return False
+    if opening.ifc_cut_approved:
+        return True
+    if (opening.review_state == "flagged" or opening.evidence.get("source_geometry_changed")
+            or opening.evidence.get("host_geometry_changed")):
+        return False
+    if opening.evidence.get("validation_state") != "validated":
+        return False
+    basis = opening.evidence.get("validation_basis")
+    if basis == "confirmed_stair_geometry":
+        ids = opening.evidence.get("source_stair_ids", [])
+        sources = {stair.id: stair for stair in stairs}
+        landing_ids = opening.evidence.get("source_landing_ids", [])
+        landing_sources = {landing.id: landing for landing in landings}
+        return (bool(ids) and all(i in sources and confirmed_stair_geometry(sources[i]) for i in ids)
+                and all(i in landing_sources and confirmed_landing_geometry(landing_sources[i]) for i in landing_ids))
+    return basis in {"matching_faces", "vertical_reveals", "confirmed_shaft_geometry"}
 
 
 def slab_opening_footprint(opening: SlabOpening) -> list[tuple[float, float]]:
@@ -290,6 +336,8 @@ class BuildingModel:
                     for stair_id in landing.connected_stair_ids)):
                 raise ValueError("Landing and connected flights require one stair system")
         for opening in self.slab_openings:
+            if not isinstance(opening.ifc_cut_approved, bool):
+                raise ValueError("Slab cut approval must be a boolean")
             if opening.host_slab_id not in slabs:
                 raise ValueError("Slab opening requires a known host slab")
             if opening.source_stair_id is not None and opening.source_stair_id not in stairs:
@@ -356,11 +404,21 @@ class BuildingModel:
                 "scope": scope}
         for slab in result["slabs"]:
             holes = [Polygon(slab_opening_footprint(o)) for o in self.slab_openings
-                     if o.host_slab_id == slab["id"] and o.review_state != "rejected"]
+                     if o.host_slab_id == slab["id"] and slab_opening_is_validated(o, self.stairs, self.landings)]
             shape = Polygon(slab["footprint"]).difference(unary_union(holes))
-            slab["preview_geometry"] = preview_mesh(shape, "derived current footprint minus nonrejected slab voids")
+            slab["preview_geometry"] = preview_mesh(shape, "derived current footprint minus validated slab cuts")
         for landing in result["landings"]:
             landing["preview_geometry"] = preview_mesh(Polygon(landing["footprint"]), "derived current landing footprint")
         for opening, source in zip(result["slab_openings"], self.slab_openings):
             opening["preview_geometry"] = preview_mesh(Polygon(slab_opening_footprint(source)), "derived current slab opening footprint")
+            eligible = slab_opening_is_validated(source, self.stairs, self.landings)
+            opening["preview_geometry"]["ifc_cut_eligible"] = eligible
+            if not eligible:
+                # A thin horizontal ribbon stays visible in a top-down view;
+                # the desktop places it above the filled slab, independently
+                # of the exact candidate polygon retained for review.
+                ribbon = Polygon(slab_opening_footprint(source)).boundary.buffer(.015, join_style=2)
+                marker = preview_mesh(ribbon, "review outline only; never an IFC solid")
+                opening["preview_geometry"]["review_surface_triangles_xy"] = marker["render_surface_triangles_xy"]
+                opening["preview_geometry"]["review_boundary_rings_xy"] = marker["render_boundary_rings_xy"]
         return result

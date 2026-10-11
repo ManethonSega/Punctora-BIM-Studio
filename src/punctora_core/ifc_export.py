@@ -12,7 +12,7 @@ import ifcopenshell.validate
 
 from . import __version__
 from .ifc_geometry import IFCGeometry
-from .model import BuildingModel, slab_opening_footprint
+from .model import BuildingModel, slab_opening_footprint, slab_opening_is_validated
 
 
 def _guid(project, identifier):
@@ -145,6 +145,8 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
 
     slabs = {slab.id: slab for slab in model.slabs}
     for opening in model.slab_openings:
+        if not slab_opening_is_validated(opening, model.stairs, model.landings):
+            continue
         host = slabs[opening.host_slab_id]
         void = root("IfcOpeningElement", opening.id, predefined="OPENING")
         matrix = np.eye(4)
@@ -312,6 +314,9 @@ def write_ifc(model: BuildingModel, path: str | Path) -> dict:
         file.write(str(candidate))
         reopened = ifcopenshell.open(str(candidate))
         report = validate_ifc(reopened)
+        report["slab_cut_policy"] = {"validated_cut_ids": [o.id for o in model.slab_openings
+            if slab_opening_is_validated(o, model.stairs, model.landings)], "review_only_ids": [o.id for o in model.slab_openings
+            if o.review_state != "rejected" and not slab_opening_is_validated(o, model.stairs, model.landings)]}
         # Recompute from the actual exported dimensions and voids, including
         # manual edits. Stored detection-time clearance is not export evidence.
         from copy import deepcopy

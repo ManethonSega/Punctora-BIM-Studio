@@ -62,7 +62,7 @@ def test_render_simplification_preserves_voids_and_exact_ifc_geometry():
     boundary = [(i / 20, .0004 * (i % 2)) for i in range(201)] + [(10, 10), (0, 10)]
     model = BuildingModel("Render only", storeys=[Storey("level", "Level", 0, 3, boundary)],
         slabs=[Slab("floor", "level", boundary, -.2, .2)],
-        slab_openings=[SlabOpening("hole", "floor", (4, 4), (5, 4), 1)])
+        slab_openings=[SlabOpening("hole", "floor", (4, 4), (5, 4), 1, ifc_cut_approved=True)])
     original = deepcopy(model.slabs[0].footprint)
     snapshot = model.to_dict()
     mesh = snapshot["slabs"][0]["preview_geometry"]

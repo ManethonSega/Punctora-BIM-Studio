@@ -88,7 +88,7 @@ def test_crop_zone_evidence_maps_back_to_immutable_source_rows(tmp_path):
     assert indices and set(indices).issubset(valid)
 
 
-def test_observed_polygon_holes_export_as_ifc_voids(tmp_path):
+def test_single_face_polygon_holes_remain_review_only(tmp_path):
     import ifcopenshell
     from punctora_core.ifc_export import write_ifc
     shape = Polygon([(0,0),(6,0),(6,4),(0,4)],holes=[[(2,1),(4,1),(4,3),(2,3)]])
@@ -98,16 +98,17 @@ def test_observed_polygon_holes_export_as_ifc_voids(tmp_path):
     model = BuildingModel("test",levels,slabs=slabs,slab_openings=holes)
     write_ifc(model,tmp_path/"model.ifc")
     file = ifcopenshell.open(str(tmp_path/"model.ifc"))
-    assert len(file.by_type("IfcRelVoidsElement")) == len(holes) == 2
+    assert len(holes) == 2
+    assert not file.by_type("IfcRelVoidsElement")
     for slab in file.by_type("IfcSlab"):
-        assert slab.HasOpenings
+        assert not slab.HasOpenings
 
 
 def test_preview_mesh_rebuilds_after_void_edit_and_rejection():
     from punctora_core.model import Slab, SlabOpening, Storey
     storey = Storey("s","s",0,3,[(0,0),(6,0),(6,4),(0,4)])
     slab = Slab("slab","s",storey.footprint,0,.2)
-    hole = SlabOpening("hole","slab",(2,2),(4,2),2)
+    hole = SlabOpening("hole","slab",(2,2),(4,2),2, ifc_cut_approved=True)
     model = BuildingModel("mesh",[storey],slabs=[slab],slab_openings=[hole])
     def area():
         mesh=model.to_dict()["slabs"][0]["preview_geometry"]

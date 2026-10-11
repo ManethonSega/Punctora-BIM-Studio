@@ -116,7 +116,7 @@ def test_reviewed_stair_slab_opening_cuts_its_host_floor(tmp_path):
                   provenance={"treads": "measured"})
     opening = SlabOpening("stair-opening", slab.id, (1.9, 2), (6.1, 2), 1.2,
                           stair.id, {"footprint": "inferred"}, "reviewed", .8,
-                          {"scope": "test candidate"})
+                          {"scope": "test candidate"}, ifc_cut_approved=True)
     model = BuildingModel("Slab void", [lower, upper], slabs=[slab], stairs=[stair],
                           slab_openings=[opening])
     report = write_ifc(model, tmp_path/"slab-opening.ifc")

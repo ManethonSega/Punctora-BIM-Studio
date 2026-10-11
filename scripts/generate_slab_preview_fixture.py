@@ -18,7 +18,7 @@ host = model.slabs[0]
 host.footprint = [(-5, -5), (5, -5), (5, 5), (-5, 5)]
 for index, polygon in enumerate(contours["slab_openings"]):
     model.slab_openings.append(SlabOpening(f"contour-void-{index}", host.id,
-        (0, 0), (1, 0), .1, footprint=polygon))
+        (0, 0), (1, 0), .1, footprint=polygon, ifc_cut_approved=True))
 for index, polygon in enumerate(contours["landings"]):
     model.landings.append(Landing(f"contour-landing-{index}", host.storey_id, polygon, 1.5))
 path.parent.mkdir(parents=True, exist_ok=True)

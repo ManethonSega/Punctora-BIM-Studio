@@ -1,12 +1,12 @@
-"""Observed slab holes and justified flight headroom, with residual checks."""
+"""Review-only slab gaps and independently validated stair clearance cuts."""
 from shapely.geometry import LineString, Polygon
 from shapely.ops import unary_union
-from .model import slab_opening_footprint
+from .model import slab_opening_footprint, slab_opening_is_validated
 
 
 def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headroom_m=2.0,
                           exported_solids=None):
-    """Keep observations intact; cut only flight/landing-supported additions.
+    """Keep observations intact; only validated geometry contributes to clearance.
 
     Overlapping IFC voids are legal and their union is the actual removed area.
     Keeping separate objects preserves each observation and causal boundary.
@@ -17,7 +17,7 @@ def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headro
     for opening in candidates:
         polygon = Polygon(slab_opening_footprint(opening))
         previous = [o for o in observed if o.host_slab_id == opening.host_slab_id
-                    and o.review_state != 'rejected']
+                    and slab_opening_is_validated(o, flights, landings)]
         observed_shape = unary_union([Polygon(slab_opening_footprint(o)) for o in previous])
         overlap = polygon.intersection(observed_shape).area
         opening.evidence.update({
@@ -25,13 +25,15 @@ def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headro
                 if polygon.intersects(Polygon(slab_opening_footprint(o)))],
             'observed_overlap_m2': float(overlap),
             'additional_cut_area_m2': float(polygon.difference(observed_shape).area),
-            'validation_state': 'geometric_headroom_proposal',
             'boundary_justification': {'flights': opening.evidence['source_stair_ids'],
                                        'landings': opening.evidence['source_landing_ids']}})
-        for hole in previous:
-            if hole.id in opening.evidence['observed_hole_ids']:
+        for hole in observed:
+            if (hole.host_slab_id == opening.host_slab_id
+                    and polygon.intersects(Polygon(slab_opening_footprint(hole)))):
                 hole.evidence['stair_validation'] = 'supported_by_stair_envelope'
-                hole.evidence.setdefault('supporting_system_ids', []).append(opening.source_system_id)
+                systems = hole.evidence.setdefault('supporting_system_ids', [])
+                if opening.source_system_id not in systems:
+                    systems.append(opening.source_system_id)
         result.append(opening)
     for hole in observed:
         hole.evidence.setdefault('stair_validation', 'pending_manual_review')
@@ -40,7 +42,7 @@ def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headro
     for slab in slabs:
         host = Polygon(slab.footprint)
         holes = unary_union([Polygon(slab_opening_footprint(o)) for o in result
-                             if o.host_slab_id == slab.id and o.review_state != 'rejected'])
+                             if o.host_slab_id == slab.id and slab_opening_is_validated(o, flights, landings)])
         solid = (exported_solids[slab.id] if exported_solids is not None
                  else host.difference(holes))
         physical, clearance = [], []

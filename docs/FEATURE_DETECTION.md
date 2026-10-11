@@ -50,7 +50,7 @@ After slabs are assembled, a stair system can produce one or more `SlabOpening` 
 2. one or more nondegenerate flight or landing envelopes enter the configurable 2.0 m headroom zone below that slab; and
 3. the resulting polygon intersects the host slab footprint.
 
-The union of the relevant flight and landing envelopes receives a 0.10 m review margin and is clipped explicitly to the detected host footprint. The evidence records the source flights, source landings, headroom, margin and whether clipping occurred. A candidate has its own stable ID, host slab, stair-system identity, provenance, support score and review state. It appears as a polygonal purple inspection volume, survives save/reopen, participates in convergence comparisons and cuts the host slab during IFC export.
+The union of the relevant flight and landing envelopes receives a 0.10 m review margin and is clipped explicitly to the detected host footprint. The evidence records the source flights, source landings, headroom, margin and whether clipping occurred. A candidate has its own stable ID, host slab, stair-system identity, provenance, support score and review state. It appears as a polygonal purple inspection volume, survives save/reopen, participates in convergence comparisons and cuts the host slab only after independent geometry validation or explicit user approval. Occupancy gaps on a single face and repeated fixture patterns stay filled. The desktop offers a separate IFC cut approval checkbox; marking an opening `reviewed` alone does not approve a cut. See [Run 3 slab safety](RUN_3_SLAB_SAFETY.md).
 
 The envelope is a clearance proposal, not a structural trimming design. Reinforcement, edge framing, finishes and code compliance still require engineering review.
 

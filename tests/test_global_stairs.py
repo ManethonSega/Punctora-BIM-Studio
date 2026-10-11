@@ -77,7 +77,7 @@ def test_observed_partial_hole_is_preserved_and_headroom_is_cut_and_exported(tmp
     footprint = [(0,0),(10,0),(10,10),(0,10)]
     storeys = [Storey('lower','Lower',0,3,footprint),Storey('upper','Upper',3.2,6,footprint)]
     stair = Stair('flight','lower',(2,2),(6,2),0,1,.2,.25,16,system_id='system',flight_index=1,
-                  evidence={'inferred_missing_step_indices':[4]})
+                  evidence={'inferred_missing_step_indices':[4]}, review_state='reviewed')
     slab = Slab('slab','upper',footprint,3,.2)
     observed = SlabOpening('observed','slab',(5,2),(6,2),.7,
                            footprint=[(5,1.65),(6,1.65),(6,2.35),(5,2.35)])
@@ -99,13 +99,14 @@ def test_observed_partial_hole_is_preserved_and_headroom_is_cut_and_exported(tmp
     assert len(reopened.by_type('IfcStair')) == len(reopened.by_type('IfcStairFlight')) == 1
     flight = reopened.by_type('IfcStairFlight')[0]
     assert any(r.RelatingStructure.Name == 'Lower' for r in flight.ReferencedInStructures)
-    assert len(reopened.by_type('IfcRelVoidsElement')) == 2
+    assert len(reopened.by_type('IfcRelVoidsElement')) == 1
+    assert observed.evidence.get('validation_state') != 'validated'
     psets = ifcopenshell.util.element.get_psets(reopened.by_type('IfcStairFlight')[0])
     assert json.loads(psets['Punctora_Reconstruction']['GeometricEvidence'])['inferred_missing_step_indices'] == [4]
 
 
 def test_collision_check_reports_missing_void_instead_of_claiming_success():
-    stair = Stair('f','s',(0,0),(2,0),0,1,.2,.25,8)
+    stair = Stair('f','s',(0,0),(2,0),0,1,.2,.25,8, review_state='reviewed')
     slab = Slab('slab','s',[(-1,-1),(4,-1),(4,2),(-1,2)],1,.2)
     _, report = reconcile_stair_voids([slab],[],[],[stair],[])
     assert report[0]['status'] == 'review_required'
@@ -113,7 +114,7 @@ def test_collision_check_reports_missing_void_instead_of_claiming_success():
 
 
 def test_roof_headroom_is_checked_without_exact_flight_endpoint_match():
-    stair = Stair('f','s',(0,0),(2,0),0,1,.2,.25,8)
+    stair = Stair('f','s',(0,0),(2,0),0,1,.2,.25,8, review_state='reviewed')
     slab = Slab('roof','s',[(-1,-1),(4,-1),(4,2),(-1,2)],3,.2,'NOTDEFINED')
     candidates,_ = derive_stair_slab_openings([stair],[slab],headroom_m=2)
     assert candidates
@@ -165,7 +166,7 @@ def test_floor_integrated_landing_does_not_duplicate_or_cut_its_floor(tmp_path):
 
 
 def test_small_host_fragment_is_not_discarded_when_it_obstructs_headroom():
-    stair = Stair('f','s',(0,0),(4,0),0,1,.2,.25,16)
+    stair = Stair('f','s',(0,0),(4,0),0,1,.2,.25,16, review_state='reviewed')
     slab = Slab('fragment','s',[(2,-.51),(2.04,-.51),(2.04,-.49),(2,-.49)],3,.2)
     candidates,_ = derive_stair_slab_openings([stair],[slab])
     assert len(candidates) == 1

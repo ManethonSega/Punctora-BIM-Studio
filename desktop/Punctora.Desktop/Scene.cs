@@ -86,9 +86,10 @@ public sealed class SceneData
                     footprint=[start-side,end-side,end+side,start+side];
                 }
                 JsonObject? outlineMesh=opening["preview_geometry"] as JsonObject;
-                if(opening["evidence"]?["method"]?.GetValue<string>()=="enclosed_horizontal_occupancy_gap")
-                    outlineMesh=new JsonObject{["surface_triangles_xy"]=new JsonArray(),["boundary_rings_xy"]=new JsonArray(new JsonArray(footprint.Select(p=>(JsonNode)new JsonArray((double)p.X,(double)p.Y)).ToArray()))};
-                Add(elements,opening,"SlabOpening",footprint,Number(slab,"base")-.01f,Number(slab,"thickness")+.02f,slab["storey_id"]!.GetValue<string>(),outlineMesh);
+                var reviewOnly=opening["preview_geometry"]?["ifc_cut_eligible"]?.GetValue<bool>()!=true;
+                if(reviewOnly)
+                    outlineMesh=new JsonObject{["surface_triangles_xy"]=opening["preview_geometry"]?["review_surface_triangles_xy"]?.DeepClone()??new JsonArray(),["boundary_rings_xy"]=opening["preview_geometry"]?["review_boundary_rings_xy"]?.DeepClone()??new JsonArray(new JsonArray(footprint.Select(p=>(JsonNode)new JsonArray((double)p.X,(double)p.Y)).ToArray()))};
+                Add(elements,opening,"SlabOpening",footprint,reviewOnly?Number(slab,"base")+Number(slab,"thickness")+.01f:Number(slab,"base")-.01f,reviewOnly?.025f:Number(slab,"thickness")+.02f,slab["storey_id"]!.GetValue<string>(),outlineMesh);
             }
             foreach(var node in model["openings"]?.AsArray()??[])
             {

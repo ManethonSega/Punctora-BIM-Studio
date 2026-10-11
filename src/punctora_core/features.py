@@ -323,6 +323,7 @@ def derive_stair_slab_openings(stairs, slabs, landings=None, margin_m=.1,
     """Create reviewable, host-clipped stairwell polygons using headroom evidence."""
     openings, diagnostics = [], []
     landings = landings or []
+    from .model import confirmed_stair_geometry, confirmed_landing_geometry
     systems = {}
     for stair in stairs:
         systems.setdefault(stair.system_id or stair.id, []).append(stair)
@@ -371,6 +372,7 @@ def derive_stair_slab_openings(stairs, slabs, landings=None, margin_m=.1,
                 source_steps[stair.id] = indices
             connected_landings = [landing for landing in landings
                                   if landing.system_id == system_id
+                                  and landing.review_state != "rejected"
                                   and landing.evidence.get("source_floor_id") != slab.id
                                   and slab.base-headroom_m <= landing.base+landing.thickness
                                   <= slab.base+slab.thickness+max(.12, vertical_tolerance_m)]
@@ -400,6 +402,9 @@ def derive_stair_slab_openings(stairs, slabs, landings=None, margin_m=.1,
                     {"footprint": "inferred", "host_slab_id": "inferred", "headroom": "inferred"},
                     confidence=min((stair.confidence or 0 for stair in flights), default=0),
                     evidence={"method": "stair_system_headroom_envelope",
+                              "validation_state": "validated" if all(confirmed_stair_geometry(s) for s in flights if s.id in contributing)
+                                  and all(confirmed_landing_geometry(l) for l in connected_landings) else "review_required",
+                              "validation_basis": "confirmed_stair_geometry",
                               "source_stair_ids": contributing,
                               "source_step_indices": source_steps,
                               "source_landing_ids": [landing.id for landing in connected_landings],

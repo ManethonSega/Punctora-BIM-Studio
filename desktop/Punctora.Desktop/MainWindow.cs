@@ -46,6 +46,7 @@ public sealed class MainWindow : Window
     readonly List<Button> projectActions=[];
     readonly Button save,apply,cancel,undoButton,mergeButton,splitButton,cropDraw,cropApply,cropClear,cropCancel;
     readonly Button addDoorButton,addWindowButton,addStairButton,addLandingButton,addSlabOpeningButton,deleteCandidateButton;
+    readonly CheckBox approveSlabCut=new(){Content="Approve this opening as an IFC slab cut"};
     readonly TextBox splitOffset=new(){Watermark="Distance from wall start (m)"};
     readonly Stack<JsonNode> undo=[];
     CancellationTokenSource? jobCancellation;
@@ -56,7 +57,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a19 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
+        Title="Punctora BIM Studio | 0.3.0a20 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -66,7 +67,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a19",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a20",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new WrapPanel{Orientation=Orientation.Horizontal,ItemSpacing=8,LineSpacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -105,6 +106,7 @@ public sealed class MainWindow : Window
         center.Children.Add(new Border{Child=viewport,CornerRadius=new CornerRadius(10),ClipToBounds=true});
         var viewFooter=new StackPanel{Spacing=4,Margin=new Thickness(8,8,8,0)};viewFooter.Children.Add(counts);viewFooter.Children.Add(Text("Drag: orbit  ·  Right-drag: pan  ·  Wheel: zoom  ·  Click model: select",11));viewFooter.Children.Add(frameDiagnostics);viewFooter.Children.Add(backend);Grid.SetRow(viewFooter,1);center.Children.Add(viewFooter);
         var inspector=new StackPanel{Spacing=10,Margin=new Thickness(14)};inspector.Children.Add(selectedTitle);inspector.Children.Add(fieldsPanel);inspector.Children.Add(Text("Review state",11));inspector.Children.Add(review);inspector.Children.Add(Text("Wall classification",11));inspector.Children.Add(classification);
+        inspector.Children.Add(approveSlabCut);
         apply=Button("Apply correction",ApplyAsync);inspector.Children.Add(apply);
         inspector.Children.Add(Text("FEATURE CORRECTIONS",11));
         addDoorButton=Button("Add door to selected wall",()=>AddCandidateAsync("door"));inspector.Children.Add(addDoorButton);
@@ -152,6 +154,8 @@ public sealed class MainWindow : Window
         addStairButton.IsEnabled=!busy&&selected?.Kind=="storeys";
         addLandingButton.IsEnabled=!busy&&selected?.Kind=="stairs";
         addSlabOpeningButton.IsEnabled=!busy&&selected?.Kind=="slabs";
+        approveSlabCut.IsEnabled=!busy&&selected?.Kind=="slab_openings";
+        approveSlabCut.IsVisible=selected?.Kind=="slab_openings";
         deleteCandidateButton.IsEnabled=!busy&&selected!=null&&new[]{"openings","stairs","landings","slab_openings"}.Contains(selected.Value.Kind);
         method.IsEnabled=zUp.IsEnabled=!busy;
         cropBottom.IsEnabled=cropTop.IsEnabled=!busy&&state!=null;
@@ -335,6 +339,7 @@ public sealed class MainWindow : Window
         }
         else{Field("name","Storey name",obj["name"]!.GetValue<string>());Number("elevation","Floor level (m)");Number("ceiling","Ceiling level (m)");}
         review.SelectedItem=obj["review_state"]?.GetValue<string>()??"unreviewed";review.IsVisible=kind!="storeys";
+        approveSlabCut.IsChecked=obj["ifc_cut_approved"]?.GetValue<bool>()==true;
         classification.SelectedItem=obj["classification"]?.GetValue<string>()??"unclassified";classification.IsVisible=kind=="walls";
         var provenance=obj["provenance"]?.AsObject().Select(p=>$"{p.Key}: {p.Value}")??[];
         evidence.Text=(kind=="walls"?$"Supporting original points: {obj["evidence_count"]}\nObserved-face fit RMSE: {obj["fit_rmse_m"]?.ToJsonString()??"unknown"} m\n\n":"")+string.Join("\n",provenance)+"\n\nObserved faces and fit statistics refer to the original fit. Corrections are recorded as user supplied.";
@@ -342,7 +347,7 @@ public sealed class MainWindow : Window
         if(kind=="slabs")evidence.Text=$"Supported area: {obj["evidence"]?["supported_percent"]?.ToJsonString()??"unknown"}%\nInferred area: {obj["evidence"]?["inferred_percent"]?.ToJsonString()??"unknown"}%\n\n"+evidence.Text;
         if(kind=="stairs")evidence.Text=$"System: {obj["system_id"]} ({obj["evidence"]?["system_layout"]})\nObserved tread indices: {obj["evidence"]?["observed_step_indices"]}\nInferred missing treads: {obj["evidence"]?["inferred_missing_step_indices"]}\nRiser support: {obj["evidence"]?["riser_support_counts"]}\nLower/upper slabs: {obj["evidence"]?["lower_slab_id"]} / {obj["evidence"]?["upper_slab_id"]}\n\n"+evidence.Text;
         if(kind=="landings")evidence.Text=$"Connected flights: {obj["connected_stair_ids"]}\nObserved support points: {obj["evidence"]?["support_points"]}\n\n"+evidence.Text;
-        if(kind=="slab_openings")evidence.Text=$"Stair validation: {obj["evidence"]?["stair_validation"]??obj["evidence"]?["validation_state"]}\nObserved overlap: {obj["evidence"]?["observed_overlap_m2"]} m2\nAdditional cut: {obj["evidence"]?["additional_cut_area_m2"]} m2\nBoundary justification: {obj["evidence"]?["boundary_justification"]}\n\n"+evidence.Text;
+        if(kind=="slab_openings")evidence.Text=$"IFC slab cut: {(obj["preview_geometry"]?["ifc_cut_eligible"]?.GetValue<bool>()==true?"validated / approved":"review only; slab remains filled")}\nValidation basis: {obj["evidence"]?["validation_basis"]}\nMarking reviewed alone does not approve a cut. Use the approval checkbox and Apply correction.\n\nStair validation: {obj["evidence"]?["stair_validation"]??obj["evidence"]?["validation_state"]}\nObserved overlap: {obj["evidence"]?["observed_overlap_m2"]} m2\nAdditional cut: {obj["evidence"]?["additional_cut_area_m2"]} m2\nBoundary justification: {obj["evidence"]?["boundary_justification"]}\n\n"+evidence.Text;
         if(kind=="walls"&&obj["evidence"]?["endpoints"] is JsonArray ends)evidence.Text="Endpoint evidence:\n"+string.Join("\n",ends.Select(e=>$"{e!["end"]}: {e["status"]}"))+"\n\n"+evidence.Text;
         if(kind=="openings")evidence.Text=$"Jamb positions: {obj["evidence"]?["jamb_positions_m"]?.ToJsonString()??"unknown"} m\nSill/head elevations: {obj["evidence"]?["sill_elevation_m"]} / {obj["evidence"]?["head_elevation_m"]} m\nSigned filling depth: {obj["evidence"]?["signed_interior_depth_m"]?.ToJsonString()??"unobserved"} m\nFrame support: {obj["evidence"]?["edge_support"]?.ToJsonString()??"unknown"}\n\n"+evidence.Text;
         UpdateActions();
@@ -371,6 +376,7 @@ public sealed class MainWindow : Window
         }
         if(kind!="storeys"&&review.SelectedItem is string r&&r!=obj["review_state"]!.GetValue<string>())changes["review_state"]=r;
         if(kind=="walls"&&classification.SelectedItem is string c&&c!=obj["classification"]!.GetValue<string>())changes["classification"]=c;
+        if(kind=="slab_openings"&&(approveSlabCut.IsChecked==true)!=(obj["ifc_cut_approved"]?.GetValue<bool>()==true))changes["ifc_cut_approved"]=approveSlabCut.IsChecked==true;
         if(changes.Count==0){status.Text="No parameters changed.";return;}
         var previous=DraftSnapshot();var request=ModelRequest();request["element_id"]=selectedId;request["changes"]=changes;
         var result=await RunAsync("edit",projectPath,request);
@@ -601,7 +607,8 @@ public sealed class MainWindow : Window
             fields["thickness"].Text="0.27";review.SelectedItem="reviewed";await ApplyAsync();if(!dirty)throw new Exception("Correction did not enter draft state");
             selectedId="ui-window";ShowProperties();fields["width"].Text="0.65";review.SelectedItem="reviewed";await ApplyAsync();
             selectedId="ui-stair";ShowProperties();fields["going"].Text="0.28";review.SelectedItem="reviewed";await ApplyAsync();
-            selectedId="ui-slab-opening";ShowProperties();fields["width"].Text="0.55";review.SelectedItem="reviewed";await ApplyAsync();
+            selectedId="ui-slab-opening";ShowProperties();fields["width"].Text="0.55";review.SelectedItem="reviewed";approveSlabCut.IsChecked=true;await ApplyAsync();
+            if(state!["model"]!["slab_openings"]![0]!["ifc_cut_approved"]?.GetValue<bool>()!=true)throw new Exception("Explicit slab cut approval was lost");
             var wallId=sample["id"]!.GetValue<string>();var currentWall=state!["model"]!["walls"]!.AsArray().First(node=>node!["id"]!.GetValue<string>()==wallId)!;
             var dx=currentWall["end"]![0]!.GetValue<double>()-currentWall["start"]![0]!.GetValue<double>();var dy=currentWall["end"]![1]!.GetValue<double>()-currentWall["start"]![1]!.GetValue<double>();
             selectedId=wallId;ShowProperties();splitOffset.Text=(Math.Sqrt(dx*dx+dy*dy)/2).ToString(CultureInfo.InvariantCulture);await SplitWallAsync();

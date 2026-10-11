@@ -65,7 +65,13 @@ try
     foreach(var kind in new[]{"landings","slab_openings"})foreach(var node in model[kind]?.AsArray()??[])
     {
         if(node!["evidence"]?["floor_integrated"]?.GetValue<bool>()==true)continue;
-        if(kind=="slab_openings"&&node["evidence"]?["method"]?.GetValue<string>()=="enclosed_horizontal_occupancy_gap")continue;
+        if(kind=="slab_openings"&&node["preview_geometry"]?["ifc_cut_eligible"]?.GetValue<bool>()!=true)
+        {
+            var marker=scene.Elements.Single(e=>e.Id==node["id"]!.GetValue<string>());
+            var host=model["slabs"]!.AsArray().Single(s=>s!["id"]!.GetValue<string>()==node["host_slab_id"]!.GetValue<string>())!;
+            if(marker.Triangles.Length==0||Enumerable.Range(0,marker.Triangles.Length/7).Min(i=>marker.Triangles[i*7+2])<host["base"]!.GetValue<double>()+host["thickness"]!.GetValue<double>())throw new Exception("Review candidate hidden inside filled slab");
+            continue;
+        }
         var elements=scene.Elements.Where(e=>e.Id==node["id"]!.GetValue<string>()).ToArray();
         if(elements.Length!=1)throw new Exception("Missing polygon preview");
         var mesh=(node["preview_geometry"]!["render_surface_triangles_xy"]??node["preview_geometry"]!["surface_triangles_xy"])!.AsArray();
