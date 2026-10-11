@@ -132,7 +132,7 @@ public sealed class SceneViewport : Grid
         {
             if(CropDrawing){e.Handled=true;return;}
             var location=e.GetPosition(this);
-            if(dragging&&last!=location){last=location;cameraPending=true;ApplyCamera();Redraw();}
+            if(dragging){if(last!=location)cameraPending=true;last=location;ApplyCamera();Redraw();}
             if(dragging&&!pan&&Math.Sqrt(Math.Pow(location.X-press.X,2)+Math.Pow(location.Y-press.Y,2))<4&&View.Model)
                 ElementSelected?.Invoke(View.Camera.Pick(View.Scene,location,Bounds.Size,View.Storey,View.ZMin,View.ZMax));
             dragging=false; e.Pointer.Capture(null);
