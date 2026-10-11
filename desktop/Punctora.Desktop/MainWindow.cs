@@ -236,7 +236,7 @@ public sealed class MainWindow : Window
             storeys.SelectedIndex=priorStorey==null?0:Math.Max(0,levels.ToList().FindIndex(s=>s!["id"]!.GetValue<string>()==priorStorey)+1);
             var nodes=model==null?new List<(string Kind,JsonObject Node)>():new[]{"storeys","walls","slabs","slab_openings","openings","stairs","landings"}.SelectMany(kind=>(model[kind]?.AsArray()??[]).Select(n=>(Kind:kind,Node:n!.AsObject()))).ToList();
             elementIds=nodes.Select(n=>n.Node["id"]!.GetValue<string>()).ToArray();
-            elements.ItemsSource=nodes.Select(n=>$"{n.Kind} · {n.Node["id"]}\n{n.Node["review_state"]?.GetValue<string>()??"levels / inferred outline"}").ToArray();
+            elements.ItemsSource=nodes.Select(n=>$"{(n.Kind=="slab_openings"?(n.Node["preview_geometry"]?["ifc_cut_eligible"]?.GetValue<bool>()==true?"slab cut":"slab gap review"):n.Kind)} · {n.Node["id"]}\n{n.Node["review_state"]?.GetValue<string>()??"levels / inferred outline"}").ToArray();
             elements.SelectedIndex=Array.IndexOf(elementIds,selectedId);
             zUp.IsChecked=state["coordinate_confirmation"]!["z_up"]!.GetValue<bool>();
             section.Minimum=scene.Minimum.Z-.5;section.Maximum=scene.Maximum.Z+.5;
@@ -247,7 +247,9 @@ public sealed class MainWindow : Window
             backend.Text=viewport.Backend;
             var cropState=cropPolygon!=null||cropLow!=null||cropHigh!=null
                 ?(state["model_crop_stale"]!.GetValue<bool>()?" · crop changed, detection required":" · crop active"):"";
-            counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {model?["walls"]?.AsArray().Count??0} walls, {model?["slabs"]?.AsArray().Count??0} slabs, {model?["slab_openings"]?.AsArray().Count??0} slab openings, {model?["openings"]?.AsArray().Count??0} wall openings, {model?["stairs"]?.AsArray().Count??0} flights, {model?["landings"]?.AsArray().Count??0} landings · local metres{cropState}";
+            var slabCuts=model?["slab_openings"]?.AsArray().Count(o=>o!["preview_geometry"]?["ifc_cut_eligible"]?.GetValue<bool>()==true)??0;
+            var slabReviews=model?["slab_openings"]?.AsArray().Count(o=>o!["preview_geometry"]?["ifc_cut_eligible"]?.GetValue<bool>()!=true&&o["review_state"]?.GetValue<string>()!="rejected")??0;
+            counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {model?["walls"]?.AsArray().Count??0} walls, {model?["slabs"]?.AsArray().Count??0} slabs, {slabCuts} slab cuts, {slabReviews} gap reviews, {model?["openings"]?.AsArray().Count??0} wall openings, {model?["stairs"]?.AsArray().Count??0} flights, {model?["landings"]?.AsArray().Count??0} landings · local metres{cropState}";
         }
         finally{refreshing=false;}
         ShowProperties();FilterStorey();UpdateActions();
