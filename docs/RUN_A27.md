@@ -51,12 +51,16 @@ contexts as well as the target's global coordinate mapping.
 
 ## Verification and limits
 
-The local suite contains 292 passing tests, including stepped exterior
+The regression suite covers stepped exterior
 outlines, preserved short walls, concave/void-safe corners, alignment, additive
 reconstruction, copied evidence, cleanup, save/reopen and reopened IFC.
 Native CI also exercises profile meshes, both additive worker paths and
 coplanar transparency. A stencil ownership pass prevents different overlapping
 tessellations from blending a model skin more than once per pixel.
+Staged spatial-index and evidence arrays check available disk space and reserve
+their storage where supported, reporting allocation failures before writable
+mapping pages can terminate the worker. Failed reconstruction keeps the saved
+model and its diagnostic report.
 
 The supplied a26 facade run reports 16:19 including evidence export and 18.01
 complete-source-equivalent visits on the user's Windows computer. These are

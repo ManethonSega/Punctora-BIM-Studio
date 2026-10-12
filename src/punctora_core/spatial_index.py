@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from threading import RLock
 from weakref import ref, finalize
 import numpy as np
+from .storage import mapped_array
 
 CELL_DTYPE = np.dtype([("x", "<i8"), ("y", "<i8"), ("z", "<i8")])
 
@@ -62,8 +63,7 @@ class SpatialPointIndex:
     def _retain(self, values, name):
         if not self.spilled:
             return values
-        result = np.lib.format.open_memmap(Path(self.scratch.name)/f"{name}.npy",
-                                          mode="w+", dtype=values.dtype, shape=values.shape)
+        result = mapped_array(Path(self.scratch.name)/f"{name}.npy",values.dtype,values.shape)
         result[:] = values
         result.flush()
         return result
@@ -120,8 +120,7 @@ class SpatialPointIndex:
     def _allocate(self, shape, dtype, mapped):
         if not mapped:
             return np.empty(shape,dtype=dtype)
-        result = np.lib.format.open_memmap(Path(self.scratch.name)/f"query-{len(self.mapped_arrays)}.npy",
-                                          mode="w+",dtype=dtype,shape=shape)
+        result = mapped_array(Path(self.scratch.name)/f"query-{len(self.mapped_arrays)}.npy",dtype,shape)
         # Do not keep evicted query maps resident merely to remember cleanup.
         self.mapped_arrays.append(ref(result))
         mapping=result._mmap
@@ -197,8 +196,8 @@ class SpatialPointIndex:
     def _record_rows(self,stage,rows,processed):
         visited = self.visited.get(stage)
         if visited is None:
-            visited = np.memmap(Path(self.scratch.name)/f"visited-{len(self.visited)}.bin",mode="w+",
-                                dtype=np.bool_,shape=(len(self.cloud.points),))
+            visited = mapped_array(Path(self.scratch.name)/f"visited-{len(self.visited)}.bin",
+                                   np.bool_,(len(self.cloud.points),),raw=True)
             self.visited[stage] = visited
         record = self.stats.setdefault(stage,{"points_processed":0,"unique_points_visited":0})
         for begin in range(0,len(rows),self.chunk_points):

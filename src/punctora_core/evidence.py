@@ -3,6 +3,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import numpy as np
+from .storage import mapped_array
 from .sampling import point_batches
 
 _scope_lock=Lock()
@@ -284,7 +285,7 @@ def write_wall_evidence(cloud, walls, directory, chunk_points=100_000, surface_p
     directory.mkdir(parents=True, exist_ok=False)
     for index, wall in enumerate(walls):
         path = directory/f"wall-{index+1}.npy"
-        records = np.lib.format.open_memmap(path, mode="w+", dtype="<i8", shape=(wall.evidence_count, 3))
+        records = mapped_array(path,"<i8",(wall.evidence_count,3))
         cursor = 0
         local = cloud
         visit = lambda _: None

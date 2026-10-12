@@ -6,10 +6,11 @@ from shapely.ops import unary_union
 from shapely import constrained_delaunay_triangles
 
 
-def fit_exterior_profiles(walls):
+def fit_exterior_profiles(walls,openings=()):
     reports=[]
     for wall in walls:
         length=dist(wall.start,wall.end)
+        rectangle_area=length*wall.height
         direction=(np.array(wall.end)-wall.start)/length
         cell=.04;n=max(1,int(np.ceil(length/cell)))
         lower=np.full(n,np.inf);upper=np.full(n,-np.inf)
@@ -43,11 +44,19 @@ def fit_exterior_profiles(walls):
             reports.append({'wall_id':wall.id,'status':'review_required','reason':'disconnected_extent_support'})
             continue
         shape=shape.simplify(1e-8,preserve_topology=True)
-        wall.profile_xz=[list(p) for p in shape.exterior.coords[:-1]]
+        x0,z0,x1,z1=shape.bounds
+        original_start=np.asarray(wall.start,dtype=float)
+        wall.start=tuple(original_start+direction*x0);wall.end=tuple(original_start+direction*x1)
+        wall.base+=z0;wall.height=z1-z0
+        wall.profile_xz=[[float(x-x0),float(z-z0)] for x,z in shape.exterior.coords[:-1]]
+        for opening in openings:
+            if opening.host_wall_id==wall.id:
+                opening.offset-=x0;opening.sill-=z0
+        wall.provenance.update(base='inferred',height='inferred')
         wall.provenance['profile']='inferred'
         report={'wall_id':wall.id,'status':'profile_fitted','supported_column_fraction':float(valid.mean()),
-                'rectangle_area_m2':length*wall.height,'profile_area_m2':float(shape.area),
-                'removed_envelope_area_m2':float(length*wall.height-shape.area),
+                'rectangle_area_m2':rectangle_area,'profile_area_m2':float(shape.area),
+                'removed_envelope_area_m2':float(rectangle_area-shape.area),
                 'along_cell_m':cell,'height_cell_m':.05,
                 'scope':'original plane inliers in distributed height cells; bounded outline discretization, not structural endpoint certification'}
         wall.evidence['exterior_profile']=report;reports.append(report)

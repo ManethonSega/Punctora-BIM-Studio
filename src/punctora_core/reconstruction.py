@@ -807,7 +807,7 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
     from .opening_bounds import validate_generated_openings, invalidate_changed_facade_groups
     if settings.reconstruction_scope=='exterior':
         from .wall_profiles import fit_exterior_profiles
-        consolidation['exterior_wall_profiles']=fit_exterior_profiles(walls)
+        consolidation['exterior_wall_profiles']=fit_exterior_profiles(walls,openings)
         uncertain=sum(r['status']=='review_required' for r in consolidation['exterior_wall_profiles'])
         if uncertain:warnings.append(f'{level.id}: {uncertain} wall outline(s) lack sufficient distributed extent support; review required.')
     with profiler.stage('opening_host_validation',storey_id=level.id) as record:

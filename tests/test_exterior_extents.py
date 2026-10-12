@@ -19,6 +19,7 @@ def test_original_columns_do_not_extrude_chimney_height_or_ground_trace_across_f
     from punctora_core.cloud_io import CloudData
     from punctora_core.evidence import attach_evidence
     from punctora_core.wall_profiles import fit_exterior_profiles
+    from punctora_core.model import Opening
     from shapely.geometry import Polygon,Point
     x,z=np.meshgrid(np.arange(0,6.001,.025),np.arange(4,18.001,.025))
     keep=(z<=14)|(x<=1.2)
@@ -28,9 +29,13 @@ def test_original_columns_do_not_extrude_chimney_height_or_ground_trace_across_f
     wall=Wall('w','s',(0.,0.),(6.,0.),0,18,.2,observed_faces=[
         dict(start=[0.,0.],end=[6.,0.],z_min=0,z_max=18)])
     attach_evidence(CloudData(points),[wall])
-    report=fit_exterior_profiles([wall])
+    opening=Opening('window','w','window',2,8,1,2)
+    report=fit_exterior_profiles([wall],[opening])
     assert report[0]['status']=='profile_fitted'
-    profile=Polygon(wall.profile_xz)
+    profile=Polygon([(x,z+wall.base) for x,z in wall.profile_xz])
+    assert wall.base==pytest.approx(4.) and wall.height==pytest.approx(14.,abs=.05)
+    assert wall.base+opening.sill==pytest.approx(8.)
+    assert report[0]['rectangle_area_m2']==pytest.approx(108.)
     assert profile.covers(Point(.5,17))
     assert profile.covers(Point(4,10))
     assert not profile.covers(Point(4,17))
