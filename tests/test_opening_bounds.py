@@ -5,7 +5,7 @@ import uuid
 
 import pytest
 from punctora_core.model import BuildingModel, Opening, Storey, Wall
-from punctora_core.opening_bounds import validate_generated_openings
+from punctora_core.opening_bounds import validate_generated_openings, invalidate_changed_facade_groups
 from punctora_core.wall_editing import (rehost_reconciled_openings,
     merge_reconciled_openings, reconcile_opening_supported_faces)
 from punctora_core import features, projects
@@ -83,6 +83,20 @@ def test_boundary_guard_repairs_roundoff_and_keeps_material_conflicts_out_of_ifc
     model.openings=[conflict]
     with pytest.raises(ValueError,match='Opening exceeds its host wall: oversized on host'):
         model.validate()
+
+
+def test_one_bad_bay_does_not_discard_an_unrelated_curtain_system():
+    wall=host()
+    first=Opening('first','host','window',.1,.5,1.,1.,
+        evidence={'facade_system':{'system_id':'changed','representation':'curtain_wall'}})
+    other=Opening('other','host','window',1.5,.5,1.,1.,
+        evidence={'facade_system':{'system_id':'keep','representation':'curtain_wall'}})
+    bad=Opening('bad','host','window',0,.5,3.05,1.,
+        evidence={'facade_system':{'system_id':'changed','representation':'curtain_wall'}})
+    accepted,reports=validate_generated_openings([first,other,bad],[wall])
+    invalidate_changed_facade_groups(accepted,reports)
+    assert 'facade_system' not in first.evidence
+    assert other.evidence['facade_system']['representation']=='curtain_wall'
 
 
 def test_detect_save_reopen_export_survives_one_invalid_automatic_proposal(tmp_path,monkeypatch):

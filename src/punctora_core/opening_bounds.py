@@ -77,3 +77,13 @@ def validate_generated_openings(openings, walls):
         if bounded is not None:
             accepted.append(bounded)
     return accepted, reports
+
+
+def invalidate_changed_facade_groups(openings, reports):
+    """Keep unrelated measured curtain systems when one proposal fails."""
+    changed = {report['opening']['evidence'].get('facade_system', {}).get('system_id')
+               for report in reports}
+    changed.discard(None)
+    for opening in openings:
+        if opening.evidence.get('facade_system', {}).get('system_id') in changed:
+            opening.evidence.pop('facade_system', None)

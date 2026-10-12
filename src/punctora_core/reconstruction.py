@@ -803,15 +803,14 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
             record.update(spatial_index.report(stage),reconciliation=overlap_report,
                           detected_elements={'walls':len(walls),'openings':len(openings)})
         consolidation['observed_overlap_reconciliation']=overlap_report
-    from .opening_bounds import validate_generated_openings
+    from .opening_bounds import validate_generated_openings, invalidate_changed_facade_groups
     with profiler.stage('opening_host_validation',storey_id=level.id) as record:
         openings, final_reports = validate_generated_openings(openings, walls)
         opening_boundary_reports.extend(final_reports)
         if final_reports:
             from .glazed_facades import refresh_repeated_window_groups
             # Changed membership invalidates cached curtain-wall group extents.
-            for opening in openings:
-                opening.evidence.pop('facade_system',None)
+            invalidate_changed_facade_groups(openings,final_reports)
             refresh_repeated_window_groups(walls,openings)
         review_count=sum(r['action']=='review_only' for r in opening_boundary_reports)
         consolidation['opening_boundary_validation']=opening_boundary_reports
