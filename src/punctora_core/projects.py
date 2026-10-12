@@ -426,6 +426,10 @@ def reconstruct_project(path, request, progress=lambda *_: None):
     with project_lock(path):
         state = load_project(path)
         check_revision(state, request["expected_revision"])
+        mode=request.get('model_action','replace')
+        if mode not in {'replace','add'}:raise ValueError('Model action must be replace or add')
+        previous_model=BuildingModel.from_dict(state['model']) if mode=='add' and state.get('model') else None
+        previous_generations=list(state['generations'])
         if not request.get("confirm_z_up"):
             raise ValueError("Confirm that the scan uses Z as the upward direction before reconstruction")
         token = request["job_id"]
@@ -495,10 +499,19 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                         record["path"] = f"generations/{token}/{record['path']}"
                 model.warnings = [w for w in model.warnings if "No desktop review" not in w]
                 model.warnings.append("Whole-cloud deviation reporting remains pending; review observed and inferred geometry separately.")
+                if previous_model is not None:
+                    from .model_merge import merge_models
+                    current=model
+                    model,merge_report=merge_models(previous_model,current,namespace='run-'+token[:8])
+                    model._spatial_index=getattr(current,'_spatial_index',None)
+                    model.metadata['reconstruction_options']=options
+                    model.metadata['crop']=crop_report
+                    model.metadata['performance']=current.metadata.get('performance',{})
                 state["model"] = model.to_dict()
                 state["model_crop"] = deepcopy(state["crop"])
                 state["model_crop_stale"] = False
-                state["generations"] = list(dict.fromkeys([state["cloud"]["generation"], token]))
+                state["generations"] = list(dict.fromkeys([
+                    *(previous_generations if previous_model is not None else [state['cloud']['generation']]),token]))
                 state["coordinate_confirmation"]["z_up"] = True
                 state["revision"] = uuid.uuid4().hex
                 state["processing_backend"] = model.metadata.get("performance", {}).get(
@@ -514,6 +527,54 @@ def reconstruct_project(path, request, progress=lambda *_: None):
             atomic_json(path, state)
             progress(100, "Candidates ready for review")
             return state
+
+
+def add_project_model(path,request,progress=lambda *_:None):
+    """Atomically add another saved model and copy its complete reference arrays."""
+    from contextlib import ExitStack
+    from .model_merge import merge_models
+    source_path=project_path(request['source_project'])
+    target_path=project_path(path)
+    with ExitStack() as stack:
+        for item in sorted({source_path,target_path}):stack.enter_context(project_lock(item))
+        state=load_project(target_path);check_revision(state,request['expected_revision'])
+        incoming_state=load_project(source_path)
+        if not state.get('model') or not incoming_state.get('model'):
+            raise ValueError('Both projects need a saved detected model before adding')
+        if incoming_state['model_crop_stale']:
+            raise ValueError('Source model is stale; redetect or restore its saved detection bounds before adding')
+        if state['model_crop_stale']:
+            raise ValueError('Restore or redetect the target bounds before adding another project')
+        token=request['job_id']
+        with generation_stage(target_path,state['project_id'],token) as stage:
+            data=deepcopy(incoming_state['model']);copies={}
+            def copy_records(value):
+                if isinstance(value,dict):
+                    relative=value.get('path')
+                    if isinstance(relative,str) and relative.startswith('generations/') and relative.endswith('.npy'):
+                        if relative not in copies:
+                            name=f'imported-evidence/records-{len(copies)+1}.npy'
+                            source=safe_path(assets_for(source_path),relative)
+                            destination=safe_path(stage,name);destination.parent.mkdir(parents=True,exist_ok=True)
+                            shutil.copyfile(source,destination)
+                            copies[relative]=f'generations/{token}/{name}'
+                        value['path']=copies[relative]
+                    for child in value.values():copy_records(child)
+                elif isinstance(value,list):
+                    for child in value:copy_records(child)
+            progress(20,'Preserving source evidence');copy_records(data)
+            existing=BuildingModel.from_dict(state['model']);incoming=BuildingModel.from_dict(data)
+            progress(60,'Aligning and reconciling model results')
+            combined,report=merge_models(existing,incoming,namespace='project-'+token[:8],
+                alignment_matrix=request.get('alignment_matrix'),
+                confirm_shared_frame=request.get('confirm_shared_source_frame') is True)
+            combined.metadata['project_id']=state['project_id']
+            combined.metadata['reconstruction_options']=state['reconstruction_options']
+            report['evidence_files_copied']=len(copies)
+            state['model']=combined.to_dict();state['revision']=uuid.uuid4().hex
+            state['generations']=list(dict.fromkeys([*state['generations'],token]))
+            publish_generation(target_path,token,stage);atomic_json(target_path,state)
+            progress(100,'Combined model ready for review');return state
 
 
 def draft_model(state, data):
@@ -570,6 +631,8 @@ def edit_model(state, data, element_id, changes):
             element.provenance[field] = "user_supplied"
     if element in model.openings and element.evidence.get('facade_system') and set(changes)-{"review_state"}:
         element.evidence["facade_geometry_stale"] = True
+    if element in model.walls and set(changes)&{'start','end','base','height'}:
+        element.profile_xz=[]
     if element in model.slab_openings:
         if set(changes)-{"review_state", "ifc_cut_approved"}:
             element.ifc_cut_approved = False

@@ -343,6 +343,9 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
         geometry, seam_area = consolidate_scan_fragments(geometry, settings.slab_close_gap_m)
         face_holes = [_face_holes(lower), _face_holes(upper)]
         owner = storeys[min(index, len(storeys)-1)]
+        from .slab_corners import complete_wall_corners
+        geometry,corner_addition,corner_report=complete_wall_corners(
+            geometry,walls,upper.elevation,settings,owner.id)
         # A wall outline can resolve only a narrow occluded strip adjacent to
         # observed horizontal support. Protect all large interior gaps. Original
         # observed faces, not inferred/snapped wall extents, constrain this fill.
@@ -387,10 +390,12 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
             support = exported.intersection(raw).area
             inferred = max(0., exported.area-support)
             justified=(geometry.intersection(raw.buffer(settings.slab_close_gap_m/2))
-                       .difference(raw).union(addition))
+                       .difference(raw).union(addition).union(corner_addition))
             coverage=coverage_evidence(exported,raw,justified)
             evidence = {"method": "separate_face_occupancy_union", "zone_index": index,
                         "profile_repair": profile_repair, **coverage,
+                        "wall_corner_completion":corner_report,
+                        "wall_corner_inferred_area_m2":float(exterior.intersection(corner_addition).area),
                         "lower_surface_m": lower.elevation, "upper_surface_m": upper.elevation,
                         "paired_faces": zone["paired"], "raster_cell_m": settings.slab_raster_cell_m,
                         "maximum_closed_gap_m": settings.slab_close_gap_m,

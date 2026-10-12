@@ -743,7 +743,8 @@ def _angle_degrees(first_start, first_end, second_start, second_end):
 
 
 def snap_wall_topology(walls, *, corner_tolerance_m=.3, t_tolerance_m=.1,
-                       t_minimum_angle_deg=25.0, support_validator=None):
+                       t_minimum_angle_deg=25.0, support_validator=None,
+                       minimum_wall_length_m=1e-6):
     """Snap corners and credible T-junctions from one immutable geometry snapshot.
 
     Corner endpoints are clustered through common axis intersections. T-junctions
@@ -883,6 +884,20 @@ def snap_wall_topology(walls, *, corner_tolerance_m=.3, t_tolerance_m=.1,
                           "distance_m": distance, "host_offset_m": along,
                           "host_length_m": host_length, "angle_deg": angle})
 
+    restored = set()
+    for wall in walls:
+        start_key, end_key = (wall.id, "start"), (wall.id, "end")
+        if (np.linalg.norm(original[end_key]-original[start_key]) >= minimum_wall_length_m
+                and np.linalg.norm(proposed[end_key]-proposed[start_key]) < minimum_wall_length_m):
+            rejected.append({"kind": "snap_would_collapse_supported_wall", "wall_id": wall.id,
+                             "original_start": original[start_key].tolist(),
+                             "original_end": original[end_key].tolist()})
+            proposed[start_key], proposed[end_key] = original[start_key], original[end_key]
+            relations.pop(start_key, None); relations.pop(end_key, None)
+            restored.add(wall.id)
+    for cluster in cluster_records:
+        cluster["restored_wall_ids"] = sorted({key[0] for key in cluster["wall_ends"]} & restored)
+    t_records = [record for record in t_records if record["wall_id"] not in restored]
     for wall in walls:
         for end in ("start", "end"):
             key = (wall.id, end)

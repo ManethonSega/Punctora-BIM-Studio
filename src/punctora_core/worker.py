@@ -21,6 +21,8 @@ def dispatch(request, progress):
         return projects.load_project(path)
     if command == "reconstruct":
         return projects.reconstruct_project(path, request, progress)
+    if command == 'add_project_model':
+        return projects.add_project_model(path,request,progress)
     if command == "edit":
         state = projects.load_project(path)
         projects.check_revision(state, request["expected_revision"])

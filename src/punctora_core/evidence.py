@@ -87,12 +87,27 @@ def _refine_face(points, face, radius, margin, chunk_points, visit=lambda _: Non
     count, sums, products = 0, np.zeros(2), np.zeros((2, 2))
     height_counts = np.zeros(12, dtype=np.int64)
     measured_z_min,measured_z_max=np.inf,-np.inf
+    # Bounded original-record support in the wall's longitudinal/height plane.
+    # A global min/max envelope otherwise extends every column to the height
+    # of a small chimney, stair return or low ground trace at one endpoint.
+    axis=np.asarray(face['end'],dtype=float)-anchor
+    length=float(np.linalg.norm(axis));axis/=length
+    x_cell,z_cell=.04,.05
+    x_origin=-margin
+    nx=max(1,int(np.ceil((length+2*margin)/x_cell)))
+    nz=max(1,int(np.ceil((face['z_max']-face['z_min'])/z_cell)))
+    support=np.zeros((nx,nz),dtype=np.int64) if nx*nz<=2_000_000 else None
     for batch, _ in point_batches(points, chunk_points):
         visit(len(batch))
         mask, residual = face_selection(batch, face, radius, margin)
         mask &= np.abs(residual-median) <= trim
         xy = batch[mask, :2]-anchor
         z = batch[mask, 2]
+        if support is not None and len(z):
+            ix=np.floor((xy@axis-x_origin)/x_cell).astype(np.int64)
+            iz=np.floor((z-face['z_min'])/z_cell).astype(np.int64)
+            valid=(ix>=0)&(ix<nx)&(iz>=0)&(iz<nz)
+            support+=np.bincount(ix[valid]*nz+iz[valid],minlength=nx*nz).reshape(nx,nz)
         if len(z):
             measured_z_min=min(measured_z_min,float(z.min()))
             measured_z_max=max(measured_z_max,float(z.max()))
@@ -119,6 +134,20 @@ def _refine_face(points, face, radius, margin, chunk_points, visit=lambda _: Non
     result['original_height_band_counts'] = height_counts.tolist()
     result['fit_reduction_block_points'] = chunk_points
     result['observed_z_min_m'],result['observed_z_max_m']=measured_z_min,measured_z_max
+    if support is not None:
+        columns=[]
+        from .wall_slices import runs
+        for i,row in enumerate(support):
+            dense_runs=[(a,b) for a,b in runs(row>=2) if b-a>=4]
+            ids=np.concatenate([np.arange(a,b) for a,b in dense_runs]) if dense_runs else np.empty(0,dtype=int)
+            if len(ids)<4:continue
+            bottom=max(measured_z_min,face['z_min']+ids[0]*z_cell)
+            top=min(measured_z_max,face['z_min']+(ids[-1]+1)*z_cell)
+            if top-bottom<.15:continue
+            p=anchor+axis*(x_origin+i*x_cell);q=p+axis*x_cell
+            columns.append({'start_xy':p.tolist(),'end_xy':q.tolist(),
+                'bottom_m':float(bottom),'top_m':float(top),'point_count':int(row[ids].sum())})
+        result['supported_extent_columns']=columns
     # Use the original proposal's finite interval for refinement, so unrelated
     # collinear walls elsewhere cannot extend this candidate.
     low, high = np.inf, -np.inf

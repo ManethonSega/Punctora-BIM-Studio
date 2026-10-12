@@ -35,6 +35,9 @@ public sealed class MainWindow : Window
     readonly ComboBox storeys=new(){HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly ComboBox method=new(){ItemsSource=new[]{"Contours","Region growing"},SelectedIndex=0};
     readonly ComboBox reconstructionScope=new(){ItemsSource=new[]{"Auto (interior or exterior)","Interior","Exterior / partial scan"},SelectedIndex=0};
+    readonly ComboBox reconstructionAction=new(){ItemsSource=new[]{"Replace current model","Add to existing model"},SelectedIndex=0};
+    readonly CheckBox sharedSurveyFrame=new(){Content="Scans share survey coordinates (confirm)"};
+    readonly TextBox modelAlignment=new(){Watermark="Optional placement: X; Y; Z; yaw degrees"};
     readonly TextBox manualLevels=new(){AcceptsReturn=true,MinHeight=80,TextWrapping=TextWrapping.Wrap,
         Watermark="Level 1; 0; 3\nLevel 2; 3.2; 6.2"};
     readonly ComboBox review=new(){ItemsSource=new[]{"unreviewed","reviewed","flagged","rejected"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
@@ -61,7 +64,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a26 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
+        Title="Punctora BIM Studio | 0.3.0a27 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -71,11 +74,12 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a26",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a27",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new WrapPanel{Orientation=Orientation.Horizontal,ItemSpacing=8,LineSpacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
         save=Action("Save",SaveAsync);Action("Save copy",CopyAsync);Action("Detect elements",ReconstructAsync);Action("Convert to IFC",ExportAsync);
+        Action("Add saved project model",AddProjectModelAsync);
         undoButton=Action("Undo edit",UndoAsync);Action("Revert",RevertAsync);
         cancel=Button("Cancel job",()=>{jobCancellation?.Cancel();return Task.CompletedTask;});cancel.IsEnabled=false;toolbar.Children.Add(cancel);
         Grid.SetRow(toolbar,1);root.Children.Add(toolbar);
@@ -103,6 +107,7 @@ public sealed class MainWindow : Window
         section.PropertyChanged+=(_,e)=>{if(e.Property==Slider.ValueProperty)FilterStorey();};
         options.Children.Add(Text("Surface method",11));options.Children.Add(method);options.Children.Add(zUp);options.Children.Add(compareBudgets);
         options.Children.Add(Text("Reconstruction scope",11));options.Children.Add(reconstructionScope);
+        options.Children.Add(Text("Result action",11));options.Children.Add(reconstructionAction);
         options.Children.Add(Text("Manual level bounds (optional)",11));options.Children.Add(manualLevels);
         options.Children.Add(Text("One row: name; bottom; top, in local metres. Save settings, then detect. Empty uses automatic bounds.",11));
         void SetupChanged(){if(refreshing||state==null||busy)return;dirty=true;UpdateActions();}
@@ -110,6 +115,8 @@ public sealed class MainWindow : Window
         manualLevels.PropertyChanged+=(_,e)=>{if(e.Property==TextBox.TextProperty)SetupChanged();};
         var software=new CheckBox{Content="Use software preview",IsChecked=viewport.SoftwareMode};
         software.IsCheckedChanged+=(_,_)=>{if(software.IsChecked==true)viewport.UseSoftware("Selected in settings");else viewport.UseAutomatic();};options.Children.Add(software);
+        options.Children.Add(sharedSurveyFrame);options.Children.Add(modelAlignment);
+        options.Children.Add(Text("Add saved project uses shared survey coordinates or the explicit placement above. Existing edits and evidence are retained.",11));
         options.Children.Add(Text("ELEMENTS",12));left.Children.Add(options);elements.Height=220;elements.Margin=new Thickness(0,8,0,0);left.Children.Add(elements);
         leftScroll.Content=left;body.Children.Add(Panel(leftScroll));
         var center=new Grid{RowDefinitions=new RowDefinitions("*,Auto")};Grid.SetColumn(center,2);body.Children.Add(center);
@@ -525,8 +532,28 @@ public sealed class MainWindow : Window
     {
         if(state==null||projectPath==null||!RequireClean())return;
         if(zUp.IsChecked!=true){status.Text="Confirm Z is up before fitting. A missing CRS can remain explicitly unknown for local review.";return;}
-        var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["confirm_z_up"]=true,["reconstruction_options"]=DetectionOptions(),["compare_budgets"]=compareBudgets.IsChecked==true,["settings"]=new JsonObject{["surface_method"]=method.SelectedIndex==1?"region_growing":"contour"}};
+        var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["confirm_z_up"]=true,["model_action"]=reconstructionAction.SelectedIndex==1?"add":"replace",["reconstruction_options"]=DetectionOptions(),["compare_budgets"]=compareBudgets.IsChecked==true,["settings"]=new JsonObject{["surface_method"]=method.SelectedIndex==1?"region_growing":"contour"}};
         var result=await RunAsync("reconstruct",projectPath,request);if(result!=null){dirty=false;undo.Clear();await RunAsync("cleanup",projectPath);await PresentAsync(projectPath,result,false);}
+    }
+    async Task AddProjectModelAsync()
+    {
+        if(state==null||projectPath==null||!RequireClean())return;
+        var files=await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions{Title="Add a saved Punctora model",AllowMultiple=false,
+            FileTypeFilter=[new FilePickerFileType("Punctora project"){Patterns=["*.punctora"]}]});
+        if(files.FirstOrDefault()?.TryGetLocalPath() is not { } source)return;
+        var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["source_project"]=source,
+            ["confirm_shared_source_frame"]=sharedSurveyFrame.IsChecked==true};
+        if(!string.IsNullOrWhiteSpace(modelAlignment.Text))
+        {
+            var parts=modelAlignment.Text.Split(';',StringSplitOptions.TrimEntries);
+            if(parts.Length!=4)throw new InvalidDataException("Placement: enter X; Y; Z; yaw degrees from the incoming local frame to this project.");
+            var x=Parse(parts[0]);var y=Parse(parts[1]);var z=Parse(parts[2]);var angle=Parse(parts[3])*Math.PI/180;
+            var c=Math.Cos(angle);var s=Math.Sin(angle);
+            request["alignment_matrix"]=new JsonArray(new JsonArray(c,-s,0d,x),new JsonArray(s,c,0d,y),
+                new JsonArray(0d,0d,1d,z),new JsonArray(0d,0d,0d,1d));
+        }
+        var result=await RunAsync("add_project_model",projectPath,request);
+        if(result!=null){dirty=false;undo.Clear();await PresentAsync(projectPath,result,false);status.Text="Models combined. Review alignment and preserved evidence before IFC export.";}
     }
     async Task ExportAsync()
     {
@@ -683,7 +710,38 @@ public sealed class MainWindow : Window
             File.WriteAllText(Path.Combine(output,"manual-level-verification.json"),new JsonObject{
                 ["saved_and_reopened"]=true,["worker_reconstructed_manual_bounds"]=true,
                 ["no_invented_slabs"]=true}.ToJsonString());
+            var beforeAdd=state["model"]!["walls"]!.AsArray().Count;
+            reconstructionAction.SelectedIndex=1;await ReconstructAsync();
+            if(state!["model"]!["walls"]!.AsArray().Count!=beforeAdd||state["model"]!["metadata"]!["additive_runs"]?.AsArray().Count!=1)
+                throw new Exception("Add to existing model lost geometry or retained duplicate walls");
+            await LoadAsync(path);
+            var addedProject=await RunAsync("add_project_model",path,new JsonObject{
+                ["expected_revision"]=state!["revision"]!.DeepClone(),["source_project"]=path});
+            if(addedProject==null||addedProject["model"]!["walls"]!.AsArray().Count!=beforeAdd)
+                throw new Exception("Saved-project additive worker failed");
+            await PresentAsync(path,addedProject,false);await LoadAsync(path);
+            await ExportToAsync(Path.Combine(output,"combined.ifc"));
+            File.WriteAllText(Path.Combine(output,"additive-verification.json"),new JsonObject{
+                ["worker_additive_reconstruction"]=true,["saved_project_merge"]=true,
+                ["save_reopen"]=true,["duplicate_walls_removed"]=true,
+                ["ifc_exists"]=File.Exists(Path.Combine(output,"combined.ifc"))}.ToJsonString());
             File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["interactive_preview_passed"]=true,["orbit"]=orbitDiagnostics,["restore"]=restoredDiagnostics,["preview_fixture"]="generated 500k points, simulated 210M source count",["small_window_scroll_passed"]=smallWindowScrollPassed,["preview_failure_recovery_passed"]=previewRecoveryPassed,["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["crop_undo_restored"]=cropUndoRestored,["crop_survived_reopen"]=cropSurvivedReopen,["feature_add_delete_passed"]=featureAddDeletePassed,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
+            if(viewport.Backend.Contains("OpenGL"))
+            {
+                var a=new System.Numerics.Vector3(-1,-1,0);var b=new System.Numerics.Vector3(1,-1,0);
+                var c=new System.Numerics.Vector3(1,1,0);var d=new System.Numerics.Vector3(-1,1,0);
+                float[] Mesh(params System.Numerics.Vector3[] p)=>p.SelectMany(v=>new[]{v.X,v.Y,v.Z,.43f,.62f,1f,.4f}).ToArray();
+                var first=new SceneElement("skin-a","Wall","s","unreviewed",Mesh(a,b,c,a,c,d));
+                var second=new SceneElement("skin-b","Wall","s","unreviewed",Mesh(a,b,d,b,c,d));
+                SceneData Skin(List<SceneElement> e)=>new(){Elements=e,Minimum=new(-1,-1,-.01f),Maximum=new(1,1,.01f)};
+                viewport.View.Cloud=false;viewport.View.Model=true;viewport.View.Selected=null;viewport.View.Storey=null;
+                viewport.View.ZMin=-1;viewport.View.ZMax=1;viewport.View.Opacity=1;viewport.SetCrop(null,null,null);
+                viewport.View.Camera.Yaw=0;viewport.View.Camera.Pitch=1.35f;
+                viewport.SetScene(Skin([first]),true);await Task.Delay(500);
+                viewport.CaptureGpu(Path.Combine(output,"alpha-single.png"));await Task.Delay(500);
+                viewport.SetScene(Skin([first,second]),true);await Task.Delay(500);
+                viewport.CaptureGpu(Path.Combine(output,"alpha-overlap.png"));await Task.Delay(500);
+            }
             dirty=false;Environment.ExitCode=0;Close();
         }
         catch(Exception e){File.WriteAllText(Path.Combine(output,"ui-error.txt"),e.ToString());dirty=false;Environment.ExitCode=1;Close();}

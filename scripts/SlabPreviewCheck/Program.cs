@@ -48,6 +48,15 @@ try
     if(duplicateMesh.Vertices.Length!=unique.Vertices.Length||duplicateMesh.RemovedTriangles==0||duplicateMesh.Batches.Count>=scene.Elements.Count*2)throw new Exception("Material batching retained overlapping surfaces");
     if(state.ToJsonString()!=unchanged)throw new Exception("Render preparation changed the export model");
     var checkedFaces=0;
+    foreach(var wall in model["walls"]!.AsArray().Where(n=>n!["profile_xz"]?.AsArray().Count>0))
+    {
+        var element=scene.Elements.Single(e=>e.Id==wall!["id"]!.GetValue<string>());
+        var expected=wall!["preview_geometry"]!["triangles_xyz"]!.AsArray()
+            .SelectMany(t=>t!.AsArray()).SelectMany(p=>p!.AsArray().Select(v=>(float)v!.GetValue<double>())).ToArray();
+        var actual=Enumerable.Range(0,element.Triangles.Length/7)
+            .SelectMany(i=>new[]{element.Triangles[i*7],element.Triangles[i*7+1],element.Triangles[i*7+2]}).ToArray();
+        if(!actual.SequenceEqual(expected))throw new Exception("Supported wall profile changed in native preview");
+    }
     foreach(var slabNode in model["slabs"]!.AsArray())
     {
         var slab=slabNode!.AsObject();

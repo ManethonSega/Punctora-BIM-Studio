@@ -17,6 +17,8 @@ def geometry_signature(model,tolerance_m=1e-6):
     shapes={'walls':sorted(walls.values()),
             'slabs':sorted([ring(s.footprint),scalar(s.base),scalar(s.thickness)] for s in model.slabs),
             'openings':[], 'stairs':[], 'landings':[]}
+    if any(w.profile_xz for w in model.walls):
+        shapes['wall_profiles']=sorted([walls[w.id],ring(w.profile_xz)] for w in model.walls if w.profile_xz)
     hosts={w.id:w for w in model.walls}
     for o in model.openings:
         w=hosts[o.host_wall_id];d=(np.array(w.end)-w.start)/dist(w.start,w.end)

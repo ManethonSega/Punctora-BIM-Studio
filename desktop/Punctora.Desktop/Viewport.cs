@@ -358,8 +358,14 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void BlendFunction(int source,int destination);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void ReadPixelsFunction(int x,int y,int width,int height,int format,int type,IntPtr data);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void ColorMaskFunction(byte red,byte green,byte blue,byte alpha);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void StencilMaskFunction(uint mask);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void StencilFunction(int function,int reference,uint mask);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void StencilOperation(int fail,int depthFail,int pass);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void ClearStencilFunction(int value);
     BlendFunction? blend; ReadPixelsFunction? readPixels;
     ColorMaskFunction? colorMask;
+    StencilMaskFunction? stencilMask;StencilFunction? stencilFunction;StencilOperation? stencilOperation;
+    ClearStencilFunction? clearStencil;
     public void MarkDirty()=>dirty=true;
     protected override void OnOpenGlInit(GlInterface gl)
     {
@@ -384,6 +390,10 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
             blend=Marshal.GetDelegateForFunctionPointer<BlendFunction>(gl.GetProcAddress("glBlendFunc"));
             readPixels=Marshal.GetDelegateForFunctionPointer<ReadPixelsFunction>(gl.GetProcAddress("glReadPixels"));
             colorMask=Marshal.GetDelegateForFunctionPointer<ColorMaskFunction>(gl.GetProcAddress("glColorMask"));
+            stencilMask=Marshal.GetDelegateForFunctionPointer<StencilMaskFunction>(gl.GetProcAddress("glStencilMask"));
+            stencilFunction=Marshal.GetDelegateForFunctionPointer<StencilFunction>(gl.GetProcAddress("glStencilFunc"));
+            stencilOperation=Marshal.GetDelegateForFunctionPointer<StencilOperation>(gl.GetProcAddress("glStencilOp"));
+            clearStencil=Marshal.GetDelegateForFunctionPointer<ClearStencilFunction>(gl.GetProcAddress("glClearStencil"));
             var renderer=gl.Renderer??"Unknown adapter";
             Adapter=renderer+" / "+gl.Vendor;
             var software=new[]{"llvmpipe","softpipe","software","swrast","swiftshader","warp","basic render","gdi generic"}.Any(s=>renderer.Contains(s,StringComparison.OrdinalIgnoreCase));
@@ -404,10 +414,11 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
             gl.BindFramebuffer(0x8D40,fb);
             if(width!=w||height!=h)
             {
-                width=w;height=h;gl.BindRenderbuffer(0x8D41,depth);gl.RenderbufferStorage(0x8D41,0x81A5,w,h);
+                width=w;height=h;gl.BindRenderbuffer(0x8D41,depth);gl.RenderbufferStorage(0x8D41,0x88F0,w,h);
             }
-            gl.FramebufferRenderbuffer(0x8D40,0x8D00,0x8D41,depth);
-            gl.Viewport(0,0,w,h);gl.ClearColor(.063f,.094f,.153f,1);gl.ClearDepth(1);gl.DepthMask(1);gl.Clear(0x4000|0x0100);
+            gl.FramebufferRenderbuffer(0x8D40,0x821A,0x8D41,depth);
+            gl.Disable(0x0B90);stencilMask!(0xff);clearStencil!(0);
+            gl.Viewport(0,0,w,h);gl.ClearColor(.063f,.094f,.153f,1);gl.ClearDepth(1);gl.DepthMask(1);gl.Clear(0x4000|0x0100|0x0400);
             gl.Enable(0x0B71);gl.DepthFunc(0x0203);gl.Enable(0x0BE2);blend!(0x0302,0x0303);
             if(!(gl.Version??"").Contains("OpenGL ES"))gl.Enable(0x8642);
             gl.BindVertexArray(vao);gl.UseProgram(program);
@@ -443,7 +454,13 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
                 gl.Disable(0x0BE2);colorMask!(0,0,0,0);gl.DepthMask(1);
                 foreach(var batch in visible){gl.DrawArrays(4,batch.Offset,(IntPtr)batch.Count);ModelDrawCalls++;}
                 colorMask!(1,1,1,1);gl.Enable(0x0BE2);gl.DepthMask(0);gl.DepthFunc(0x0202);
+                // The depth prepass alone allows every coplanar triangle at
+                // the nearest depth to blend again. Claim each pixel once so
+                // overlapping tessellations cannot create coloured stripes.
+                gl.Enable(0x0B90);stencilFunction!(0x0204,1,0xff);
+                stencilOperation!(0x1E00,0x1E00,0x1E01);
                 foreach(var batch in visible){gl.DrawArrays(4,batch.Offset,(IntPtr)batch.Count);ModelDrawCalls++;}
+                gl.Disable(0x0B90);
                 gl.DepthFunc(0x0203);
             }
             gl.DepthMask(1);

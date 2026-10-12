@@ -84,6 +84,15 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         properties = {"ElementId": identifier, "ReviewState": "unreviewed", "EngineVersion": __version__}
         properties.update({f"{key}_provenance": value for key, value in states.items()})
         properties.update(extra or {})
+        source_object=next((obj for collection in (model.walls,model.slabs,model.openings,
+            model.stairs,model.landings,model.slab_openings) for obj in collection if obj.id==identifier),None)
+        if source_object is not None:
+            evidence=source_object.evidence
+            if evidence.get('source_context') or evidence.get('additional_sources'):
+                properties['EvidenceSources']=json.dumps({
+                    'primary':evidence.get('source_context') or {'source':model.metadata.get('source')},
+                    'primary_records':evidence.get('records'),
+                    'additional_sources':evidence.get('additional_sources',[])},sort_keys=True)
         pset = api("pset.add_pset", product=product, name="Punctora_Reconstruction")
         api("pset.edit_pset", pset=pset, properties=properties)
 
@@ -123,11 +132,17 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         entity = root("IfcWall", wall.id, predefined="NOTDEFINED")
         api("spatial.assign_container", products=[entity], relating_structure=storeys[wall.storey_id])
         frame, length = wall_frame(wall)
-        solid(entity, rectangle(length, wall.thickness), wall.height, frame)
+        if wall.profile_xz:
+            profile_frame=frame@np.array([[1.,0.,0.,0.],[0.,0.,-1.,wall.thickness/2],
+                                         [0.,1.,0.,0.],[0.,0.,0.,1.]])
+            solid(entity,wall.profile_xz,wall.thickness,profile_frame)
+        else:
+            solid(entity, rectangle(length, wall.thickness), wall.height, frame)
         provenance(entity, wall.id, wall.provenance,
                    {"EvidencePointCount": wall.evidence_count, "Classification": wall.classification,
                     "ObservedFaceFitRMSE_m": wall.fit_rmse_m, "ReviewState": wall.review_state,
                     "DetectionMethod": wall.detection_method,
+                    "WallOutlineEvidence": json.dumps(wall.evidence.get('exterior_profile',{}),sort_keys=True),
                     "FitScope": wall.evidence.get("scope", "caller-supplied evidence scope unspecified")})
         wall_entities[wall.id], wall_frames[wall.id] = entity, frame
 

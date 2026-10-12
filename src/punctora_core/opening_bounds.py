@@ -47,6 +47,11 @@ def fit_generated_opening(opening, host):
     excess = boundary_excess(opening, host)
     if max(excess.values()) > NUMERICAL_TOLERANCE_M:
         return None, proposal_record(opening, host, "opening_outside_final_host")
+    if host.profile_xz:
+        from shapely.geometry import Polygon,box
+        if not Polygon(host.profile_xz).buffer(NUMERICAL_TOLERANCE_M).covers(box(
+                opening.offset,opening.sill,opening.offset+opening.width,opening.sill+opening.height)):
+            return None,proposal_record(opening,host,'opening_outside_supported_wall_profile')
     if not any(excess.values()):
         return opening, None
     bounded = deepcopy(opening)

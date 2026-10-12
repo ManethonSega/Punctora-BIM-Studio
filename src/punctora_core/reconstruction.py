@@ -555,7 +555,8 @@ def _snap_walls(walls, settings):
         walls, corner_tolerance_m=settings.corner_snap_tolerance_m,
         t_tolerance_m=settings.t_junction_snap_tolerance_m,
         t_minimum_angle_deg=settings.t_junction_minimum_angle_deg,
-        support_validator=observed_junction_support)
+        support_validator=observed_junction_support,
+        minimum_wall_length_m=settings.minimum_wall_length_m)
     retained = []
     dropped = []
     for wall in walls:
@@ -804,6 +805,11 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
                           detected_elements={'walls':len(walls),'openings':len(openings)})
         consolidation['observed_overlap_reconciliation']=overlap_report
     from .opening_bounds import validate_generated_openings, invalidate_changed_facade_groups
+    if settings.reconstruction_scope=='exterior':
+        from .wall_profiles import fit_exterior_profiles
+        consolidation['exterior_wall_profiles']=fit_exterior_profiles(walls)
+        uncertain=sum(r['status']=='review_required' for r in consolidation['exterior_wall_profiles'])
+        if uncertain:warnings.append(f'{level.id}: {uncertain} wall outline(s) lack sufficient distributed extent support; review required.')
     with profiler.stage('opening_host_validation',storey_id=level.id) as record:
         openings, final_reports = validate_generated_openings(openings, walls)
         opening_boundary_reports.extend(final_reports)

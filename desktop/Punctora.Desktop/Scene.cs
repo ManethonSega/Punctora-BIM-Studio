@@ -58,6 +58,17 @@ public sealed class SceneData
             foreach (var node in model["walls"]!.AsArray())
             {
                 var wall = node!.AsObject();
+                if(wall["preview_geometry"]?["triangles_xyz"] is JsonArray supportedMesh)
+                {
+                    var color=ElementColor(wall,"Wall");
+                    var vertices=new List<float>();
+                    foreach(var triangle in supportedMesh)foreach(var p in triangle!.AsArray())
+                        vertices.AddRange([(float)p![0]!.GetValue<double>(),(float)p[1]!.GetValue<double>(),
+                            (float)p[2]!.GetValue<double>(),color.X,color.Y,color.Z,color.W]);
+                    elements.Add(new SceneElement(wall["id"]!.GetValue<string>(),"Wall",
+                        wall["storey_id"]!.GetValue<string>(),wall["review_state"]?.GetValue<string>()??"unreviewed",vertices.ToArray()));
+                    continue;
+                }
                 var a = XY(wall["start"]!); var b = XY(wall["end"]!);
                 var direction=Vector2.Normalize(b-a);var length=Vector2.Distance(a,b);
                 var side = new Vector2(-direction.Y,direction.X) * Number(wall, "thickness")/2;
@@ -142,11 +153,16 @@ public sealed class SceneData
 
     public static float Number(JsonObject obj, string key) => (float)obj[key]!.GetValue<double>();
     static Vector2 XY(JsonNode p) => new((float)p[0]!.GetValue<double>(), (float)p[1]!.GetValue<double>());
-    static void Add(List<SceneElement> elements, JsonObject obj, string kind, Vector2[] polygon, float z, float height, string? storeyId=null,JsonObject? mesh=null)
+    static Vector4 ElementColor(JsonObject obj,string kind)
     {
         var review = obj["review_state"]?.GetValue<string>() ?? "unreviewed";
-        var color = review switch { "reviewed" => new Vector4(.18f,.82f,.54f,.5f), "flagged"=>new Vector4(1,.68f,.15f,.55f),
+        return review switch { "reviewed" => new Vector4(.18f,.82f,.54f,.5f), "flagged"=>new Vector4(1,.68f,.15f,.55f),
             "rejected"=>new Vector4(.9f,.25f,.35f,.16f), _=>kind switch {"Wall"=>new Vector4(.43f,.62f,1,.4f),"Stair"=>new Vector4(.9f,.45f,.72f,.7f),"Landing"=>new Vector4(.98f,.55f,.32f,.65f),"SlabOpening"=>new Vector4(.75f,.25f,.95f,.72f),"door"=>new Vector4(.95f,.65f,.25f,.5f),"window"=>new Vector4(.2f,.85f,.9f,.35f),"unknown"=>new Vector4(.95f,.85f,.25f,.45f),_=>new Vector4(.64f,.68f,.78f,.3f)} };
+    }
+    static void Add(List<SceneElement> elements, JsonObject obj, string kind, Vector2[] polygon, float z, float height, string? storeyId=null,JsonObject? mesh=null)
+    {
+        var review=obj["review_state"]?.GetValue<string>()??"unreviewed";
+        var color=ElementColor(obj,kind);
         var vertices = new List<float>();
         void Vertex(Vector2 p,float h) { vertices.AddRange([p.X,p.Y,h,color.X,color.Y,color.Z,color.W]); }
         if((mesh?["render_surface_triangles_xy"]??mesh?["surface_triangles_xy"]) is JsonArray surfaceTriangles)

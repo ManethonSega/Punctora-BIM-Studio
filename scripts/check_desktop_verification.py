@@ -18,6 +18,9 @@ for argument in sys.argv[1:]:
     assert report["interactive_preview_passed"], report
     manual=json.loads((directory/'manual-level-verification.json').read_text())
     assert all(manual.values()),manual
+    additive=json.loads((directory/'additive-verification.json').read_text())
+    assert all(additive.values()),additive
+    assert validate_ifc(ifcopenshell.open(str(directory/'combined.ifc')))['valid']
     assert report['orbit']['height_minimum_z_m']==report['graphics']['height_minimum_z_m'],report
     assert report['orbit']['height_maximum_z_m']==report['graphics']['height_maximum_z_m'],report
     assert report['graphics']['height_scale_scope']=='complete imported cloud in local metres',report
@@ -40,4 +43,6 @@ for argument in sys.argv[1:]:
     assert any(o.Name == "ui-slab-opening" for o in model.by_type("IfcOpeningElement")), "Explicitly approved slab cut missing from IFC"
     if "OpenGL" in report["viewport_backend"]:
         assert (directory / "viewport-gl.png").stat().st_size > 1000
+        assert (directory/'alpha-single.png').stat().st_size>1000
+        assert (directory/'alpha-single.png').read_bytes()==(directory/'alpha-overlap.png').read_bytes(), 'Coplanar skin still accumulates transparent colour'
     print(directory, report["viewport_backend"])
