@@ -311,7 +311,9 @@ class BuildingModel:
             if not isfinite(opening.offset) or not isfinite(opening.sill) or opening.offset < 0 or opening.sill < 0:
                 raise ValueError("Opening offset and sill must be finite and nonnegative")
             if opening.offset + opening.width > dist(host.start, host.end) + 1e-8 or opening.sill + opening.height > host.height + 1e-8:
-                raise ValueError("Opening exceeds its host wall")
+                raise ValueError(f"Opening exceeds its host wall: {opening.id} on {host.id} "
+                    f"(horizontal end {opening.offset+opening.width:.9g} m / host {dist(host.start,host.end):.9g} m; "
+                    f"vertical end {opening.sill+opening.height:.9g} m / host {host.height:.9g} m)")
         for stair in self.stairs:
             if stair.storey_id not in storeys or not isfinite(stair.base):
                 raise ValueError("Stair requires a known storey and finite base")

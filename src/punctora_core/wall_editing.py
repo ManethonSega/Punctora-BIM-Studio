@@ -1,5 +1,6 @@
 """Conservative wall consolidation and explicit topology corrections."""
 from copy import deepcopy
+from dataclasses import replace
 from math import acos, degrees, dist, radians, sin
 
 import numpy as np
@@ -225,7 +226,9 @@ def reconcile_opening_supported_faces(walls, openings, *, angle_deg=2.0,
         first_interval = sorted((float(a@direction), float(b@direction)))
         for second in walls[index+1:]:
             second_openings = openings_by_wall.get(second.id, [])
-            if not second_openings:
+            if (not second_openings or first.storey_id != second.storey_id
+                    or min(first.base+first.height,second.base+second.height)
+                    <= max(first.base,second.base)):
                 continue
             c, d, other_direction, second_length = _axis(second)
             if abs(direction@other_direction) < cosine:
@@ -246,7 +249,7 @@ def reconcile_opening_supported_faces(walls, openings, *, angle_deg=2.0,
                         continue
                     along = abs(float((other_centre-centre)@direction))
                     if (along <= .15 and abs(opening.width-other.width) <= .2
-                            and abs(opening.sill-other.sill) <= .1
+                            and abs(first.base+opening.sill-second.base-other.sill) <= .1
                             and abs(opening.height-other.height) <= .15):
                         choices.append((along, candidate_index, other))
                 if choices:
@@ -373,7 +376,7 @@ def reconcile_opening_supported_faces(walls, openings, *, angle_deg=2.0,
 def rehost_reconciled_openings(openings, source_walls, final_walls,
                                replaced_wall_ids, *, angle_deg=2.0,
                                maximum_axis_distance_m=.65,
-                               endpoint_margin_m=.1):
+                               endpoint_margin_m=.1, diagnostics=None):
     """Carry measured openings from removed faces onto the final wall axis.
 
     Re-detecting openings after face reconciliation remains authoritative, but
@@ -383,6 +386,7 @@ def rehost_reconciled_openings(openings, source_walls, final_walls,
     the final-host raster.
     """
     sources = {wall.id: wall for wall in source_walls}
+    from .opening_bounds import fit_generated_opening, proposal_record
     cosine = np.cos(np.deg2rad(angle_deg))
     carried = []
     for opening in openings:
@@ -408,17 +412,28 @@ def rehost_reconciled_openings(openings, source_walls, final_walls,
             distance = abs(float((centre-start)@normal))
             if distance > maximum_axis_distance_m:
                 continue
+            # Preserve world height and dimensions. Endpoint matching slack
+            # is not permission to put an opening outside its final solid.
+            trial = replace(opening, host_wall_id=wall.id,
+                offset=float(along-opening.width/2),
+                sill=float(source.base+opening.sill-wall.base))
+            bounded, repair = fit_generated_opening(trial, wall)
+            if bounded is None:
+                continue
             # Prefer a measured face pair, then the closest compatible axis.
             candidates.append((distance, wall.classification != "paired_faces",
-                               abs(along-length/2), wall.id, wall, along))
+                               abs(along-length/2), wall.id, wall, bounded, repair))
         if not candidates:
+            if diagnostics is not None:
+                diagnostics.append(proposal_record(opening, source,
+                    "no_final_host_contains_original_bounds"))
             continue
-        *_, wall, along = min(candidates)
-        item = deepcopy(opening)
-        original_id, original_host = item.id, item.host_wall_id
+        *_, wall, bounded, repair = min(candidates)
+        item = deepcopy(bounded)
+        original_id, original_host = opening.id, opening.host_wall_id
         item.host_wall_id = wall.id
-        item.offset = max(0., min(float(along-item.width/2),
-                                  _axis(wall)[3]-item.width))
+        if repair is not None and diagnostics is not None:
+            diagnostics.append(repair)
         item.evidence = deepcopy(item.evidence)
         item.evidence.pop("facade_system", None)
         item.evidence["reconciled_host"] = {
@@ -454,7 +469,7 @@ def merge_reconciled_openings(unaffected, carried, refreshed, walls,
         if (first_wall.storey_id != second_wall.storey_id
                 or abs(float(first_direction@second_direction)) < cosine
                 or (first.kind != second.kind and "unknown" not in {first.kind, second.kind})
-                or abs(first.sill-second.sill) > .1
+                or abs(first_wall.base+first.sill-second_wall.base-second.sill) > .1
                 or abs(first.height-second.height) > .15
                 or abs(first.width-second.width) > .2):
             return False

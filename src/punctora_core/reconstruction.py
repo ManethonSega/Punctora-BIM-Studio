@@ -648,6 +648,7 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
     from .features import detect_openings, detect_stairs
     workers = resolved_cpu_workers(settings.cpu_workers)
     warnings = []
+    opening_boundary_reports = []
     with profiler.stage("wall_proposals", storey_id=level.id, point_budget=settings.maximum_detection_points) as record:
         if settings.surface_method == "region_growing":
             walls, patches, statistics = _region_walls(cloud, level, settings, backend)
@@ -758,7 +759,7 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
                               if opening.host_wall_id not in replaced_ids]
                 carried = rehost_reconciled_openings(
                     openings, walls, reconciled, replaced_ids,
-                    angle_deg=settings.wall_merge_angle_deg)
+                    angle_deg=settings.wall_merge_angle_deg, diagnostics=opening_boundary_reports)
                 walls = reconciled
                 openings = merge_reconciled_openings(unaffected, carried, refreshed, walls)
                 from .glazed_facades import refresh_repeated_window_groups
@@ -786,10 +787,12 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
                 workers=workers,spatial_index=spatial_index,stage=stage)
             refreshed=(detect_openings(source_cloud,affected,settings,workers,spatial_index,stage)
                        if settings.detect_openings_enabled else [])
-            carried=rehost_reconciled_openings(openings,walls,final_walls,replaced_ids)
+            carried=rehost_reconciled_openings(openings,walls,final_walls,replaced_ids,
+                                               diagnostics=opening_boundary_reports)
             # A changed retained host also needs its pre-refit opening evidence.
             changed_ids={w.id for w in affected}
-            carried.extend(rehost_reconciled_openings(openings,walls,final_walls,changed_ids))
+            carried.extend(rehost_reconciled_openings(openings,walls,final_walls,changed_ids,
+                                                       diagnostics=opening_boundary_reports))
             unaffected=[o for o in openings if o.host_wall_id not in replaced_ids|changed_ids]
             walls=final_walls
             openings=merge_reconciled_openings(unaffected,carried,refreshed,walls)
@@ -800,6 +803,24 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
             record.update(spatial_index.report(stage),reconciliation=overlap_report,
                           detected_elements={'walls':len(walls),'openings':len(openings)})
         consolidation['observed_overlap_reconciliation']=overlap_report
+    from .opening_bounds import validate_generated_openings
+    with profiler.stage('opening_host_validation',storey_id=level.id) as record:
+        openings, final_reports = validate_generated_openings(openings, walls)
+        opening_boundary_reports.extend(final_reports)
+        if final_reports:
+            from .glazed_facades import refresh_repeated_window_groups
+            # Changed membership invalidates cached curtain-wall group extents.
+            for opening in openings:
+                opening.evidence.pop('facade_system',None)
+            refresh_repeated_window_groups(walls,openings)
+        review_count=sum(r['action']=='review_only' for r in opening_boundary_reports)
+        consolidation['opening_boundary_validation']=opening_boundary_reports
+        record.update(opening_boundary_validation=opening_boundary_reports,
+                      review_candidate_count=review_count,
+                      detected_elements={'openings':len(openings)})
+        if review_count:
+            warnings.append(f'{level.id}: {review_count} opening proposal(s) retained for review '
+                'because no final host contains their full bounds; other geometry is available.')
     # Stairs cross clear-height and storey boundaries. Detect once globally
     # after slab zones, never independently inside each storey worker.
     stairs, landings = [], []
@@ -1053,6 +1074,8 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                               "fit_rmse_scope": "original points selected near observed wall faces, not whole-cloud deviation",
                               "detection": detection, "surface_proposals": proposals,
                               "wall_consolidation": consolidation,
+                              'opening_boundary_validation':[report for item in consolidation
+                                  for report in item.get('opening_boundary_validation',[])],
                               "wall_topology": wall_topology,
                               "inter_storey_gaps": inter_storey_gaps,
                               "slab_opening_detection": slab_opening_diagnostics,
