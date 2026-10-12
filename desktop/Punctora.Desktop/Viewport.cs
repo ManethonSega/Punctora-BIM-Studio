@@ -362,10 +362,13 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void StencilFunction(int function,int reference,uint mask);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void StencilOperation(int fail,int depthFail,int pass);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void ClearStencilFunction(int value);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void FramebufferParameterFunction(int target,int attachment,int parameter,out int value);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] delegate void FramebufferTextureFunction(int target,int attachment,int textureTarget,int texture,int level);
     BlendFunction? blend; ReadPixelsFunction? readPixels;
     ColorMaskFunction? colorMask;
     StencilMaskFunction? stencilMask;StencilFunction? stencilFunction;StencilOperation? stencilOperation;
     ClearStencilFunction? clearStencil;
+    FramebufferParameterFunction? framebufferParameter;FramebufferTextureFunction? framebufferTexture;
     public void MarkDirty()=>dirty=true;
     protected override void OnOpenGlInit(GlInterface gl)
     {
@@ -394,6 +397,8 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
             stencilFunction=Marshal.GetDelegateForFunctionPointer<StencilFunction>(gl.GetProcAddress("glStencilFunc"));
             stencilOperation=Marshal.GetDelegateForFunctionPointer<StencilOperation>(gl.GetProcAddress("glStencilOp"));
             clearStencil=Marshal.GetDelegateForFunctionPointer<ClearStencilFunction>(gl.GetProcAddress("glClearStencil"));
+            framebufferParameter=Marshal.GetDelegateForFunctionPointer<FramebufferParameterFunction>(gl.GetProcAddress("glGetFramebufferAttachmentParameteriv"));
+            framebufferTexture=Marshal.GetDelegateForFunctionPointer<FramebufferTextureFunction>(gl.GetProcAddress("glFramebufferTexture2D"));
             var renderer=gl.Renderer??"Unknown adapter";
             Adapter=renderer+" / "+gl.Vendor;
             var software=new[]{"llvmpipe","softpipe","software","swrast","swiftshader","warp","basic render","gdi generic"}.Any(s=>renderer.Contains(s,StringComparison.OrdinalIgnoreCase));
@@ -406,17 +411,35 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
     protected override void OnOpenGlRender(GlInterface gl,int fb)
     {
         if(!GraphicsReady)return;
+        (int Type,int Name,int Level,int Face) originalDepth=default,originalStencil=default;
+        var replacedAttachments=false;
+        (int Type,int Name,int Level,int Face) Attachment(int attachment)
+        {
+            framebufferParameter!(0x8D40,attachment,0x8CD0,out var type);
+            if(type==0)return default;
+            framebufferParameter!(0x8D40,attachment,0x8CD1,out var name);
+            var level=0;var face=0;
+            if(type==0x1702){framebufferParameter!(0x8D40,attachment,0x8CD2,out level);framebufferParameter!(0x8D40,attachment,0x8CD3,out face);}
+            return (type,name,level,face);
+        }
+        void Restore(int attachment,(int Type,int Name,int Level,int Face) value)
+        {
+            if(value.Type==0x1702)framebufferTexture!(0x8D40,attachment,value.Face==0?0x0DE1:value.Face,value.Name,value.Level);
+            else gl.FramebufferRenderbuffer(0x8D40,attachment,0x8D41,value.Type==0x8D41?value.Name:0);
+        }
         try
         {
             var started=Stopwatch.GetTimestamp();
             var scale=TopLevel.GetTopLevel(this)?.RenderScaling??1;
             var w=Math.Max(1,(int)(Bounds.Width*scale));var h=Math.Max(1,(int)(Bounds.Height*scale));
             gl.BindFramebuffer(0x8D40,fb);
+            originalDepth=Attachment(0x8D00);originalStencil=Attachment(0x8D20);
             if(width!=w||height!=h)
             {
                 width=w;height=h;gl.BindRenderbuffer(0x8D41,depth);gl.RenderbufferStorage(0x8D41,0x88F0,w,h);
             }
             gl.FramebufferRenderbuffer(0x8D40,0x821A,0x8D41,depth);
+            replacedAttachments=true;
             gl.Disable(0x0B90);stencilMask!(0xff);clearStencil!(0);
             gl.Viewport(0,0,w,h);gl.ClearColor(.063f,.094f,.153f,1);gl.ClearDepth(1);gl.DepthMask(1);gl.Clear(0x4000|0x0100|0x0400);
             gl.Enable(0x0B71);gl.DepthFunc(0x0203);gl.Enable(0x0BE2);blend!(0x0302,0x0303);
@@ -486,6 +509,17 @@ public sealed unsafe class GpuViewport(ViewSettings view) : OpenGlControlBase
             view.Density.Rendered(PreviewDensity.Now);
         }
         catch(Exception e){colorMask?.Invoke(1,1,1,1);GraphicsReady=false;Failed?.Invoke("3D drawing failed: "+e.Message);}
+        finally
+        {
+            // Avalonia owns this framebuffer and resizes its attachments before
+            // our next callback. A retained custom stencil attachment would
+            // make that resize incomplete before we can resize our own buffer.
+            if(replacedAttachments)
+            {
+                gl.BindFramebuffer(0x8D40,fb);gl.Disable(0x0B90);
+                Restore(0x8D00,originalDepth);Restore(0x8D20,originalStencil);
+            }
+        }
     }
     static void Upload(GlInterface gl,int buffer,float[] data)
     {gl.BindBuffer(0x8892,buffer);fixed(float* p=data)gl.BufferData(0x8892,(IntPtr)(data.Length*4),(IntPtr)p,0x88E4);}
