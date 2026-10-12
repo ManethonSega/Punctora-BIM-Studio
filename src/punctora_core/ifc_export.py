@@ -14,6 +14,7 @@ from . import __version__
 from .ifc_geometry import IFCGeometry
 from .model import BuildingModel, slab_opening_footprint, slab_opening_is_validated
 from .glazed_facades import supported_facade_groups
+from .profile_geometry import clean_profile
 
 
 def _guid(project, identifier):
@@ -88,7 +89,7 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
 
     def solid(product, vertices, depth, matrix, append=False, local_z=0.0):
         # Explicit closed planar footprint and metre-valued extrusion.
-        vertices = [tuple(map(float, point)) for point in vertices]
+        vertices, _ = clean_profile(vertices)
         if vertices[0] == vertices[-1]:
             vertices = vertices[:-1]
         points = [file.create_entity("IfcCartesianPoint", Coordinates=p) for p in vertices]
@@ -141,6 +142,10 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
                    "GeometricSupportScore": slab.confidence,
                    "SupportedAreaPercent": slab.evidence.get("supported_percent"),
                    "InferredAreaPercent": slab.evidence.get("inferred_percent"),
+                   "JustifiedCompletionAreaPercent": slab.evidence.get("justified_inferred_percent"),
+                   "UnsupportedAreaPercent": slab.evidence.get("unsupported_percent"),
+                   "CoverageReviewRequired": slab.evidence.get("coverage_review_required"),
+                   "CoverageEvidence": json.dumps(slab.evidence.get('coverage_classes',{}),sort_keys=True),
                    "RepresentationScope": slab.evidence.get("scope", "Caller-supplied slab")})
         slab_entities[slab.id] = entity
 
@@ -285,6 +290,10 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
                      "StairSystemId": system_id, "FlightIndex": stair.flight_index,
                      "SourceStoreyId": stair.storey_id,
                      "UpperStoreyId": stair.evidence.get("upper_storey_id"),
+                     'ConnectionStatus':('geometry_changed' if stair.evidence.get('source_geometry_changed')
+                                         else stair.evidence.get('connection_status','unverified')),
+                     'ObservedTreadCount':len(stair.evidence.get('observed_step_indices',[])),
+                     'InferredTreadCount':len(stair.evidence.get('inferred_missing_step_indices',[])),
                      "GeometricEvidence": json.dumps(stair.evidence, sort_keys=True),
                      "RepresentationScope": "measured and explicitly inferred tread envelopes; railings and support structure unknown"}
             provenance(flight, stair.id+"-flight", stair.provenance, extra)
@@ -312,7 +321,7 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         provenance(parent, system_id, {"assembly": "inferred"}, {
             "ReviewState": system_review,
             "FlightCount": len(stairs), "LandingCount": len(system_landings),
-            "RepresentationScope": "Connected flight and landing assembly; railings and support structure unknown"})
+            "RepresentationScope": "Detected flight and landing group; endpoint connection status requires review; railings and support structure unknown"})
     for landing in model.landings:
         if landing.id in exported_landings:
             continue
@@ -337,6 +346,17 @@ def validate_ifc(file: ifcopenshell.file) -> dict:
                  "instance": str(entry.get("instance", "")), "attribute": str(entry.get("attribute", ""))}
                 for entry in logger.statements]
     geometry_errors = []
+    from shapely.geometry import Polygon
+    from shapely.validation import explain_validity
+    profile_errors = []
+    for profile in file.by_type("IfcArbitraryClosedProfileDef"):
+        curve = profile.OuterCurve
+        if not curve.is_a("IfcPolyline"):
+            continue
+        polygon = Polygon([point.Coordinates[:2] for point in curve.Points])
+        if not polygon.is_valid or polygon.area <= 0:
+            profile_errors.append({"profile_id": profile.id(),
+                                   "message": explain_validity(polygon)})
     geometry_count = 0
     settings = ifcopenshell.geom.settings()
     settings.set(settings.USE_WORLD_COORDS, True)
@@ -352,8 +372,10 @@ def validate_ifc(file: ifcopenshell.file) -> dict:
         except Exception as exc:
             geometry_errors.append({"element": product.GlobalId, "message": str(exc)})
     return {"schema": file.schema, "express_findings": findings, "geometry_errors": geometry_errors,
-            "tessellated_products": geometry_count, "valid": not findings and not geometry_errors,
-            "scope": "IFC schema/EXPRESS and tessellation only; no survey accuracy, coverage or project acceptance claim"}
+            "profile_errors": profile_errors,
+            "tessellated_products": geometry_count,
+            "valid": not findings and not geometry_errors and not profile_errors,
+            "scope": "IFC schema/EXPRESS, planar profile validity and tessellation; dimensional accuracy requires source comparison"}
 
 
 def write_ifc(model: BuildingModel, path: str | Path) -> dict:

@@ -21,6 +21,8 @@ from .ifc_export import write_ifc
 from .model import BuildingModel, Landing, Opening, SlabOpening, Stair, slab_opening_is_validated
 from .convergence import compare_budgets
 from .reconstruction import ReconstructionSettings, reconstruct
+from .level_bounds import validate_detection_options
+from dataclasses import replace
 from .wall_editing import merge_walls, split_wall
 
 # The preview is a display-only sample. 500k points remains small compared with
@@ -218,10 +220,11 @@ def load_project(path):
     if state.get("schema_version") != 1 or state.get("assets_directory") != assets_for(path).name:
         raise ValueError("Unsupported project schema or data folder")
     state["crop"] = validate_crop(state.get("crop"))
+    state['reconstruction_options']=validate_detection_options(state.get('reconstruction_options'))
     state["model_crop"] = validate_crop(state.get("model_crop"))
     if not isinstance(state.get("model_crop_stale", False), bool):
         raise ValueError("Invalid crop/model state")
-    state["model_crop_stale"] = state.get("model") is not None and state["crop"] != state["model_crop"]
+    state["model_crop_stale"] = model_input_stale(state)
     uuid.UUID(hex=state["project_id"])
     uuid.UUID(hex=state["revision"])
     root = assets_for(path)
@@ -436,6 +439,8 @@ def reconstruct_project(path, request, progress=lambda *_: None):
             source_cloud = load_cloud(path, state)
             cloud = source_cloud
             settings = ReconstructionSettings(**request.get("settings", {}))
+            options=validate_detection_options(request.get('reconstruction_options',state.get('reconstruction_options')))
+            settings=replace(settings,reconstruction_scope=options['scope'])
             crop_directory = stage / "crop-working"
             try:
                 if crop_active(state["crop"]):
@@ -447,12 +452,14 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                                    "selected_points": len(source_cloud.points), "crop": state["crop"]}
                 progress(20, "Finding surfaces and fitting elements")
                 if request.get("compare_budgets"):
+                    if options['manual_levels']:
+                        raise ValueError('Budget comparison requires automatic levels; disable it for manual bounds')
                     model, budget_report = compare_budgets(
                         cloud,settings,progress=progress,diagnostics=save_performance,scratch_directory=stage)
                     atomic_json(assets_for(path) / "budget-comparison.json", budget_report)
                     model.metadata["budget_comparison"] = budget_report
                 else:
-                    model = reconstruct(cloud, settings, name=state["name"],
+                    model = reconstruct(cloud, settings,manual_levels=options['manual_levels'],name=state["name"],
                                         progress=progress, diagnostics=save_performance,scratch_directory=stage,
                                         diagnostic_context={"job_id": token, "command": "reconstruct",
                                                             "project_name": state["name"],
@@ -460,6 +467,8 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                                                             "e57_read_decompression": {"seconds": 0.0,
                                                                 "scope": "not repeated; memory-mapped import cache"}})
                 model.metadata["project_id"] = state["project_id"]
+                state['reconstruction_options']=options
+                model.metadata['reconstruction_options']=options
                 model.metadata["crop"] = crop_report
                 if crop_report["active"]:
                     model.warnings.append(
@@ -516,10 +525,18 @@ def draft_model(state, data):
 
 def apply_draft_context(state, request):
     result = deepcopy(state)
+    result['reconstruction_options']=validate_detection_options(request.get('reconstruction_options',result.get('reconstruction_options')))
     result["crop"] = validate_crop(request.get("crop", result["crop"]))
     result["model_crop"] = validate_crop(request.get("model_crop", result["model_crop"]))
-    result["model_crop_stale"] = result.get("model") is not None and result["crop"] != result["model_crop"]
+    result["model_crop_stale"] = model_input_stale(result)
     return result
+
+
+def model_input_stale(state):
+    model=state.get('model')
+    return bool(model is not None and (state['crop']!=state['model_crop'] or
+        validate_detection_options(state.get('reconstruction_options'))!=
+        validate_detection_options(model.get('metadata',{}).get('reconstruction_options'))))
 
 
 def edit_model(state, data, element_id, changes):
@@ -786,12 +803,13 @@ def save_project(path, request):
         if not isinstance(name, str) or not name.strip():
             raise ValueError("Project name cannot be empty")
         state["name"] = name
+        state['reconstruction_options']=validate_detection_options(request.get('reconstruction_options',state.get('reconstruction_options')))
         if model is not None:
             model.name = name
             state["model"] = model.to_dict()
         state["crop"] = validate_crop(request.get("crop", state["crop"]))
         state["model_crop"] = validate_crop(request.get("model_crop", state["model_crop"]))
-        state["model_crop_stale"] = state.get("model") is not None and state["crop"] != state["model_crop"]
+        state["model_crop_stale"] = model_input_stale(state)
         state["revision"] = uuid.uuid4().hex
         atomic_json(path, state)
         return state
@@ -804,13 +822,14 @@ def save_copy(path, destination, request):
     with project_lock(path), project_lock(destination):
         state = load_project(path)
         check_revision(state, request["expected_revision"])
+        state['reconstruction_options']=validate_detection_options(request.get('reconstruction_options',state.get('reconstruction_options')))
         if destination.exists():
             raise ValueError("Choose a new filename for the project copy")
         if request.get("model"):
             state["model"] = draft_model(state, request["model"]).to_dict()
         state["crop"] = validate_crop(request.get("crop", state["crop"]))
         state["model_crop"] = validate_crop(request.get("model_crop", state["model_crop"]))
-        state["model_crop_stale"] = state.get("model") is not None and state["crop"] != state["model_crop"]
+        state["model_crop_stale"] = model_input_stale(state)
         root = ensure_assets(destination, state["project_id"])
         try:
             for token in state["generations"]:
@@ -835,7 +854,7 @@ def export_project(path, request, progress=lambda *_: None):
         requested_crop = validate_crop(request.get("crop", state["crop"]))
         requested_model_crop = validate_crop(request.get("model_crop", state["model_crop"]))
         if state["model_crop_stale"] or requested_crop != requested_model_crop:
-            raise ValueError("The saved crop changed after detection; run Detect elements again before IFC conversion")
+            raise ValueError("The crop or level settings changed after detection; run Detect elements again before IFC conversion")
         model = draft_model(state, request.get("model") or state["model"])
         rejected = {w.id for w in model.walls if w.review_state == "rejected"}
         rejected_slabs = {s.id for s in model.slabs if s.review_state == "rejected"}

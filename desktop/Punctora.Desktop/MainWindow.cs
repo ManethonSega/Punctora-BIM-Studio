@@ -34,6 +34,9 @@ public sealed class MainWindow : Window
         VerticalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Auto};
     readonly ComboBox storeys=new(){HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly ComboBox method=new(){ItemsSource=new[]{"Contours","Region growing"},SelectedIndex=0};
+    readonly ComboBox reconstructionScope=new(){ItemsSource=new[]{"Auto (interior or exterior)","Interior","Exterior / partial scan"},SelectedIndex=0};
+    readonly TextBox manualLevels=new(){AcceptsReturn=true,MinHeight=80,TextWrapping=TextWrapping.Wrap,
+        Watermark="Level 1; 0; 3\nLevel 2; 3.2; 6.2"};
     readonly ComboBox review=new(){ItemsSource=new[]{"unreviewed","reviewed","flagged","rejected"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly ComboBox classification=new(){ItemsSource=new[]{"unclassified","paired_faces","single_face_candidate","exterior_candidate","consolidated_candidate","interior","exterior"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly CheckBox zUp=new(){Content="Z is up (confirm before fitting)"};
@@ -58,7 +61,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a24 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
+        Title="Punctora BIM Studio | 0.3.0a25 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -68,7 +71,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a24",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a25",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new WrapPanel{Orientation=Orientation.Horizontal,ItemSpacing=8,LineSpacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -99,6 +102,12 @@ public sealed class MainWindow : Window
         options.Children.Add(Text("Section: visible below height",11));options.Children.Add(section);
         section.PropertyChanged+=(_,e)=>{if(e.Property==Slider.ValueProperty)FilterStorey();};
         options.Children.Add(Text("Surface method",11));options.Children.Add(method);options.Children.Add(zUp);options.Children.Add(compareBudgets);
+        options.Children.Add(Text("Reconstruction scope",11));options.Children.Add(reconstructionScope);
+        options.Children.Add(Text("Manual level bounds (optional)",11));options.Children.Add(manualLevels);
+        options.Children.Add(Text("One row: name; bottom; top, in local metres. Save settings, then detect. Empty uses automatic bounds.",11));
+        void SetupChanged(){if(refreshing||state==null||busy)return;dirty=true;UpdateActions();}
+        reconstructionScope.SelectionChanged+=(_,_)=>SetupChanged();
+        manualLevels.PropertyChanged+=(_,e)=>{if(e.Property==TextBox.TextProperty)SetupChanged();};
         var software=new CheckBox{Content="Use software preview",IsChecked=viewport.SoftwareMode};
         software.IsCheckedChanged+=(_,_)=>{if(software.IsChecked==true)viewport.UseSoftware("Selected in settings");else viewport.UseAutomatic();};options.Children.Add(software);
         options.Children.Add(Text("ELEMENTS",12));left.Children.Add(options);elements.Height=220;elements.Margin=new Thickness(0,8,0,0);left.Children.Add(elements);
@@ -160,6 +169,7 @@ public sealed class MainWindow : Window
         approveSlabCut.IsVisible=selected?.Kind=="slab_openings";
         deleteCandidateButton.IsEnabled=!busy&&selected!=null&&new[]{"openings","stairs","landings","slab_openings"}.Contains(selected.Value.Kind);
         method.IsEnabled=zUp.IsEnabled=!busy;
+        reconstructionScope.IsEnabled=manualLevels.IsEnabled=!busy&&state!=null;
         cropBottom.IsEnabled=cropTop.IsEnabled=!busy&&state!=null;
         cropDraw.IsEnabled=cropApply.IsEnabled=cropClear.IsEnabled=!busy&&state!=null;
         cropCancel.IsEnabled=!busy&&viewport.CropDrawing;
@@ -202,7 +212,21 @@ public sealed class MainWindow : Window
         catch(Exception e){status.Text="Job failed: "+e.Message;return null;}
         finally{busy=false;progress.IsIndeterminate=false;jobCancellation.Dispose();jobCancellation=null;UpdateActions();}
     }
+    JsonObject DetectionOptions()
+    {
+        var levels=new JsonArray();
+        foreach(var row in (manualLevels.Text??"").Split('\n',StringSplitOptions.RemoveEmptyEntries|StringSplitOptions.TrimEntries))
+        {
+            var parts=row.Split(';',StringSplitOptions.TrimEntries);
+            if(parts.Length!=3||string.IsNullOrWhiteSpace(parts[0]))throw new InvalidDataException("Manual levels: use name; bottom; top, one row per level.");
+            var bottom=Parse(parts[1]);var top=Parse(parts[2]);
+            if(top<=bottom)throw new InvalidDataException("Manual level top must be above its bottom.");
+            levels.Add(new JsonObject{["name"]=parts[0],["bottom_m"]=bottom,["top_m"]=top});
+        }
+        return new JsonObject{["scope"]=reconstructionScope.SelectedIndex switch{1=>"interior",2=>"exterior",_=>"auto"},["manual_levels"]=levels};
+    }
     JsonObject ModelRequest()=>new(){["expected_revision"]=state!["revision"]!.DeepClone(),["model"]=state["model"]?.DeepClone(),
+        ["reconstruction_options"]=DetectionOptions(),
         ["crop"]=state["crop"]!.DeepClone(),["model_crop"]=state["model_crop"]!.DeepClone(),["model_crop_stale"]=state["model_crop_stale"]!.DeepClone()};
     JsonObject DraftSnapshot()=>new(){["model"]=state!["model"]?.DeepClone(),["crop"]=state["crop"]!.DeepClone(),
         ["model_crop"]=state["model_crop"]!.DeepClone(),["model_crop_stale"]=state["model_crop_stale"]!.DeepClone()};
@@ -229,6 +253,11 @@ public sealed class MainWindow : Window
         state=value;projectPath=path;viewport.SetScene(scene,fit);UpdateHeightLegend();refreshing=true;
         try
         {
+            var setup=state["reconstruction_options"] as JsonObject;
+            reconstructionScope.SelectedIndex=setup?["scope"]?.GetValue<string>() switch{"interior"=>1,"exterior"=>2,_=>0};
+            manualLevels.Text=string.Join("\n",(setup?["manual_levels"]?.AsArray()??[]).Select(row=>
+                row!["name"]!.GetValue<string>()+"; "+row["bottom_m"]!.GetValue<double>().ToString("G17",CultureInfo.InvariantCulture)+"; "+
+                row["top_m"]!.GetValue<double>().ToString("G17",CultureInfo.InvariantCulture)));
             var crop=state["crop"]!.AsObject();
             var cropPolygon=crop["polygon"] is JsonArray polygon?polygon.Select(p=>new System.Numerics.Vector2(
                 (float)p![0]!.GetValue<double>(),(float)p[1]!.GetValue<double>())).ToList():null;
@@ -495,7 +524,7 @@ public sealed class MainWindow : Window
     {
         if(state==null||projectPath==null||!RequireClean())return;
         if(zUp.IsChecked!=true){status.Text="Confirm Z is up before fitting. A missing CRS can remain explicitly unknown for local review.";return;}
-        var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["confirm_z_up"]=true,["compare_budgets"]=compareBudgets.IsChecked==true,["settings"]=new JsonObject{["surface_method"]=method.SelectedIndex==1?"region_growing":"contour"}};
+        var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["confirm_z_up"]=true,["reconstruction_options"]=DetectionOptions(),["compare_budgets"]=compareBudgets.IsChecked==true,["settings"]=new JsonObject{["surface_method"]=method.SelectedIndex==1?"region_growing":"contour"}};
         var result=await RunAsync("reconstruct",projectPath,request);if(result!=null){dirty=false;undo.Clear();await RunAsync("cleanup",projectPath);await PresentAsync(projectPath,result,false);}
     }
     async Task ExportAsync()
@@ -644,6 +673,15 @@ public sealed class MainWindow : Window
             await ExportToAsync(Path.Combine(output,"edited.ifc"));
             await Task.Delay(1800);for(var i=0;i<30;i++){viewport.View.Camera.Yaw+=.008f;viewport.Redraw();await Task.Delay(20);}viewport.CaptureGpu(Path.Combine(output,"viewport-gl.png"));await Task.Delay(700);
             using(var bitmap=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height),new Vector(96,96))){bitmap.Render(this);using var outputStream=File.Create(Path.Combine(output,"desktop.png"));bitmap.Save(outputStream,PngBitmapEncoderOptions.Default);}
+            reconstructionScope.SelectedIndex=2;manualLevels.Text="Facade; 0; 3";
+            await SaveAsync();await LoadAsync(path);
+            if(reconstructionScope.SelectedIndex!=2||!manualLevels.Text!.Contains("Facade"))throw new Exception("Manual detection setup lost on reopening");
+            await ReconstructAsync();
+            if(state!["model"]!["storeys"]![0]!["name"]!.GetValue<string>()!="Facade"||state["model"]!["slabs"]!.AsArray().Count!=0)
+                throw new Exception("Manual exterior bounds did not reach the reconstruction worker");
+            File.WriteAllText(Path.Combine(output,"manual-level-verification.json"),new JsonObject{
+                ["saved_and_reopened"]=true,["worker_reconstructed_manual_bounds"]=true,
+                ["no_invented_slabs"]=true}.ToJsonString());
             File.WriteAllText(Path.Combine(output,"ui-verification.json"),new JsonObject{["interactive_preview_passed"]=true,["orbit"]=orbitDiagnostics,["restore"]=restoredDiagnostics,["preview_fixture"]="generated 500k points, simulated 210M source count",["small_window_scroll_passed"]=smallWindowScrollPassed,["preview_failure_recovery_passed"]=previewRecoveryPassed,["edit_survived_reopen"]=true,["wall_topology_edit_survived_reopen"]=true,["crop_undo_restored"]=cropUndoRestored,["crop_survived_reopen"]=cropSurvivedReopen,["feature_add_delete_passed"]=featureAddDeletePassed,["ifc_exists"]=File.Exists(Path.Combine(output,"edited.ifc")),["viewport_backend"]=viewport.Backend,["preview_points"]=viewport.View.Scene.Points.Length/7,["conversion_backend"]="adaptive multicore/GPU",["graphics"]=viewport.Diagnostics()}.ToJsonString());
             dirty=false;Environment.ExitCode=0;Close();
         }

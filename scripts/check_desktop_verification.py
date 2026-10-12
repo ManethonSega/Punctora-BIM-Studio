@@ -16,6 +16,8 @@ for argument in sys.argv[1:]:
     assert report["preview_failure_recovery_passed"], report
     assert report["small_window_scroll_passed"], report
     assert report["interactive_preview_passed"], report
+    manual=json.loads((directory/'manual-level-verification.json').read_text())
+    assert all(manual.values()),manual
     assert report['orbit']['height_minimum_z_m']==report['graphics']['height_minimum_z_m'],report
     assert report['orbit']['height_maximum_z_m']==report['graphics']['height_maximum_z_m'],report
     assert report['graphics']['height_scale_scope']=='complete imported cloud in local metres',report

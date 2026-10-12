@@ -497,6 +497,173 @@ def clipped_face_for_interval(face, direction, low, high):
     return {**face, "start": start.tolist(), "end": end.tolist()}
 
 
+def reconcile_observed_wall_overlaps(walls, *, minimum_length_m=.5,
+                                     plane_tolerance_m=.03, angle_deg=2.):
+    """Trim duplicate solids only when their refitted original planes agree.
+
+    Unlike opening-based pairing, opaque walls can supply this evidence. Every
+    observed plane of the trimmed candidate must already be represented by the
+    retained host. Proximity of assumed solid footprints alone is insufficient.
+    """
+    from shapely.geometry import LineString
+    from shapely.ops import unary_union
+    result = {w.id: deepcopy(w) for w in walls}
+    removed, affected_ids, report = set(), set(), []
+    cosine = np.cos(np.deg2rad(angle_deg))
+
+    def supported_faces(wall):
+        return [f for f in wall.observed_faces
+                if f.get('original_inlier_fit_points', 0) >= 20
+                and f.get('original_plane_fit_rmse_m', 1.) <= .02]
+
+    def footprint(wall):
+        return LineString([wall.start, wall.end]).buffer(wall.thickness/2, cap_style=2)
+
+    def planes(faces, normal):
+        return [float(np.asarray([f['start'],f['end']]).mean(axis=0)@normal)
+                for f in faces]
+
+    ordered = sorted(walls, key=lambda w:(w.classification!='paired_faces',
+                                          -w.evidence_count, w.id))
+    for original_host in ordered:
+        if original_host.id in removed:
+            continue
+        host = result[original_host.id]
+        a, b, direction, host_length = _axis(host)
+        normal = np.array([-direction[1], direction[0]])
+        host_faces = supported_faces(host)
+        if not host_faces:
+            continue
+        host_planes = planes(host_faces, normal)
+        if (max(host_planes)-min(host_planes)>plane_tolerance_m
+                and host.classification!='paired_faces'):
+            continue
+        for original_target in ordered:
+            if original_target.id==host.id or original_target.id in removed:
+                continue
+            target = result[original_target.id]
+            if target.id in affected_ids or target.storey_id != host.storey_id:
+                continue
+            c,d,other_direction,target_length = _axis(target)
+            if (abs(direction@other_direction)<cosine or abs(host.base-target.base)>.05
+                    or abs(host.base+host.height-target.base-target.height)>.05):
+                continue
+            target_faces = supported_faces(target)
+            if len(target_faces)!=len(target.observed_faces) or not target_faces:
+                continue
+            target_planes=planes(target_faces,normal)
+            shared=all(min(abs(value-old) for old in host_planes)<=plane_tolerance_m
+                       for value in target_planes)
+            # A measured body can also contain a return/recess plane that was
+            # erroneously extruded as another wall. Keep that observation in
+            # the evidence, but do not count the same opaque volume twice.
+            contained=(host.classification=='paired_faces'
+                and min(host_planes)-plane_tolerance_m<=min(target_planes)
+                and max(target_planes)<=max(host_planes)+plane_tolerance_m)
+            if not shared and not contained:
+                continue
+            overlap_area = footprint(host).intersection(footprint(target)).area
+            if (overlap_area<=.02 or overlap_area/min(footprint(host).area,
+                                                     footprint(target).area)<.5):
+                continue
+            if not shared and overlap_area/min(footprint(host).area,
+                                               footprint(target).area)<.8:
+                continue
+            projected=sorted((float((c-a)@direction),float((d-a)@direction)))
+            low,high=max(0.,projected[0]),min(host_length,projected[1])
+            if high-low<minimum_length_m:
+                continue
+            # Preserve every tail with meaningful source geometry. A tiny
+            # discarded tail must not contain any observed span >= the limit.
+            target_normal=np.array([-other_direction[1],other_direction[0]])
+            cut=sorted(float((a+direction*t)@other_direction) for t in (low,high))
+            first,last=sorted((float(c@other_direction),float(d@other_direction)))
+            tails=[]
+            for lo,hi in ((first,min(last,cut[0])),(max(first,cut[1]),last)):
+                if hi-lo<1e-8:
+                    continue
+                tail=deepcopy(target)
+                tail.id=f'{target.id}-overlap-tail-{len(tails)+1}'
+                plane=float(c@target_normal)
+                tail.start=tuple(other_direction*lo+target_normal*plane)
+                tail.end=tuple(other_direction*hi+target_normal*plane)
+                tail.observed_faces=[f for face in target.observed_faces
+                    if (f:=clipped_face_for_interval(face,other_direction,lo,hi)) is not None]
+                if not tail.observed_faces:
+                    continue
+                tail.evidence={**tail.evidence,'overlap_reconciliation':{
+                    'source_wall_id':target.id,'retained_host_id':host.id}}
+                tails.append(tail)
+            host.observed_faces.extend(f for face in target_faces
+                if (f:=clipped_face_for_interval(face,direction,
+                           float(a@direction)+low,float(a@direction)+high)) is not None)
+            host.evidence.setdefault('overlap_source_wall_ids',[]).append(target.id)
+            removed.add(target.id);affected_ids.add(host.id)
+            for tail in tails:
+                result[tail.id]=tail;affected_ids.add(tail.id)
+            report.append({'retained_wall_id':host.id,'trimmed_wall_id':target.id,
+                'overlap_area_m2':float(overlap_area),'source_basis':'refitted_original_planes',
+                'decision':'shared_plane' if shared else 'contained_return_plane',
+                'retained_tail_ids':[t.id for t in tails]})
+    # Opposite full-height exterior faces may both carry assumed thicknesses.
+    # Independent original-point support allows one measured common span.
+    remaining=[w for key,w in result.items() if key not in removed]
+    for i,first in enumerate(remaining):
+        if first.id in removed or first.classification!='exterior_candidate':continue
+        af=supported_faces(first)
+        if not af or any(f.get('original_vertical_support_fraction',0)<.65 for f in af):continue
+        a,b,direction,length=_axis(first);normal=np.array([-direction[1],direction[0]])
+        av=planes(af,normal)
+        if max(av)-min(av)>plane_tolerance_m:continue
+        for second in remaining[i+1:]:
+            if second.id in removed or second.classification!='exterior_candidate':continue
+            bf=supported_faces(second)
+            if (not bf or first.storey_id!=second.storey_id or
+                    any(f.get('original_vertical_support_fraction',0)<.65 for f in bf)):continue
+            c,d,other_direction,other_length=_axis(second)
+            bv=planes(bf,normal)
+            separation=abs(float(np.median(av)-np.median(bv)))
+            if (abs(direction@other_direction)<cosine or max(bv)-min(bv)>plane_tolerance_m
+                    or not .08<=separation<=.3 or abs(first.base-second.base)>.05
+                    or abs(first.base+first.height-second.base-second.height)>.05):continue
+            area=footprint(first).intersection(footprint(second)).area
+            if area<=.02 or area/min(footprint(first).area,footprint(second).area)<.5:continue
+            values=sorted((float(c@direction),float(d@direction)))
+            low,high=max(float(a@direction),values[0]),min(float(b@direction),values[1])
+            if high-low<minimum_length_m:continue
+            plane=float(np.median(av+bv))
+            pair=Wall(first.id+'-observed-pair',first.storey_id,
+                tuple(direction*low+normal*plane),tuple(direction*high+normal*plane),
+                first.base,first.height,separation,'paired_faces',
+                {**first.provenance,'axis':'measured','thickness':'measured'},
+                observed_faces=[f for w in (first,second) for face in w.observed_faces
+                    if (f:=clipped_face_for_interval(face,direction,low,high)) is not None],
+                detection_method='original_face_pair',evidence={'source_wall_ids':[first.id,second.id]})
+            result[pair.id]=pair;affected_ids.add(pair.id)
+            tails=[]
+            for wall in (first,second):
+                start,end,axis,wall_length=_axis(wall);side=np.array([-axis[1],axis[0]])
+                cuts=sorted(float((direction*t+normal*plane)@axis) for t in (low,high))
+                first_t,last_t=sorted((float(start@axis),float(end@axis)))
+                for lo,hi in ((first_t,min(last_t,cuts[0])),(max(first_t,cuts[1]),last_t)):
+                    if hi-lo<1e-6:continue
+                    tail=deepcopy(wall);tail.id=wall.id+f'-pair-tail-{len(tails)+1}'
+                    offset=float(start@side)
+                    tail.start=tuple(axis*lo+side*offset);tail.end=tuple(axis*hi+side*offset)
+                    tail.observed_faces=[f for face in wall.observed_faces
+                        if (f:=clipped_face_for_interval(face,axis,lo,hi)) is not None]
+                    if not tail.observed_faces:continue
+                    result[tail.id]=tail;affected_ids.add(tail.id);tails.append(tail)
+            removed.update([first.id,second.id])
+            report.append({'retained_wall_id':pair.id,'trimmed_wall_id':second.id,
+                'source_wall_ids':[first.id,second.id],'source_basis':'independent_full_height_original_faces',
+                'decision':'measured_opposite_face_pair','overlap_area_m2':float(area),
+                'retained_tail_ids':[t.id for t in tails]})
+            break
+    final=[w for identifier,w in result.items() if identifier not in removed]
+    return final,[w for w in final if w.id in affected_ids],removed,report
+
+
 def _cross(first, second):
     return float(first[0]*second[1]-first[1]*second[0])
 

@@ -58,6 +58,7 @@ jobs:
           name: m3-desktop-checks-${{ matrix.os }}
           path: |
             outputs/m3-*/ui-verification.json
+            outputs/m3-*/manual-level-verification.json
             outputs/m3-*/ui-error.txt
             outputs/m3-*/desktop.png
             outputs/m3-*/height-legend.png

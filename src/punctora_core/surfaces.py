@@ -108,7 +108,9 @@ def region_growing(sample: DetectionSample, settings):
     cosine = np.cos(np.radians(angle))
     visited = np.zeros(n, dtype=bool)
     regions = []
-    for seed in np.argsort(curvature, kind="stable"):
+    # LAPACK can leave platform-specific roundoff around zero curvature.
+    # Stable source-row ties keep that noise from choosing another growth seed.
+    for seed in np.argsort(np.round(curvature,12), kind="stable"):
         if visited[seed] or not usable[seed]:
             continue
         visited[seed] = True

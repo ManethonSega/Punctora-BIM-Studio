@@ -65,6 +65,9 @@ def face_selection(points, face, radius, endpoint_margin):
 
 def _refine_face(points, face, radius, margin, chunk_points, visit=lambda _: None):
     """Fit XY covariance on original records without collecting all support."""
+    # Reduction grouping must not depend on a machine's worker/RAM plan.
+    # This bounded block is < 1 MiB of fitting temporaries per worker.
+    chunk_points = 8192
     anchor = np.asarray(face["start"])
     histogram = np.zeros(257, dtype=np.int64)
     edges = np.linspace(-radius, radius, len(histogram)+1)
@@ -82,11 +85,19 @@ def _refine_face(points, face, radius, margin, chunk_points, visit=lambda _: Non
     mad_index = np.searchsorted(np.cumsum(histogram[order]), (histogram.sum()+1)//2)
     trim = max(radius/5, 3*deviations[order[mad_index]])
     count, sums, products = 0, np.zeros(2), np.zeros((2, 2))
+    height_counts = np.zeros(12, dtype=np.int64)
+    measured_z_min,measured_z_max=np.inf,-np.inf
     for batch, _ in point_batches(points, chunk_points):
         visit(len(batch))
         mask, residual = face_selection(batch, face, radius, margin)
         mask &= np.abs(residual-median) <= trim
         xy = batch[mask, :2]-anchor
+        z = batch[mask, 2]
+        if len(z):
+            measured_z_min=min(measured_z_min,float(z.min()))
+            measured_z_max=max(measured_z_max,float(z.max()))
+        height_counts += np.histogram(z, bins=np.linspace(face['z_min'],
+            max(face['z_min']+1e-9,face['z_max']),13))[0]
         count += len(xy)
         sums += xy.sum(axis=0)
         products += xy.T @ xy
@@ -103,6 +114,11 @@ def _refine_face(points, face, radius, margin, chunk_points, visit=lambda _: Non
     centre += anchor
     result = {**face, "start": centre.tolist(), "end": (centre+direction*np.linalg.norm(original_direction)).tolist(),
               "original_inlier_fit_points":count, "original_plane_fit_rmse_m":float(np.sqrt(max(0.,values[0])))}
+    result['original_vertical_support_fraction'] = float(np.mean(
+        height_counts >= max(6, count*.005)))
+    result['original_height_band_counts'] = height_counts.tolist()
+    result['fit_reduction_block_points'] = chunk_points
+    result['observed_z_min_m'],result['observed_z_max_m']=measured_z_min,measured_z_max
     # Use the original proposal's finite interval for refinement, so unrelated
     # collinear walls elsewhere cannot extend this candidate.
     low, high = np.inf, -np.inf
@@ -144,7 +160,7 @@ def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=
             local = cloud
             visit = lambda _: None
             if spatial_index is not None:
-                local, _ = spatial_index.local_cloud([face],radius,endpoint_margin,stage)
+                local, _ = spatial_index.local_cloud([face],radius,endpoint_margin,stage,exact=True)
                 if local is None:
                     return face
                 visit = lambda count: spatial_index.visit(stage,count)
@@ -160,7 +176,7 @@ def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=
             if len(slices)==len(wall.observed_faces):
                 previous_evidence['slices']=[{**r,'proposal_start':r['start'],'proposal_end':r['end'],**f}
                                              for r,f in zip(slices,wall.observed_faces)]
-        elif len(wall.observed_faces) == 2 and wall.classification == "paired_faces":
+        elif len(wall.observed_faces) >= 2 and wall.classification == "paired_faces":
             from .reconstruction import _paired_axis
             second = wall.observed_faces[1]
             axis, thickness = _paired_axis([a, b], [second["start"], second["end"]])
@@ -185,7 +201,7 @@ def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=
         evidence_cloud = cloud
         visit = lambda _: None
         if spatial_index is not None:
-            evidence_cloud, _ = spatial_index.local_cloud(wall.observed_faces,radius,endpoint_margin,stage)
+            evidence_cloud, _ = spatial_index.local_cloud(wall.observed_faces,radius,endpoint_margin,stage,exact=True)
             visit = lambda count: spatial_index.visit(stage,count)
         if evidence_cloud is None:
             wall.evidence_count = 0

@@ -28,6 +28,25 @@ def test_two_voxel_representatives_keep_original_boundary_rows_deterministically
     np.testing.assert_array_equal(first.points,points[first.cloud_indices])
 
 
+def test_packed_voxel_selection_matches_tuple_reference_across_adaptation(monkeypatch):
+    import punctora_core.sampling as sampling
+    points=np.random.default_rng(73).uniform(-2,2,(5000,3))
+    real_unique=np.unique
+    def tuples(values,*args,**kwargs):
+        return real_unique(values,*args,**kwargs)
+    # A single original-order reference pass establishes first/last rows for
+    # the final adapted size, independent of streaming wave boundaries.
+    for copies in (1,2):
+        sample=voxel_sample(points,.02,700,317,workers=3,representatives_per_voxel=copies)
+        cells=np.floor((points-points.min(axis=0))/sample.voxel_size_m+1e-9).astype(np.int64)
+        _,first=real_unique(cells,axis=0,return_index=True)
+        ids=first
+        if copies==2:
+            _,reverse=real_unique(cells[::-1],axis=0,return_index=True)
+            ids=np.r_[first,len(cells)-1-reverse]
+        np.testing.assert_array_equal(sample.cloud_indices,np.unique(ids))
+
+
 def test_resource_plan_reserves_source_and_exposes_parallel_budget():
     settings = ReconstructionSettings(maximum_detection_points=100_000,
                                       processing_chunk_points=2_000)
@@ -36,6 +55,21 @@ def test_resource_plan_reserves_source_and_exposes_parallel_budget():
     assert plan.concurrent_storeys >= 1
     assert 30 <= plan.point_limit <= 100_000
     assert plan.chunk_points <= settings.processing_chunk_points
+
+
+def test_mapped_source_reserve_is_bounded_without_editing_the_source(tmp_path,monkeypatch):
+    from punctora_core.cloud_io import CloudData
+    import punctora_core.performance as performance
+    path=tmp_path/'points.f64'
+    np.zeros((10000,3),dtype='<f8').tofile(path)
+    points=np.memmap(path,dtype='<f8',shape=(10000,3),mode='r')
+    cloud=CloudData(points)
+    monkeypatch.setattr(performance,'available_memory_bytes',lambda:10*1024**3)
+    settings=ReconstructionSettings(processing_chunk_points=100)
+    plan=ResourcePlan.create(settings,len(points),source_cloud=cloud)
+    assert plan.source_cloud_bytes_estimate==100*24
+    assert not np.any(cloud.points)
+    points._mmap.close()
 
 
 def test_automatic_resource_plan_never_exceeds_seventy_percent_available(monkeypatch):
@@ -90,6 +124,18 @@ def test_linux_memory_counter_matches_own_procfs_when_available():
     with open('/proc/self/statm',encoding='ascii') as stream:
         expected = int(stream.read().split()[1])*os.sysconf('SC_PAGE_SIZE')
     assert abs(_process().memory_info().rss-expected) < 8*1024**2
+
+
+def test_subset_passes_are_normalized_to_complete_cloud():
+    profiler = StageProfiler(ComputeBackend("cpu"), context={"source_points": 1_000})
+    with profiler.stage("subset", point_cloud_passes=3) as record:
+        record.update(points_processed=900, source_point_count=300)
+    with profiler.stage("indexed", point_cloud_passes=.25) as record:
+        record.update(points_processed=250, unique_source_points=1_000)
+    report = profiler.report()
+    assert report["point_cloud_passes_total"] == 1.15
+    assert report["stage_passes_total"] == 3.25
+    assert report["logical_point_visits_total"] == 1_150
 
 
 def test_parallel_reconstruction_preserves_element_counts():

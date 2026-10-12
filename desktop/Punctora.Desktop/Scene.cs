@@ -62,7 +62,8 @@ public sealed class SceneData
                 var direction=Vector2.Normalize(b-a);var length=Vector2.Distance(a,b);
                 var side = new Vector2(-direction.Y,direction.X) * Number(wall, "thickness")/2;
                 var openings=(model["openings"]?.AsArray()??[]).Where(o=>o!["host_wall_id"]!.GetValue<string>()==wall["id"]!.GetValue<string>()&&o["review_state"]?.GetValue<string>()!="rejected").Select(o=>o!.AsObject()).ToList();
-                var cuts=new[]{0f,length}.Concat(openings.SelectMany(o=>new[]{Number(o,"offset"),Number(o,"offset")+Number(o,"width")})).Distinct().Order().ToArray();
+                var cuts=new[]{0f,length}.Concat(openings.SelectMany(o=>new[]{Number(o,"offset"),Number(o,"offset")+Number(o,"width")}))
+                    .Select(c=>Math.Clamp(c,0f,length)).Distinct().Order().ToArray();
                 for(var c=0;c<cuts.Length-1;c++)
                 {
                     var low=cuts[c];var high=cuts[c+1];var middle=(low+high)/2;
@@ -70,8 +71,11 @@ public sealed class SceneData
                     var z=0f;
                     void WallPart(float bottom,float top)
                     {
-                        if(top-bottom<=1e-6)return;
+                        // Display-only pieces, never source geometry. Opening
+                        // and host lengths can differ by a few float ULPs.
+                        if(top-bottom<=1e-6||high-low<=1e-5f)return;
                         var p=a+direction*low;var q=a+direction*high;
+                        if(p==q)return;
                         Add(elements,wall,"Wall",[p-side,q-side,q+side,p+side],Number(wall,"base")+bottom,top-bottom);
                     }
                     foreach(var opening in voids){WallPart(z,Number(opening,"sill"));z=Math.Max(z,Number(opening,"sill")+Number(opening,"height"));}
@@ -154,10 +158,17 @@ public sealed class SceneData
                 foreach(var point in points.Reverse())Vertex(point,z+height);
             }
         }
-        else foreach (var tri in Triangulate(polygon))
+        else
         {
-            foreach (var index in tri) Vertex(polygon[index],z);
-            foreach (var index in tri.Reverse()) Vertex(polygon[index],z+height);
+            List<int[]> triangles;
+            try { triangles=Triangulate(polygon); }
+            catch(InvalidDataException error)
+            { throw new InvalidDataException($"{kind} {obj["id"]}: {error.Message}",error); }
+            foreach (var tri in triangles)
+            {
+                foreach (var index in tri) Vertex(polygon[index],z);
+                foreach (var index in tri.Reverse()) Vertex(polygon[index],z+height);
+            }
         }
         Vector2[][] rings=(mesh?["render_boundary_rings_xy"]??mesh?["boundary_rings_xy"]) is JsonArray boundaries
             ?boundaries.Select(r=>r!.AsArray().Select(p=>XY(p!)).ToArray()).ToArray():[polygon];

@@ -47,7 +47,13 @@ def available_memory_bytes():
             with open("/sys/fs/cgroup/memory.current", encoding="ascii") as current_file:
                 current = int(current_file.read().strip())
             if limit_text != "max":
-                host_available = min(host_available, max(0, int(limit_text)-current))
+                reclaimable=0
+                try:
+                    with open('/sys/fs/cgroup/memory.stat',encoding='ascii') as statistics:
+                        memory_stats=dict(line.split() for line in statistics)
+                    reclaimable=int(memory_stats.get('inactive_file',0))
+                except (OSError,ValueError):pass
+                host_available = min(host_available, max(0, int(limit_text)-current+reclaimable))
         except (OSError, ValueError):
             pass
         return host_available
@@ -65,12 +71,38 @@ def adaptive_point_limit(requested, maximum_working_memory_gb=20.0, bytes_per_po
     return max(30, min(int(requested), usable // bytes_per_point))
 
 
+def release_mapped_source_pages(cloud):
+    """Evict clean mapped cache pages; preserve all files, arrays and source IDs."""
+    import mmap
+    mapped=False
+    for name in ('points','colors','intensity','scan_index','source_record_index'):
+        array=getattr(cloud,name,None)
+        while array is not None:
+            if isinstance(array,np.memmap):
+                mapped=True
+                if array.mode=='r' and hasattr(array._mmap,'madvise'):
+                    array._mmap.madvise(mmap.MADV_DONTNEED)
+                    try:
+                        with open(array.filename,'rb') as stream:
+                            os.posix_fadvise(stream.fileno(),0,0,os.POSIX_FADV_DONTNEED)
+                    except (AttributeError,OSError):pass
+                break
+            array=getattr(array,'base',None)
+    return mapped
+
+
 def resolved_cpu_workers(configured=0):
     """Resolve 0 to all logical processors except one for the desktop UI."""
+    processors=os.cpu_count() or 1
+    try:
+        with open('/sys/fs/cgroup/cpu.max',encoding='ascii') as stream:
+            quota,period=stream.read().split()
+        if quota!='max':processors=min(processors,max(1,int(quota)//int(period)))
+    except (OSError,ValueError):pass
     if configured == -1:
-        return max(1, os.cpu_count() or 1)
+        return max(1, processors)
     if configured == 0:
-        return max(1, (os.cpu_count() or 2) - 1)
+        return max(1, processors - 1)
     return configured
 
 
@@ -104,11 +136,20 @@ def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
             or not isinstance(workers, int) or isinstance(workers, bool) or workers <= 0
             or representatives_per_voxel not in {1, 2}):
         raise ValueError("Invalid voxel sampling limits")
+    dimensions = None
     def representatives(scaled):
-        _, first = np.unique(scaled, axis=0, return_index=True)
+        # An injective integer key avoids repeated lexicographic sorting of
+        # three-column records. It preserves the exact same voxel groups/IDs.
+        if dimensions is not None:
+            keys=(scaled[:,0]*dimensions[1]+scaled[:,1])*dimensions[2]+scaled[:,2]
+            _,first=np.unique(keys,return_index=True)
+        else:
+            keys=None
+            _, first = np.unique(scaled, axis=0, return_index=True)
         if representatives_per_voxel == 1:
             return first
-        _, reverse = np.unique(scaled[::-1], axis=0, return_index=True)
+        _, reverse = (np.unique(keys[::-1],return_index=True) if keys is not None
+                      else np.unique(scaled[::-1], axis=0, return_index=True))
         last = len(scaled)-1-reverse
         return np.unique(np.concatenate([first,last]))
     starts = list(range(0, len(points), chunk_points))
@@ -121,17 +162,20 @@ def voxel_sample(points, voxel_size_m=0.05, maximum_points=50_000,
         return batch, indices
     def extent(begin):
         batch, _ = selected_chunk(begin)
-        return (batch.min(axis=0), len(batch)) if len(batch) else (np.full(3, np.inf), 0)
-    origin, count = np.full(3, np.inf), 0
+        return (batch.min(axis=0),batch.max(axis=0),len(batch)) if len(batch) else (np.full(3,np.inf),np.full(3,-np.inf),0)
+    origin, maximum, count = np.full(3, np.inf),np.full(3,-np.inf),0
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        for local_origin, amount in executor.map(extent, starts):
+        for local_origin, local_maximum, amount in executor.map(extent, starts):
             origin = np.minimum(origin, local_origin)
+            maximum = np.maximum(maximum,local_maximum)
             count += amount
     if not count:
         return DetectionSample(np.empty((0, 3)), np.empty(0, dtype=np.int64), voxel_size_m, 0, 1)
     size = voxel_size_m
     with ThreadPoolExecutor(max_workers=workers) as executor:
         for attempt in range(64):
+            candidate_dimensions=np.floor((maximum-origin)/size+1e-9).astype(np.int64)+1
+            dimensions=(candidate_dimensions if np.prod(candidate_dimensions.astype(object))<=np.iinfo(np.int64).max else None)
             retained, overflow = np.empty(0, dtype=np.int64), False
             def local_voxels(begin):
                 batch, indices = selected_chunk(begin)

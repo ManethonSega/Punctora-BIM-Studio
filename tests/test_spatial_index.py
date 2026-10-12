@@ -193,3 +193,20 @@ def test_openings_use_full_host_interval_and_height():
         assert indexed[0].width==reference[0].width
     finally:
         index.close()
+def test_exact_fitting_query_keeps_source_ids_and_counts_rejected_candidates():
+    import numpy as np
+    from punctora_core.cloud_io import CloudData
+    from punctora_core.spatial_index import SpatialPointIndex
+    points=np.array([[.1,0.,1.],[.1,.09,1.],[.2,0.,1.]])
+    cloud=CloudData(points,scan_index=np.array([1,2,3],dtype=np.uint32),
+                    source_record_index=np.array([101,102,103],dtype=np.uint64))
+    index=SpatialPointIndex.build(cloud,.2)
+    face=dict(start=[0,0],end=[1,0],z_min=0,z_max=2)
+    try:
+        local,rows=index.local_cloud([face],.01,.08,'exact',exact=True)
+        np.testing.assert_array_equal(rows,[0,2])
+        np.testing.assert_array_equal(local.source_record_index,[101,103])
+        assert index.report('exact')['unique_points_visited']==3
+        assert index.report('exact')['points_processed']==5
+    finally:index.close()
+

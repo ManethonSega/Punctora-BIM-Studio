@@ -101,6 +101,23 @@ try
     var redundant=new Vector2[]{new(0,0),new(1,0),new(1,0),new(2,0),new(2,2),new(1,2),new(1,1),new(0,1),new(0,0)};
     var capArea=SceneData.Triangulate(redundant).Sum(t=>{var a=redundant[t[0]];var b=redundant[t[1]];var c=redundant[t[2]];return Math.Abs((b.X-a.X)*(c.Y-a.Y)-(b.Y-a.Y)*(c.X-a.X))/2;});
     if(Math.Abs(capArea-3)>1e-6)throw new Exception("Concave fallback triangulation changed polygon area");
+    // Full-width opening and offset host have different float lengths.
+    var boundaryModel=new JsonObject {
+        ["walls"]=new JsonArray(new JsonObject {
+            ["id"]="rounding-host",["storey_id"]="level",
+            ["start"]=new JsonArray(10d,10d),["end"]=new JsonArray(12.95d,10d),
+            ["base"]=0d,["height"]=3d,["thickness"]=.2d }),
+        ["slabs"]=new JsonArray(),
+        ["openings"]=new JsonArray(new JsonObject {
+            ["id"]="boundary-window",["host_wall_id"]="rounding-host",["kind"]="window",
+            ["offset"]=0d,["width"]=2.95d,["sill"]=.5d,["height"]=2d }) };
+    var boundaryState=(JsonObject)state.DeepClone();boundaryState["model"]=boundaryModel;
+    var boundaryBefore=boundaryState.ToJsonString();
+    var boundaryScene=SceneData.Load(Path.Combine(temporary,"check.punctora"),boundaryState);
+    if(boundaryScene.Elements.Count(e=>e.Id=="rounding-host")!=2)
+        throw new Exception("Opening-boundary rounding changed the supported wall pieces");
+    if(boundaryState.ToJsonString()!=boundaryBefore)
+        throw new Exception("Opening-boundary preview changed the saved model");
     Console.WriteLine($"Native preview verified: {model["slabs"]!.AsArray().Count} slabs, {checkedFaces} void-cut cap triangles, all landing and void contours");
 }
 finally
