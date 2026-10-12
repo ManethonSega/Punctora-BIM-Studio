@@ -56,3 +56,22 @@ def test_original_full_height_exterior_faces_pair_only_over_common_span():
     assert len(final)==3 and report[0]['decision']=='measured_opposite_face_pair'
     second.observed_faces[0].pop('original_inlier_fit_points')
     assert not reconcile_observed_wall_overlaps([first,second])[2]
+
+
+def test_occluded_height_slices_keep_the_two_opposite_planes_first():
+    first,second=wall('a',0,6),wall('b',4,8)
+    for w,p in ((first,-.075),(second,.075)):
+        w.classification='exterior_candidate';w.thickness=.3
+        face=w.observed_faces[0]
+        w.observed_faces=[{**face,'start':[face['start'][0],p],
+            'end':[face['end'][0],p],'z_min':lo,'z_max':hi,
+            'original_height_band_counts':counts}
+            for lo,hi,counts in [(0,1,[100]*12),(1,2,[100]*12),(2,3,[100]+[0]*11)]]
+    final,_,replaced,report=reconcile_observed_wall_overlaps([first,second])
+    pair=next(w for w in final if w.classification=='paired_faces')
+    assert replaced=={'a','b'}
+    assert abs(pair.observed_faces[0]['start'][1]-pair.observed_faces[1]['start'][1])==pytest.approx(.15)
+    assert min(report[0]['original_height_support_fractions'])>=.55
+    # Observations confined to one end of the height do not establish a pair.
+    second.observed_faces=second.observed_faces[:1]
+    assert not reconcile_observed_wall_overlaps([first,second])[2]

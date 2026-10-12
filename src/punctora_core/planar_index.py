@@ -5,6 +5,9 @@ import numpy as np
 class PlanarPointIndex:
     def __init__(self,points,cell_m=.2,maximum_cells=5_000_000):
         self.points,self.cell=points,float(cell_m)
+        if not len(points):
+            self.fallback=True
+            return
         self.origin=np.floor(points[:,:2].min(axis=0)/self.cell)*self.cell
         coordinates=np.floor((points[:,:2]-self.origin)/self.cell).astype(np.int64)
         self.dimensions=coordinates.max(axis=0)+1

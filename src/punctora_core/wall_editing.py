@@ -523,6 +523,25 @@ def reconcile_observed_wall_overlaps(walls, *, minimum_length_m=.5,
         return [float(np.asarray([f['start'],f['end']]).mean(axis=0)@normal)
                 for f in faces]
 
+    def distributed_height_support(wall, faces):
+        # Judge the original observations over the whole host height. A sparse
+        # slice at an opening edge must not veto otherwise distributed support.
+        counts = np.zeros(12)
+        for face in faces:
+            bands = face.get('original_height_band_counts')
+            if bands is None:
+                bands = np.full(12, face.get('original_vertical_support_fraction', 0))
+            bands = np.asarray(bands, float)
+            if not len(bands):
+                continue
+            z = face['z_min']+(np.arange(len(bands))+.5)/len(bands)*(face['z_max']-face['z_min'])
+            positions = np.clip(((z-wall.base)/wall.height*12).astype(int), 0, 11)
+            if 'original_height_band_counts' in face:
+                np.add.at(counts, positions, bands)
+            else:
+                np.maximum.at(counts, positions, bands*100)
+        return float(np.mean(counts >= max(6, counts.sum()*.005)))
+
     ordered = sorted(walls, key=lambda w:(w.classification!='paired_faces',
                                           -w.evidence_count, w.id))
     for original_host in ordered:
@@ -605,13 +624,13 @@ def reconcile_observed_wall_overlaps(walls, *, minimum_length_m=.5,
                 'overlap_area_m2':float(overlap_area),'source_basis':'refitted_original_planes',
                 'decision':'shared_plane' if shared else 'contained_return_plane',
                 'retained_tail_ids':[t.id for t in tails]})
-    # Opposite full-height exterior faces may both carry assumed thicknesses.
+    # Opposite exterior faces may both carry assumed thicknesses.
     # Independent original-point support allows one measured common span.
     remaining=[w for key,w in result.items() if key not in removed]
     for i,first in enumerate(remaining):
         if first.id in removed or first.classification!='exterior_candidate':continue
         af=supported_faces(first)
-        if not af or any(f.get('original_vertical_support_fraction',0)<.65 for f in af):continue
+        if not af or len(af)!=len(first.observed_faces) or distributed_height_support(first,af)<.55:continue
         a,b,direction,length=_axis(first);normal=np.array([-direction[1],direction[0]])
         av=planes(af,normal)
         if max(av)-min(av)>plane_tolerance_m:continue
@@ -619,7 +638,7 @@ def reconcile_observed_wall_overlaps(walls, *, minimum_length_m=.5,
             if second.id in removed or second.classification!='exterior_candidate':continue
             bf=supported_faces(second)
             if (not bf or first.storey_id!=second.storey_id or
-                    any(f.get('original_vertical_support_fraction',0)<.65 for f in bf)):continue
+                    len(bf)!=len(second.observed_faces) or distributed_height_support(second,bf)<.55):continue
             c,d,other_direction,other_length=_axis(second)
             bv=planes(bf,normal)
             separation=abs(float(np.median(av)-np.median(bv)))
@@ -632,12 +651,19 @@ def reconcile_observed_wall_overlaps(walls, *, minimum_length_m=.5,
             low,high=max(float(a@direction),values[0]),min(float(b@direction),values[1])
             if high-low<minimum_length_m:continue
             plane=float(np.median(av+bv))
+            clipped_groups=[[f for face in w.observed_faces
+                if (f:=clipped_face_for_interval(face,direction,low,high)) is not None]
+                for w in (first,second)]
+            if not all(clipped_groups):continue
+            # The fitter's first two faces must be the two opposite planes,
+            # rather than adjacent height slices of the same plane.
+            paired_faces=[group[0] for group in clipped_groups]
+            paired_faces.extend(f for group in clipped_groups for f in group[1:])
             pair=Wall(first.id+'-observed-pair',first.storey_id,
                 tuple(direction*low+normal*plane),tuple(direction*high+normal*plane),
                 first.base,first.height,separation,'paired_faces',
                 {**first.provenance,'axis':'measured','thickness':'measured'},
-                observed_faces=[f for w in (first,second) for face in w.observed_faces
-                    if (f:=clipped_face_for_interval(face,direction,low,high)) is not None],
+                observed_faces=paired_faces,
                 detection_method='original_face_pair',evidence={'source_wall_ids':[first.id,second.id]})
             result[pair.id]=pair;affected_ids.add(pair.id)
             tails=[]
@@ -656,7 +682,9 @@ def reconcile_observed_wall_overlaps(walls, *, minimum_length_m=.5,
                     result[tail.id]=tail;affected_ids.add(tail.id);tails.append(tail)
             removed.update([first.id,second.id])
             report.append({'retained_wall_id':pair.id,'trimmed_wall_id':second.id,
-                'source_wall_ids':[first.id,second.id],'source_basis':'independent_full_height_original_faces',
+                'source_wall_ids':[first.id,second.id],'source_basis':'independent_distributed_original_faces',
+                'original_height_support_fractions':[distributed_height_support(first,af),
+                                                     distributed_height_support(second,bf)],
                 'decision':'measured_opposite_face_pair','overlap_area_m2':float(area),
                 'retained_tail_ids':[t.id for t in tails]})
             break
