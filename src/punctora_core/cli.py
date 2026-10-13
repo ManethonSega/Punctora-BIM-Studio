@@ -69,8 +69,70 @@ def main(argv=None):
     freeze.add_argument("--ifc", type=Path, required=True)
     freeze.add_argument("--performance", type=Path, required=True)
     freeze.add_argument("--output", type=Path, required=True)
+    recognition = commands.add_parser("recognition-propose", help="Run review-only recognition on fingerprinted original arrays; never write IFC")
+    recognition.add_argument("manifest", type=Path)
+    recognition.add_argument("--cache-dir", type=Path, required=True)
+    recognition.add_argument("--provider", choices=["classical", "cloud2bim_experimental"], default="classical")
+    recognition.add_argument("--assets", type=Path, help="Explicit isolated runtime/checkpoint/config JSON; no downloads")
+    recognition.add_argument("--settings", type=Path, help="Classical ReconstructionSettings JSON")
+    recognition.add_argument("--tiles", type=Path, help="TileSettings JSON")
+    recognition.add_argument("--ram-gb", type=float, default=0.)
+    recognition.add_argument("--diagnostics", type=Path, help="Persistent diagnostics outside cache staging")
+    semantic = commands.add_parser("recognition-export-samples", help="Export labels for ID-only semantic samples after inference")
+    semantic.add_argument("proposal_directory", type=Path)
+    semantic.add_argument("sample_keys", type=Path)
+    semantic.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
+        if args.command == "recognition-export-samples":
+            from .annotation_io import read_json
+            from .recognition.io import export_semantic_samples
+            if args.output.resolve() == args.sample_keys.resolve():
+                raise ValueError("Semantic export cannot overwrite its source-key input")
+            report = export_semantic_samples(args.proposal_directory, read_json(args.sample_keys), args.output)
+            print(json.dumps({"output": str(args.output), **report["export_diagnostics"]}, indent=2))
+            return 0
+        if args.command == "recognition-propose":
+            from .annotation_io import read_json
+            from .quality_benchmark import write_report
+            from .recognition.classical_provider import ClassicalProvider
+            from .recognition.cloud2bim_provider import Cloud2BIMAssets, Cloud2BIMProvider
+            from .recognition.io import load_input
+            from .recognition.job import run_recognition
+            from .recognition.tiling import TileSettings
+            from .recognition.contracts import safe_artifact_path
+            if not __import__("math").isfinite(args.ram_gb) or args.ram_gb < 0:
+                raise ValueError("Recognition RAM cap must be finite and nonnegative")
+            protected = [args.manifest, *[p for p in (args.assets, args.settings, args.tiles) if p]]
+            input_manifest = read_json(args.manifest)
+            protected.extend(safe_artifact_path(args.manifest.parent, descriptor["path"])
+                             for descriptor in input_manifest.get("arrays", {}).values())
+            if args.assets:
+                asset_manifest = read_json(args.assets)
+                protected.extend(Path(asset_manifest[key]) for key in ("python", "checkpoint", "model_config", "runtime_manifest"))
+            if args.diagnostics and (args.diagnostics.resolve() in {p.resolve() for p in protected}
+                                     or args.diagnostics.resolve().is_relative_to(args.cache_dir.resolve())):
+                raise ValueError("Recognition diagnostics must be outside inputs and the immutable cache")
+            settings = ReconstructionSettings(**read_json(args.settings)) if args.settings else ReconstructionSettings()
+            classical = ClassicalProvider(settings)
+            if args.provider == "cloud2bim_experimental":
+                if args.assets is None:
+                    raise ValueError("Experimental recognition requires explicit local --assets; no automatic download")
+                provider = Cloud2BIMProvider(Cloud2BIMAssets(**asset_manifest))
+                fallback = classical
+            else:
+                if args.assets:
+                    raise ValueError("Model --assets only apply to cloud2bim_experimental")
+                provider, fallback = classical, None
+            tiles = TileSettings(**read_json(args.tiles)) if args.tiles else TileSettings()
+            with load_input(args.manifest) as (cloud, identity):
+                directory, report, hit = run_recognition(cloud, identity, provider, args.cache_dir,
+                    tile_settings=tiles, fallback=fallback, memory_limit_bytes=int(args.ram_gb * 1024**3),
+                    diagnostics=(lambda r: write_report(args.diagnostics, r)) if args.diagnostics else None)
+            print(json.dumps({"status": report["status"], "requested_provider": args.provider,
+                              "provider_used": report["provider"]["id"], "cache_hit": hit, "directory": str(directory),
+                              "geometry_authority": report["geometry_authority"], "warnings": report["warnings"]}, indent=2))
+            return 0
         if args.command == "quality-freeze-artifacts":
             from .quality_benchmark import freeze_artifact_baseline
             report = freeze_artifact_baseline(args.ifc, args.performance, args.output)
@@ -166,7 +228,7 @@ def main(argv=None):
                           "stairs": len(model.stairs), "landings": len(model.landings), "ifc_valid": report["valid"],
                           "output": str(args.output_dir), "warnings": model.warnings}, indent=2))
         return 0
-    except (ValueError, TypeError, OSError, json.JSONDecodeError) as exc:
+    except (ValueError, TypeError, OSError, MemoryError, RuntimeError, json.JSONDecodeError) as exc:
         parser.exit(2, f"Punctora: {exc}\n")
 
 
