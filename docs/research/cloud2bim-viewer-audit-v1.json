@@ -1,0 +1,509 @@
+{
+  "schema_version": 1,
+  "reference_version": "1.2",
+  "updated": "2026-10-13",
+  "scope": "Original static viewer observations, screenshot observations, generated contract probes and Punctora implementation handoff. No full Windows application execution or matched real-scan rendering comparison.",
+  "application_code_changed": false,
+  "windows_executable_executed": false,
+  "finding_ids": [
+    "CB-044",
+    "CB-045",
+    "CB-046",
+    "CB-047",
+    "CB-048",
+    "CB-049",
+    "CB-050",
+    "CB-051",
+    "CB-052",
+    "CB-053",
+    "CB-054",
+    "CB-055",
+    "CB-056",
+    "CB-057",
+    "CB-058"
+  ],
+  "source_pins": {
+    "executable": {
+      "name": "Cloud2BIM-AI.exe",
+      "bytes": 231476776,
+      "sha256": "81040406a1ef6bb0ed4b38ddb044fd3fd5712503ed50adf579d234580527aacb"
+    },
+    "punctora_commit": "0b11e84be8cd656d007c64f238bfdcc8bfa59b92",
+    "punctora_files": [
+      {
+        "path": "desktop/Punctora.Desktop/Viewport.cs",
+        "sha256": "0e8584918915cc08cca478e25317e345e4870e7ba48afb4c345cb88b45e7c748"
+      },
+      {
+        "path": "desktop/Punctora.Desktop/PreviewRendering.cs",
+        "sha256": "7d0a6bb8f2f1c05b1f8d37f4d55cd6add205eacc5ecbdec2150fac6cbee69ca7"
+      },
+      {
+        "path": "desktop/Punctora.Desktop/Scene.cs",
+        "sha256": "b09c169c927f941be16bd563671379601595e0afb433cf84978e33b37bdba073"
+      },
+      {
+        "path": "desktop/Punctora.Desktop/MainWindow.cs",
+        "sha256": "d5cbc8fa8bfb5e38d657a6df2d60177e395494515ad1e01f977aa140eb725ae5"
+      },
+      {
+        "path": "src/punctora_core/projects.py",
+        "sha256": "302aca5f13534b0d488b29a4cd433455e52a0e997103480abd547f9079cad88e"
+      },
+      {
+        "path": "src/punctora_core/e57_io.py",
+        "sha256": "abb228d9ef9d7f0299001377fd3fbf5ba0e8d2c66841bf69e77a654629191939"
+      },
+      {
+        "path": "src/punctora_core/ifc_export.py",
+        "sha256": "00a8b9630804c16a10384208759cc8af99222dab80b5575672aa9b7fbe7a727a"
+      }
+    ]
+  },
+  "package_version_literals": {
+    "PySide6": "6.7.3",
+    "pyvista": "0.47.1",
+    "pyvistaqt": "0.11.3",
+    "vtkmodules": "9.6.2",
+    "ifcopenshell": "0.8.4.post1",
+    "qualification": "Decoded module version literals. Not a runtime DLL/version or hardware qualification."
+  },
+  "new_first_party_module": {
+    "name": "cad_camera_style",
+    "declared_constants": 178,
+    "decoded_constants": 178,
+    "loader_xref": "0x14076d231",
+    "constants_base": "0x14b57ca70",
+    "qualification": "Previously omitted by the src.cloud2BIM_* inventory filter. Primitive decoding and bounded native function inspection only."
+  },
+  "native_functions": [
+    {
+      "function": "Cloud2BIMApp._load_thread",
+      "registration_xref": "0x140516267",
+      "body_start": "0x14051e3e0"
+    },
+    {
+      "function": "Cloud2BIMApp._render_cloud_slot",
+      "registration_xref": "0x1405162c7",
+      "body_start": "0x140526d70"
+    },
+    {
+      "function": "Cloud2BIMApp._exit_cropping_apply_view",
+      "registration_xref": "0x1405165c7",
+      "body_start": "0x140533580"
+    },
+    {
+      "function": "Cloud2BIMApp._add_cropped_data_only",
+      "registration_xref": "0x140516807",
+      "body_start": "0x140538ee0"
+    },
+    {
+      "function": "Cloud2BIMApp._add_crop_plane_widgets",
+      "registration_xref": "0x140516867",
+      "body_start": "0x14053e320"
+    },
+    {
+      "function": "Cloud2BIMApp._on_show_mesh",
+      "registration_xref": "0x140516987",
+      "body_start": "0x140542480"
+    },
+    {
+      "function": "Cloud2BIMApp._prepare_ifc_mesh_for_shading",
+      "registration_xref": "0x140516b07",
+      "body_start": "0x140545250"
+    },
+    {
+      "function": "Cloud2BIMApp._add_ifc_mesh_with_outline",
+      "registration_xref": "0x140516b67",
+      "body_start": "0x1405456e0"
+    },
+    {
+      "function": "Cloud2BIMApp._ifc_to_mesh",
+      "registration_xref": "0x140516bc7",
+      "body_start": "0x1405460c0"
+    },
+    {
+      "function": "Cloud2BIMApp._setup_ui",
+      "registration_xref": "0x140518ec7",
+      "body_start": "0x1405b0f00"
+    },
+    {
+      "function": "Cloud2BIMApp._update_display_offset",
+      "registration_xref": "0x1405193a7",
+      "body_start": "0x1405bd9b0"
+    },
+    {
+      "function": "Cloud2BIMApp._disp",
+      "registration_xref": "0x140519407",
+      "body_start": "0x1405bec70"
+    },
+    {
+      "function": "Cloud2BIMApp._disp_bounds",
+      "registration_xref": "0x140519467",
+      "body_start": "0x1405bf1d0"
+    },
+    {
+      "function": "Cloud2BIMApp._render_combined_slot",
+      "registration_xref": "0x140519707",
+      "body_start": "0x1405c3bd0"
+    },
+    {
+      "function": "Cloud2BIMApp._on_load_clicked",
+      "registration_xref": "0x140519887",
+      "body_start": "0x1405c7f40"
+    },
+    {
+      "function": "CadCameraStyle.__init__",
+      "registration_xref": "0x14076dc77",
+      "body_start": "0x140765120"
+    },
+    {
+      "function": "CadCameraStyle._renderer",
+      "registration_xref": "0x14076dd0d",
+      "body_start": "0x1407667e0"
+    },
+    {
+      "function": "CadCameraStyle._scene_diag",
+      "registration_xref": "0x14076ddb9",
+      "body_start": "0x140767090"
+    },
+    {
+      "function": "CadCameraStyle._safe_clip",
+      "registration_xref": "0x14076de5e",
+      "body_start": "0x140767e30"
+    },
+    {
+      "function": "CadCameraStyle._display_to_world",
+      "registration_xref": "0x14076df06",
+      "body_start": "0x140769690"
+    },
+    {
+      "function": "CadCameraStyle._pick_pivot",
+      "registration_xref": "0x14076dfae",
+      "body_start": "0x14076aff0"
+    },
+    {
+      "function": "CadCameraStyle._left_down",
+      "registration_xref": "0x14076e056",
+      "body_start": "0x14076b7b0"
+    },
+    {
+      "function": "CadCameraStyle._left_up",
+      "registration_xref": "0x14076e0f7",
+      "body_start": "0x14076c3e0"
+    },
+    {
+      "function": "CadCameraStyle._mouse_move",
+      "registration_xref": "0x14076e198",
+      "body_start": "0x14076c690"
+    },
+    {
+      "function": "CadCameraStyle._orbit",
+      "registration_xref": "0x14076e239",
+      "body_start": "0x14075df30"
+    },
+    {
+      "function": "CadCameraStyle._zoom_to_cursor",
+      "registration_xref": "0x14076e2da",
+      "body_start": "0x140760d10"
+    },
+    {
+      "function": "CadCameraStyle._recenter_on",
+      "registration_xref": "0x14076e37b",
+      "body_start": "0x140763ce0"
+    },
+    {
+      "function": "enable_cad_navigation",
+      "registration_xref": "0x14076e7e5",
+      "body_start": "0x140764920"
+    }
+  ],
+  "native_render_recipes": {
+    "canvas": "white",
+    "ifc_normals": {
+      "cell_normals": false,
+      "point_normals": true,
+      "split_vertices": true,
+      "consistent_normals": true,
+      "auto_orient_normals": true,
+      "inplace": false
+    },
+    "ifc_faces": {
+      "show_edges": false,
+      "smooth_shading": false,
+      "lighting": true,
+      "ambient": 0.18,
+      "diffuse": 0.88,
+      "specular": 0.08,
+      "specular_power": 12.0,
+      "interpolate_before_map": true
+    },
+    "feature_edges": {
+      "feature_angle": 28.0,
+      "boundary_edges": true,
+      "non_manifold_edges": false,
+      "feature_edges": true,
+      "manifold_edges": false,
+      "color": "#303030",
+      "line_width": 1.5,
+      "lighting": false
+    },
+    "cloud_only": {
+      "scalars": "Elevation",
+      "cmap": "turbo",
+      "point_size": 1.5,
+      "show_scalar_bar": true,
+      "scalar_bar_title": "Z Elevation (m)"
+    },
+    "combined_cloud": {
+      "point_size": 3.0,
+      "opacity": 0.5,
+      "colors_when_available": "RGB",
+      "otherwise": "Elevation / turbo"
+    },
+    "advanced_explicit_enable_calls": "No explicit EDL, SSAO, PBR, splat or anti-aliasing enablement established in inspected first-party viewer paths. Bundled capability is not enabled-feature evidence.",
+    "ifc_type_palette": {
+      "IfcWall": "#A9CCE3",
+      "IfcWallStandardCase": "#A9CCE3",
+      "IfcSlab": "#D5D8DC",
+      "IfcDoor": "#E59866",
+      "IfcWindow": "#AED6F1",
+      "IfcRoof": "#CD6155",
+      "IfcBeam": "#99A3A4",
+      "IfcColumn": "#7F8C8D",
+      "fallback": "#E8DAEF"
+    }
+  },
+  "screenshot": {
+    "filename": "image(20261013-195023).png",
+    "sha256": "59d8a7e430cb3ab0d9a41231294e339a286606ac9c9e2ac03d2cd5127bf6e094",
+    "width": 963,
+    "height": 1335,
+    "observations": [
+      "White point-cloud canvas",
+      "Fine dense height-coloured points",
+      "Multiple stair flights and landing silhouettes legible",
+      "Bottom scalar bar crowds lower geometry; right title partly cut in supplied image"
+    ],
+    "limitations": [
+      "No matched Punctora screenshot of this scan",
+      "No IFC screenshot in this attachment",
+      "Point count, GPU and performance not inferable from image"
+    ],
+    "image_published": false
+  },
+  "observations": [
+    {
+      "id": "CB-044",
+      "evidence_label": "N/P",
+      "title": "Qt, PyVista and VTK viewer stack",
+      "native_function": "Cloud2BIMApp._setup_ui"
+    },
+    {
+      "id": "CB-045",
+      "evidence_label": "N/P",
+      "title": "CAD navigation around a picked pivot",
+      "native_function": "CadCameraStyle._orbit"
+    },
+    {
+      "id": "CB-046",
+      "evidence_label": "N/P",
+      "title": "Interior clipping-range repair",
+      "native_function": "CadCameraStyle._safe_clip"
+    },
+    {
+      "id": "CB-047",
+      "evidence_label": "N/V",
+      "title": "Shared display offset preserves world geometry",
+      "native_function": "Cloud2BIMApp._update_display_offset"
+    },
+    {
+      "id": "CB-048",
+      "evidence_label": "N/V",
+      "title": "IFC iterator, transforms and type batching",
+      "native_function": "Cloud2BIMApp._ifc_to_mesh"
+    },
+    {
+      "id": "CB-049",
+      "evidence_label": "N/V",
+      "title": "Normals and explicit lit face rendering",
+      "native_function": "Cloud2BIMApp._prepare_ifc_mesh_for_shading"
+    },
+    {
+      "id": "CB-050",
+      "evidence_label": "N/V",
+      "title": "Feature outlines without triangle diagonals",
+      "native_function": "Cloud2BIMApp._add_ifc_mesh_with_outline"
+    },
+    {
+      "id": "CB-051",
+      "evidence_label": "N",
+      "title": "Distinct cloud and combined-view display recipes",
+      "native_function": "Cloud2BIMApp._render_cloud_slot"
+    },
+    {
+      "id": "CB-052",
+      "evidence_label": "V/A",
+      "title": "Fixed global overview limits cropped detail",
+      "native_function": null
+    },
+    {
+      "id": "CB-053",
+      "evidence_label": "V/A",
+      "title": "Punctora cloud overlay clears model depth",
+      "native_function": null
+    },
+    {
+      "id": "CB-054",
+      "evidence_label": "V/A",
+      "title": "Punctora depth precision and clip-space mismatch",
+      "native_function": null
+    },
+    {
+      "id": "CB-055",
+      "evidence_label": "V/A",
+      "title": "Point size and appearance need backend/DPI consistency",
+      "native_function": null
+    },
+    {
+      "id": "CB-056",
+      "evidence_label": "N/A",
+      "title": "Section floor dependency and empty-crop fallback",
+      "native_function": "Cloud2BIMApp._render_cloud_slot"
+    },
+    {
+      "id": "CB-057",
+      "evidence_label": "V/A",
+      "title": "Pleasant visuals and screenshot-specific observations",
+      "native_function": null
+    },
+    {
+      "id": "CB-058",
+      "evidence_label": "P/Q/A",
+      "title": "EDL, anti-aliasing and splats are improvement candidates",
+      "native_function": null
+    }
+  ],
+  "original_probe_summary": {
+    "file": "viewer-probe-results.json",
+    "sha256": "714684d00d3b527e6417cd85314f9af9d7436963d63896703ef8766c4675e321",
+    "original_probe_script_sha256": "afa04df8cb2aafa1812a930615a7a4389dc9fecad3c1bbbe70df8c4e473fd7a5",
+    "qualification": "Original audit code, not recovered third-party code. Results include trusted VTK 9.3.1 and IfcOpenShell 0.8.3, not the packaged viewer versions."
+  },
+  "controlled_probes": {
+    "schema_version": 1,
+    "fixture_scope": "Generated mathematical, VTK geometry and IfcOpenShell contracts. No native app or real-scan visual/hardware comparison.",
+    "runtime": {
+      "python": "3.12.14",
+      "numpy": "2.3.5",
+      "vtk": "9.3.1",
+      "ifcopenshell": "0.8.3"
+    },
+    "probes": {
+      "local_origin_precision": {
+        "direct_max_error_m": 0.013000000035390258,
+        "local_max_error_m": 4.656612873077393e-10,
+        "direct_distinct_xy": false,
+        "original_f64_sha256": "6602f7641ac56b2caea6df344e446069ab2af963218e18c8dfaa6929d9b2be97"
+      },
+      "depth_precision": {
+        "span_m": 20.0,
+        "near_m": 0.0002,
+        "far_m": 300.0,
+        "far_near_ratio": 1500000.0,
+        "current_matrix_ndc_range": [
+          0,
+          1
+        ],
+        "opengl_default_ndc_range": [
+          -1,
+          1
+        ],
+        "depth_bits": 24,
+        "eye_depths_m": [
+          32.0,
+          32.001
+        ],
+        "current_default_gl_quantized_depths": [
+          16777168,
+          16777168
+        ],
+        "proposed_full_range_adaptive_quantized_depths": [
+          16745718,
+          16745720
+        ],
+        "current_step_estimate_m": 0.6103511919787243,
+        "proposed_step_estimate_m": 0.0006095886593811906
+      },
+      "feature_edges_and_normals": {
+        "triangles": 12,
+        "all_unique_edges": 18,
+        "feature_edges": 12,
+        "clean_vertices": 8,
+        "split_normal_vertices": 24,
+        "point_normal_count": 24,
+        "flat_shader_intensity_range": [
+          1.0,
+          1.0
+        ],
+        "diffuse_fixture_intensity_range": [
+          0.18,
+          0.8855696786488003
+        ],
+        "bounds_unchanged": true
+      },
+      "global_preview_then_crop": {
+        "scaled_probe": true,
+        "production_overview_cap": 500000,
+        "fixture_source_points": 200000,
+        "fixture_overview_cap": 5000,
+        "full_roi_points": 10000,
+        "fixed_global_preview_roi_points": 207,
+        "roi_requested_preview_points": 5000,
+        "global_source_count_unchanged": true
+      },
+      "cursor_zoom": {
+        "factor": 1.15,
+        "before_normalized_plane": [
+          0.1915652570442303,
+          -1.0634007954437047e-17
+        ],
+        "cursor_anchored_after": [
+          0.19156525704423027,
+          3.6335017292456526e-17
+        ],
+        "centre_zoom_after": [
+          0.2203000456008648,
+          3.6335017292456526e-17
+        ],
+        "anchored_drift": 5.4556954739045144e-17,
+        "centre_drift": 0.0287347885566345
+      },
+      "ifc_geometry_placement_and_opening": {
+        "wall_triangles": 28,
+        "tessellated_volume_m3": 2.0000000000000004,
+        "expected_opening_cut_volume_m3": 0.4,
+        "expected_wall_net_volume_m3": 2.0,
+        "iterator_products": 3,
+        "transformed_bounds_error_m": 0.0,
+        "display_roundtrip_max_error_m": 1.0989606380462646e-07,
+        "guid_retained": true
+      }
+    },
+    "all_passed": true
+  },
+  "decision": {
+    "current": "Proceed with revised future scope",
+    "affected_runs": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "viewer_owner": 8,
+    "production_backend": "Retain Avalonia; improve existing OpenGL behind a replaceable rendering interface. Qualify a VTK reference/candidate before selecting a production replacement.",
+    "external_qualification": "After all nine implementation runs; never a Repeat gate for missing external review."
+  }
+}

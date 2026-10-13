@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "reference_version": "1.1",
+  "reference_version": "1.2",
   "updated": "2026-10-13",
   "scope": "Derived signatures, graph observations and controlled generated probe results. Not complete Windows application parity or independent real-building accuracy. No supplied executable, weights or scans are included.",
   "reference_document": "CLOUD2BIM_REFERENCE.md",
@@ -7419,6 +7419,12 @@
       "sha256": "a67229657a398239f1552ad90153fb5e928a570de3ad1b58cbcbe5c706d149e2",
       "findings": "CB-035 through CB-043",
       "supersession": "CB-035 resolves native kernel column order. Historical independent-index results retain their original inputs/scope and are not the native adapter template."
+    },
+    {
+      "file": "cloud2bim-viewer-audit-v1.json",
+      "sha256": "771eeeb710ec94a79815b9aca8e7c6bbb2bef539feae98ac9c75bb9d16ed8f7a",
+      "findings": "CB-044 through CB-058",
+      "scope": "Viewer architecture, visual comfort, native camera/IFC recipes and six generated contracts. No application implementation or native runtime qualification."
     }
   ]
 }
