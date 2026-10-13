@@ -6,6 +6,62 @@ from shapely import normalize,set_precision
 from shapely.geometry import Polygon
 
 
+def quality_snapshot_signature(snapshot, tolerance_m=1e-6):
+    """ID/order-independent geometry and relationships, including surface holes.
+
+    Separate from the legacy reconstruction signature, whose reporting scope
+    predates surface cuts and endpoint/landing associations. No source array
+    is rounded or changed, only the comparison representation.
+    """
+    from .annotation_io import canonical_json, number
+    number(tolerance_m, "signature tolerance", True)
+
+    def scalar(value):
+        return int(round(float(value) / tolerance_m))
+
+    def ring(vertices):
+        shape = normalize(set_precision(Polygon(vertices), tolerance_m))
+        if not isinstance(shape, Polygon) or shape.is_empty:
+            raise ValueError("Signature tolerance collapses an element polygon")
+        return [[scalar(x), scalar(y)] for x, y in shape.exterior.coords[:-1]]
+
+    def geometry(element):
+        result = dict(element["geometry"])
+        if result["type"] in {"wall", "opening", "column"} and result["start"] > result["end"]:
+            length = dist(result["start"], result["end"])
+            result["start"], result["end"] = result["end"], result["start"]
+            if result.get("profile_xz"):
+                result["profile_xz"] = [[length - x, z] for x, z in result["profile_xz"]]
+        for key in ("footprint", "profile_xz"):
+            if result.get(key):
+                result[key] = ring(result[key])
+        if "holes" in result:
+            result["holes"] = sorted(ring(r) for r in result["holes"])
+        for key, value in list(result.items()):
+            if key in {"footprint", "profile_xz", "holes", "type", "steps"}:
+                continue
+            if isinstance(value, (int, float)):
+                result[key] = scalar(value)
+            elif isinstance(value, (list, tuple)):
+                result[key] = [scalar(v) for v in value]
+        return [element["class"], result]
+
+    geometries = {e["id"]: geometry(e) for e in snapshot["elements"]}
+    shapes = []
+    for element in snapshot["elements"]:
+        relationships = {"host": geometries.get(element.get("host_id")),
+                         "connections": {k: geometries.get(v) for k, v in element.get("connections", {}).items()},
+                         "connected": sorted((geometries[v] for v in element.get("connected_ids", []) if v in geometries),
+                                             key=canonical_json),
+                         "observed_treads": sorted(element.get("observed_treads", [])),
+                         "inferred_treads": sorted(element.get("inferred_treads", []))}
+        shapes.append([geometries[element["id"]], relationships])
+    encoded = canonical_json(sorted(shapes, key=canonical_json)).encode("utf-8")
+    return {"geometry_sha256": hashlib.sha256(encoded).hexdigest(),
+            "comparison_tolerance_m": tolerance_m,
+            "scope": "class, geometry, holes, hosts, endpoint relations and tread states; no source rounding"}
+
+
 def geometry_signature(model,tolerance_m=1e-6):
     def scalar(value):return int(round(float(value)/tolerance_m))
     def point(value):return tuple(scalar(v) for v in value)

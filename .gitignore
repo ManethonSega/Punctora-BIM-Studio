@@ -4,6 +4,7 @@ datasets/
 models/
 outputs/
 artifacts/
+quality-local/
 *.e57
 *.las
 *.laz

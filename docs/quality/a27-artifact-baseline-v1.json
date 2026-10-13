@@ -1,0 +1,41 @@
+{
+  "accuracy": null,
+  "artifacts": {
+    "ifc_sha256": "dd717fc81009155fc8ad6e9a52a5aefa433cdf1e9b0c933663caf55aad774514",
+    "performance_sha256": "71d41a8ea053bdcabd0d2ff263532fdd1ba1b7853edcd120a32c52ce0b341eed"
+  },
+  "baseline_id": "a27-supplied-facade-artifacts-v1",
+  "baseline_sha256": "5fdc3ab414c1d74fc086254392ac1d98e4d90083de018656e9af1ad3fbacf5ff",
+  "engine_versions": [
+    "0.3.0a27"
+  ],
+  "ifc_counts": {
+    "IfcBuildingStorey": 1,
+    "IfcDoor": 0,
+    "IfcOpeningElement": 98,
+    "IfcRamp": 0,
+    "IfcRoof": 0,
+    "IfcSlab": 0,
+    "IfcStairFlight": 2,
+    "IfcWall": 13,
+    "IfcWindow": 2
+  },
+  "limitations": [
+    "Counts, file hashes and fitting residuals are not independent accuracy measurements",
+    "Complete source E57/cache, crop mapping, elements.json and independent truth are not supplied",
+    "Run 1 cannot proceed on this artifact baseline alone"
+  ],
+  "performance": {
+    "elapsed_seconds": 746.6134031999973,
+    "logical_point_visits_total": 5196919695,
+    "peak_process_rss_bytes": 27615252480,
+    "point_cloud_passes_total": 20.02830696351638,
+    "source_points": 259478732,
+    "status": "completed",
+    "unique_points_visited_total": 259478732
+  },
+  "planning_commit": "5327fdc172edec7849cbd30553591945b71aeb9b",
+  "schema_version": 1,
+  "source_record_retention": null,
+  "status": "artifact_baseline_only"
+}

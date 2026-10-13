@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "suite_kind": "acceptance",
+  "benchmark_id": "punctora-a27-quality",
+  "revision": "v1-pending-independent-truth",
+  "cases": [
+    {
+      "case_id": "rs-138-fassade",
+      "split": "calibration",
+      "availability": "pending",
+      "required": true,
+      "reason": "IFC and telemetry frozen separately; source/cache, elements and independent annotations pending"
+    },
+    {
+      "case_id": "rs-138-eg-kita",
+      "split": "calibration",
+      "availability": "pending",
+      "required": true,
+      "reason": "Local source/cache, current elements and independently annotated floor/ceiling corners pending"
+    },
+    {
+      "case_id": "stairwell",
+      "split": "regression",
+      "availability": "pending",
+      "required": true,
+      "reason": "Source/cache and independent tread/landing/endpoint truth pending"
+    },
+    {
+      "case_id": "no-stair",
+      "split": "regression",
+      "availability": "pending",
+      "required": true,
+      "reason": "Source/cache and independently confirmed negative stair/void regions pending"
+    },
+    {
+      "case_id": "held-out-crop",
+      "split": "held_out",
+      "availability": "pending",
+      "required": true,
+      "reason": "Independent crop must be chosen and frozen before provider/threshold tuning"
+    }
+  ]
+}
