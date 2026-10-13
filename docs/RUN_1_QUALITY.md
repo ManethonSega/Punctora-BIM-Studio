@@ -16,7 +16,10 @@ The artifact baseline is **not independent ground truth**. It establishes
 which output is being discussed: 13 walls, 98 opening elements, 2 windows,
 0 doors, 0 slabs/roofs/ramps and 2 stair flights. Recognition accuracy,
 source-record retention and complete floor/ceiling boundaries are unevaluated.
-No measurement is invented from screenshots or successful export.
+No measurement is invented from screenshots or successful export. The frozen
+artifact's historical limitation text does not govern implementation sequencing.
+The user revised the workflow: internal tests gate engineering runs, and
+external quality qualification follows the completion of Run 9.
 
 `docs/quality/acceptance-manifest.template.json` records the required facade,
 Kita, stairwell, no-stair and held-out cases as pending. Copy it into ignored
@@ -86,7 +89,8 @@ prediction hashes before it passes:
 
 Use the existing generated regression tests as executable contract examples,
 not as real-building truth. A `generated_regression` suite can pass its tests
-but cannot produce a Run 1 `Proceed` decision.
+but cannot establish real-scan quality acceptance. It can support an internal
+implementation gate without claiming that real-building accuracy improved.
 
 ## Metrics and safety
 
@@ -160,11 +164,14 @@ CI checks that truth/tolerance changes and reconstruction changes are not in
 the same commit. This is a guard, not review approval. Local customer truth
 also needs separately reviewed revisions even though it stays outside git.
 
-## Current Run 1 decision
+## Current Run 1 implementation decision
 
-**Repeat current run.** The evaluator foundation is implementable and tested,
-but real-scan numerical/overlay acceptance and full independent truth are
-pending. Do not start Run 2 on a generated-only pass.
+**Proceed.** The evaluator foundation and internal regression suite passed.
+Real-scan numerical/overlay acceptance and independent truth remain pending
+until all nine implementation runs finish. Missing external checks do not
+trigger a repeat. Quality reports return numerical results and missing-input
+status, but no automatic engineering-run disposition. Repeat applies only to
+a repairable internal implementation defect.
 
 **Redesign/update future run**, Run 5 must export full coverage-class polygon
 partitions (not only areas/bounds), and Run 2 must provide source-keyed semantic

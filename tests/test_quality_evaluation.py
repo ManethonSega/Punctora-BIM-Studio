@@ -246,7 +246,7 @@ def test_repeatable_evaluator_and_baseline_lock(tmp_path):
     first, second = run_benchmark(path), run_benchmark(path)
     assert first == second
     assert first["passed"]
-    assert first["decision"]["disposition"] == "Repeat current run"  # generated is not survey acceptance
+    assert first["decision"]["disposition"] is None  # quality report is not an implementation gate
     baseline = tmp_path / "baseline.json"
     write_report(baseline, first, frozen=True)
     write_report(baseline, second, frozen=True)
@@ -278,7 +278,7 @@ def test_no_held_out_case_and_pending_case_prevent_proceed(tmp_path):
                               "reason": "Independent truth not supplied"})
     write_report(path, manifest)
     report = run_benchmark(path)
-    assert not report["passed"] and report["decision"]["disposition"] == "Repeat current run"
+    assert not report["passed"] and report["decision"]["disposition"] is None
 
 
 def test_real_case_requires_digest_bound_visual_review(tmp_path):

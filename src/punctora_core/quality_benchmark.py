@@ -155,7 +155,7 @@ def freeze_artifact_baseline(ifc_path, performance_path, output):
               "status": "artifact_baseline_only", "limitations": [
                   "Counts, file hashes and fitting residuals are not independent accuracy measurements",
                   "Complete source E57/cache, crop mapping, elements.json and independent truth are not supplied",
-                  "Run 1 cannot proceed on this artifact baseline alone"]}
+                  "Artifact facts alone do not establish external quality acceptance; internal implementation gates are separate"]}
     report["baseline_sha256"] = content_digest(report)
     write_report(output, report, frozen=True)
     return report
@@ -422,15 +422,13 @@ def run_benchmark(manifest_path, cancelled=lambda: False):
     required = {c["case_id"] for c in manifest["cases"] if c.get("required", True)}
     held_out = [c for c in manifest["cases"] if c["split"] == "held_out" and c.get("required", True)]
     passed = bool(held_out) and all(r["passed"] for r in reports if r["case_id"] in required)
-    acceptance = manifest["suite_kind"] == "acceptance"
     report = {"schema_version": 1, "benchmark_id": manifest["benchmark_id"], "revision": manifest["revision"],
               "suite_kind": manifest["suite_kind"],
               "manifest_sha256": content_digest(manifest), "passed": passed, "cases": reports,
-              "decision": {"disposition": "Proceed" if passed and acceptance else "Repeat current run",
-                           "scope": "Run 1" if acceptance else "Generated evaluator regressions only, not Run 1 acceptance",
+              "decision": {"disposition": None,
+                           "scope": "External quality evaluation, not an implementation gate",
                            "future_run_action": None, "affected_future_runs": [],
-                           "reason": "Declared gates and visual review passed, including required held-out case" if passed and acceptance
-                           else "Required acceptance evidence or a declared gate is missing/failed; do not start Run 2"},
+                           "reason": "Implementation decisions use internal tests. External qualification is deferred until after Run 9; this report never requests a repeat solely for missing external evidence."},
               "limitations": ["Numerical gates do not substitute for independent visual overlay review",
                               "This evaluator never tunes thresholds or changes the reconstruction model"]}
     report["report_sha256"] = content_digest(report)
