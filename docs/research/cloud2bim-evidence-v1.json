@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "reference_version": "1.4",
+  "reference_version": "1.5",
   "updated": "2026-10-13",
   "scope": "Derived signatures, graph observations and controlled generated probe results. Not complete Windows application parity or independent real-building accuracy. No supplied executable, weights or scans are included.",
   "reference_document": "CLOUD2BIM_REFERENCE.md",
