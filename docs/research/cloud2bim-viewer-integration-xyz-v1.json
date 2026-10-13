@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "reference_version": "1.3",
+  "updated": "2026-10-13",
+  "finding_ids": [
+    "CB-059",
+    "CB-060"
+  ],
+  "application_code_changed": false,
+  "supplied_executable_executed": false,
+  "source_pins": {
+    "executable_sha256": "81040406a1ef6bb0ed4b38ddb044fd3fd5712503ed50adf579d234580527aacb",
+    "punctora_code_commit": "0b11e84be8cd656d007c64f238bfdcc8bfa59b92"
+  },
+  "primary_sources": [
+    {
+      "url": "https://www.kitware.com/activiz-9-7-release/",
+      "published": "2026-09-04",
+      "checked": "2026-10-13",
+      "scope": "Vendor documentation: ActiViz 9.7, Avalonia 12 rendering control, Skia composition/hooks; not locally built"
+    },
+    {
+      "url": "https://www.kitware.com/activiz-9-6-release/",
+      "published": "2026-03-17",
+      "checked": "2026-10-13",
+      "scope": "Vendor documentation: Avalonia context management and hardware picking"
+    },
+    {
+      "url": "https://docs.avaloniaui.net/docs/app-development/native-interop",
+      "checked": "2026-10-13",
+      "scope": "Generic native-control composition limits, separate from ActiViz Skia integration"
+    }
+  ],
+  "revised_decision": {
+    "previous": "Repair custom OpenGL first; VTK reference/candidate later",
+    "current": "Evaluate direct ActiViz VTK integration in Avalonia 12 first; retain existing renderer as fallback",
+    "owner_run": 8,
+    "local_build_and_sdk_acquisition_done": false,
+    "external_qualification": "After all nine runs"
+  },
+  "native_route": {
+    "read_e57": "0x14ac4f9c0",
+    "e57_read_points": "0x14ac4fd35",
+    "xyz_writer": "0x14ac51760",
+    "xyz_formats": "0x14ac51f40",
+    "xyz_rounding": "0x14ac52892",
+    "import_point_cloud": "0x14ac55030",
+    "e57_writer_call": "0x14ac5562b",
+    "xyz_loader": "0x14ac56b08",
+    "post_load_rounding": "0x14ac5801a",
+    "spatial_dilution": "0x14ac5878a",
+    "desktop_importer": "0x1405204a7",
+    "reconstruction_points": "0x140559e64",
+    "inference_point_choice": [
+      "0x1405bd763",
+      "0x1405bd818"
+    ]
+  },
+  "xyz_columns": [
+    "X",
+    "Y",
+    "Z",
+    "R",
+    "G",
+    "B",
+    "Intensity"
+  ],
+  "xyz_coordinate_decimals": 3,
+  "other_channel_format": "%.7g",
+  "metadata_not_present_in_the_seven_columns": [
+    "scan IDs",
+    "source record IDs",
+    "scan poses",
+    "validity masks",
+    "coordinate metadata"
+  ],
+  "metadata_scope": "Original E57 still may be retained; absence from XYZ columns is not proof about all native metadata paths.",
+  "generated_probe": {
+    "scope": "Generated format/precision fixture only, not execution of native importer or end-to-end recognition",
+    "points": 1000,
+    "columns": 7,
+    "xyz_max_error_m": 0.0004999640074052764,
+    "rgb_values_preserved": true,
+    "intensity_max_error": 4.991935187437235e-08,
+    "bytes_for_1000_text_rows": 39960,
+    "xyz_f64_binary_bytes_for_1000": 24000,
+    "xyz_text_columns_do_not_include_source_ids_or_poses": true
+  },
+  "generated_probe_sha256": "67ee8d9df1b24864d69e19bea765b2f8f7c8c409e126d3722badfc7f14726350",
+  "native_app_equivalence_or_real_scan_accuracy_claimed": false
+}

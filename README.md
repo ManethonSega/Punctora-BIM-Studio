@@ -67,6 +67,7 @@ Doors, windows and spaces follow once the basic pipeline passes its checks. AI r
 | [Project requirements](docs/PROJECT_REQUIREMENTS.md) | Units, coordinates, evidence and quality requirements |
 | [Dependency inventory](docs/DEPENDENCIES.md) | Candidate components and licence evidence |
 | [SpatialLM paper assessment](docs/research/SPATIALLM.md) | Versioned research findings, proposal precision, scan evidence and future AI experiment |
+| [Cloud2BIM consolidated reference](docs/research/CLOUD2BIM_REFERENCE.md) | Supplied models, verified contracts, geometry findings, probe evidence and remaining implementation handoffs |
 | [Licence policy](docs/LICENSE_POLICY.md) | Rules for importing code, packaging libraries and models |
 | [Third-party notices](THIRD_PARTY_NOTICES.md) | Attribution status and retained licence references |
 | [Attributions](ATTRIBUTIONS.md) | Creator credits and licence notices mapped to code, runtime, models and research |

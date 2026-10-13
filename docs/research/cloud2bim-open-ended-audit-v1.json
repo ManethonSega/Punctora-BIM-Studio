@@ -1,0 +1,519 @@
+{
+  "schema_version": 1,
+  "reference_version": "1.1",
+  "updated": "2026-10-13",
+  "scope": "Independent generated rule, sampling and CPU fixtures plus graph data execution. Not native whole-application parity, real-building accuracy or Windows/AMD qualification.",
+  "finding_ids": [
+    "CB-035",
+    "CB-036",
+    "CB-037",
+    "CB-038",
+    "CB-039",
+    "CB-040",
+    "CB-041",
+    "CB-042",
+    "CB-043"
+  ],
+  "source_pins": {
+    "public_cloud2bim_commit": "cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e",
+    "pointcept_commit": "1342eda30e96cbb5fadf5374ff8eb18f6de15c71",
+    "punctora_inspected_commit": "0b11e84be8cd656d007c64f238bfdcc8bfa59b92",
+    "supplied_executable": {
+      "bytes": 231476776,
+      "sha256": "81040406a1ef6bb0ed4b38ddb044fd3fd5712503ed50adf579d234580527aacb",
+      "executed": false
+    }
+  },
+  "source_recheck": {
+    "public_repository": "VaclavNezerka/Cloud2BIM",
+    "user_fork": "ManethonSega/Cloud2BIM",
+    "default_branch": "master",
+    "both_current_commit": "cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e",
+    "drive_root_direct_items": 85,
+    "drive_src_items": [
+      "icon.png"
+    ],
+    "drive_data_model_files": 14,
+    "remote_scope": "Fresh listings, sizes and modification metadata; remote model bytes were not downloaded again. Local pinned files were all rehashed.",
+    "checkpoint_pointer": {
+      "path": "DL_module/weights/run_20260803_0021/best.pth",
+      "size": 554659890,
+      "sha256": "de85b9c5dec3d2a14e175493acc177aff72417379c623e7aa2a6673225cceff8",
+      "bytes_downloaded": false
+    },
+    "new_editable_export_harness_or_reference_arrays_found": false
+  },
+  "native_observations": [
+    {
+      "finding": "CB-035",
+      "function": "_offsets",
+      "start_va": "0x14acb7320",
+      "critical_range": [
+        "0x14acb7b16",
+        "0x14acb7c70"
+      ]
+    },
+    {
+      "finding": "CB-035",
+      "function": "kernel_map ordered offset construction",
+      "critical_range": [
+        "0x14acb9330",
+        "0x14acb93af"
+      ]
+    },
+    {
+      "finding": "CB-036",
+      "function": "I model view and means",
+      "addresses": [
+        "0x14acb01b8",
+        "0x14acb1852",
+        "0x14acb1950",
+        "0x14acb1bc9"
+      ]
+    },
+    {
+      "finding": "CB-037",
+      "function": "wall class gate",
+      "critical_range": [
+        "0x14adf4422",
+        "0x14adf4476"
+      ],
+      "wall_classes_default": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "model_D_nonzero_classes": [
+        1,
+        2
+      ],
+      "model_E_opening_candidates": [
+        1,
+        2
+      ]
+    },
+    {
+      "finding": "CB-037",
+      "function": "TTA four-vote class comparison",
+      "address": "0x14ac3ea70"
+    },
+    {
+      "finding": "CB-038",
+      "function": "_rescue_only_new_segments",
+      "start_va": "0x14adf2720",
+      "critical_range": [
+        "0x14adf3a23",
+        "0x14adf3aec"
+      ],
+      "radius_m": 0.3,
+      "maximum_overlap_fraction": 0.3,
+      "minimum_area_m2": 0.15
+    },
+    {
+      "finding": "CB-039",
+      "function": "component restoration",
+      "critical_range": [
+        "0x14ade80c5",
+        "0x14ade8121"
+      ],
+      "minimum_supported_fraction": 0.85
+    },
+    {
+      "finding": "CB-040",
+      "function": "overlay alpha assignment",
+      "critical_range": [
+        "0x14adffc75",
+        "0x14adffc8a"
+      ],
+      "alpha": 0.5
+    },
+    {
+      "finding": "CB-042",
+      "function": "Cloud2BIMApp._run_bim_pipeline",
+      "start_va": "0x140559720",
+      "stop_before_va": "0x140564030",
+      "stages": [
+        {
+          "stage": "stairs",
+          "address": "0x14055ef6b"
+        },
+        {
+          "stage": "openings",
+          "address": "0x14055f8a6"
+        },
+        {
+          "stage": "semantic_local_slabs",
+          "address": "0x14055fbeb"
+        },
+        {
+          "stage": "tiled_slab_refinement",
+          "address": "0x14055ff52"
+        },
+        {
+          "stage": "local_thickness",
+          "address": "0x140560343"
+        },
+        {
+          "stage": "ground_slab_trim",
+          "address": "0x1405606a5"
+        },
+        {
+          "stage": "IFC_local_slabs",
+          "address": "0x140561207"
+        },
+        {
+          "stage": "IFC_stair_assemblies",
+          "address": "0x1405615fe"
+        }
+      ],
+      "scope": "bounded inspected route, not all possible manual or dynamic paths"
+    }
+  ],
+  "private_trace_summary": [
+    {
+      "file": "openaudit-offsets.txt",
+      "sha256": "2e03437628c6b3fe4141055780031128d042be2b200c4071e51133afc4d74a59",
+      "publication": "Hash/anchors only; native disassembly is not included."
+    },
+    {
+      "file": "openaudit-kernel-full.txt",
+      "sha256": "bdd828863295ca9801fd5b37ac7270862f7730f8baa1bba99861617c4cac33e9",
+      "publication": "Hash/anchors only; native disassembly is not included."
+    },
+    {
+      "file": "openaudit-inputs-full.txt",
+      "sha256": "de190378d8136bb3c66cb61e33456dba57917f72ba0d0ffa70249aa334ae2dd3",
+      "publication": "Hash/anchors only; native disassembly is not included."
+    },
+    {
+      "file": "openaudit-wallprocess.txt",
+      "sha256": "ba1ad97e362d4f4684e4748b25a5e179bebfeac61a68bb71ea9514825ff0acfe",
+      "publication": "Hash/anchors only; native disassembly is not included."
+    },
+    {
+      "file": "openaudit-rescue.txt",
+      "sha256": "f34dca0638f7a7d16c490e4bcb6032cc30c5e3df17b42e11124185c8b4729369",
+      "publication": "Hash/anchors only; native disassembly is not included."
+    },
+    {
+      "file": "openaudit-vertical-filter.txt",
+      "sha256": "c6cd6cea5cdb7345abfa0861f28807a0d3830bb2216a829f051ea3890b33fcca",
+      "publication": "Hash/anchors only; native disassembly is not included."
+    },
+    {
+      "file": "openaudit-overlay.txt",
+      "sha256": "fbe4523887c4f312363993a49c27d4e133930e8ac654769e867f6bdcc176ca77",
+      "publication": "Hash/anchors only; native disassembly is not included."
+    },
+    {
+      "file": "openaudit-wallboxes.txt",
+      "sha256": "6f685a62e7e5156b6fc0cd93ad7d035f709825e1dd8e16d3b3417a4cefceef25",
+      "publication": "Hash/anchors only; native disassembly is not included."
+    },
+    {
+      "file": "openaudit-entry-pipeline.txt",
+      "sha256": "a27da646e9df870fb36085a5f49a95517d283f6064338bdbd6b9adceaa6092d4",
+      "publication": "Hash/anchors only; native disassembly is not included."
+    },
+    {
+      "file": "ifcclasses-openaudit-init.txt",
+      "sha256": "f98f132f0b591d3b6ee6849f0f0ff103f74996257f7bc7561692bbd1f90d6d1e",
+      "publication": "Hash/anchors only; native disassembly is not included."
+    }
+  ],
+  "original_probe_summary": {
+    "file": "open_ended_probe_results.json",
+    "sha256": "6033300935c599be118312acd42f4a06511cd29e4f29b3569d3c41375a7c2518",
+    "generator_sha256": "cf83c832e7ec3a5586f486671a4e814ae8a0ac742175b3564a79c28691990df5"
+  },
+  "controlled_probes": {
+    "scope": "Independent generated rule, sampling and CPU fixtures plus graph data execution. Not native whole-application parity, real-building accuracy or Windows/AMD qualification.",
+    "runtime": "1.23.2",
+    "numpy": "2.5.4",
+    "available_providers": [
+      "AzureExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "results": {
+      "tta_foreground_split": {
+        "pixels": 100,
+        "class_1_votes": 3,
+        "class_2_votes": 3,
+        "native_nonzero_pixels": 0,
+        "foreground_consensus_proposal_pixels": 100,
+        "foreground_votes_per_pixel": 6
+      },
+      "connected_rescue": {
+        "source_component_pixels": 9000,
+        "near_existing_fraction": 0.6222222222222222,
+        "native_max_fraction": 0.3,
+        "native_min_area_m2": 0.15,
+        "native_keeps_component": false,
+        "uncovered_residual_pixels": 3400,
+        "uncovered_residual_area_m2": 0.34,
+        "residual_scope": "candidate only; original points must support its dimensions and connection"
+      },
+      "restored_tail": {
+        "support_fraction": 0.9,
+        "restore_threshold": 0.85,
+        "restored_unsupported_pixels": 400,
+        "tail_length_m_at_001_pixel": 0.2,
+        "scope": "component-gate arithmetic, before later native geometry stages"
+      },
+      "raster_physical_scale": {
+        "native_max_pixels": 64000000,
+        "native_max_side": 16000,
+        "requested_pixel_m": 0.01,
+        "footprint_m": [
+          200,
+          200
+        ],
+        "effective_pixel_m": 0.025,
+        "plan_window_m_before_after": [
+          10.24,
+          25.6
+        ],
+        "stair_window_m_before_after": [
+          20.48,
+          51.2
+        ],
+        "dot_radius_pixels": 2,
+        "dot_radius_m_before_after": [
+          0.02,
+          0.05
+        ],
+        "generated_gap_m": 0.03,
+        "components_before_dilation": 2,
+        "components_after_dilation": 1
+      },
+      "native_kernel_order": {
+        "ordering": "grid column 0 outer/slow, column 1 middle, column 2 inner/fast; offset added in the same column order",
+        "maps": [
+          {
+            "side": 3,
+            "dense_oracle_voxels": 125,
+            "native_equals_revised": true,
+            "old_different_entries": 1846,
+            "column_1_offset": [
+              -1,
+              -1,
+              0
+            ]
+          },
+          {
+            "side": 5,
+            "dense_oracle_voxels": 125,
+            "native_equals_revised": true,
+            "old_different_entries": 7600,
+            "column_1_offset": [
+              -2,
+              -2,
+              -1
+            ]
+          }
+        ],
+        "voxels": 513,
+        "old_to_revised_label_agreement": 0.6842105263157895,
+        "old_to_revised_max_logit_delta": 8.418203353881836,
+        "scope": "native-branch interpretation plus independent map oracle; full native helper was not executed"
+      },
+      "centering_order": {
+        "samples": 128,
+        "mean_xy_before_after": [
+          [
+            4.48198989033699e-09,
+            1.7462298274040222e-09
+          ],
+          [
+            1.1175870895385742e-08,
+            -9.313225746154785e-09
+          ]
+        ],
+        "changed_original_grid_rows": 8,
+        "voxel_count_before_after": [
+          128,
+          128
+        ],
+        "original_row_label_agreement": 0.875,
+        "original_row_max_logit_delta": 0.9711437225341797,
+        "sorting_exact_source_keys_before_centering_same_inputs": true,
+        "normal_scope": "generated unit features; no Open3D or real-scan normal parity claim"
+      },
+      "input_precision_and_normal_support": {
+        "direct_float32_max_coordinate_error_m": 0.24000000953674316,
+        "local_float32_restored_max_error_m": 0.0,
+        "generated_plane_support": [
+          {
+            "spacing_m": 0.06,
+            "points": 81,
+            "radius_m": 0.3,
+            "neighbors_min": 26,
+            "neighbors_max": 77,
+            "fewer_than_three_neighbors": 0
+          },
+          {
+            "spacing_m": 0.5,
+            "points": 81,
+            "radius_m": 0.3,
+            "neighbors_min": 1,
+            "neighbors_max": 1,
+            "fewer_than_three_neighbors": 81
+          }
+        ],
+        "scope": "coordinate arithmetic and radius counts, not execution of Open3D estimate_normals"
+      },
+      "cpu_runtime_settings": [
+        {
+          "threads": 1,
+          "optimization": "GraphOptimizationLevel.ORT_DISABLE_ALL",
+          "finite": true,
+          "label_agreement": 1.0,
+          "max_logit_delta": 9.5367431640625e-06
+        },
+        {
+          "threads": 4,
+          "optimization": "GraphOptimizationLevel.ORT_ENABLE_ALL",
+          "finite": true,
+          "label_agreement": 1.0,
+          "max_logit_delta": 5.7220458984375e-06
+        }
+      ],
+      "obb_query_identity": {
+        "constructed_queries": 1,
+        "retained_query_class_hypotheses": 3,
+        "distinct_query_count": 1,
+        "native_class_ids": [
+          0,
+          1,
+          2
+        ],
+        "requirement": "preserve query ID; hypotheses from one box are not three independent wall observations"
+      },
+      "jpeg_model_view": {
+        "image_size": [
+          512,
+          512
+        ],
+        "jpeg_quality": 95,
+        "changed_input_pixels": 2828,
+        "max_input_delta": 6,
+        "max_logit_delta": 0.9212219715118408,
+        "changed_class_pixels": 74,
+        "direct_nonzero_pixels": 3633,
+        "jpeg_nonzero_pixels": 3571,
+        "scope": "generated room fixture; storage fidelity, not building recognition accuracy"
+      },
+      "native_overlay_contract": {
+        "alpha": 0.5,
+        "bgr_palette_class_1": [
+          0,
+          0,
+          255
+        ],
+        "bgr_palette_class_2": [
+          0,
+          255,
+          0
+        ],
+        "painted_white_class_1": [
+          127,
+          127,
+          255
+        ],
+        "painted_white_class_2": [
+          127,
+          255,
+          127
+        ],
+        "scope": "recovered literal recipe, illustrated arithmetically; native image function not executed"
+      }
+    }
+  },
+  "reproduction": {
+    "kernel_map_oracle": {
+      "occupied_grid": "Cartesian product range(5) cubed, 125 voxels",
+      "offsets": "Cartesian product -h..h cubed, first column slowest and last fastest",
+      "missing_neighbor_sentinel": "stage population",
+      "inference_fixture": "Previous generated 513-voxel seed-7055 lattice and unit features; all stage kernel axes reversed relative to the old independent template."
+    },
+    "centering": {
+      "seed": 615152,
+      "samples": 128,
+      "construction": "64 random integer triples in -30..30, times float32 .06, concatenate with their negatives, add 2 to Z",
+      "normal_features": "unit axis by original row modulo three, generated rather than estimated",
+      "permutation": "same RNG after coordinate generation",
+      "stable_record_start": 9007199254750000,
+      "scope": "order/quantization fixture, not native real-scan normal parity"
+    },
+    "jpeg": {
+      "shape": [
+        512,
+        512
+      ],
+      "canvas": 255,
+      "rectangle": [
+        65,
+        80,
+        450,
+        435
+      ],
+      "vertical_line": [
+        270,
+        80,
+        270,
+        435
+      ],
+      "horizontal_line": [
+        65,
+        270,
+        270,
+        270
+      ],
+      "line_thickness_px": 8,
+      "foreground": 0,
+      "codec": "OpenCV JPEG quality 95",
+      "model": "D",
+      "normalization_mean_std": [
+        0.5,
+        0.5
+      ]
+    },
+    "normal_support": {
+      "grid": "range(9) squared at .06 and .5 m spacing, Z=0",
+      "radius_m": 0.3,
+      "includes_self": true,
+      "estimator_executed": false
+    }
+  },
+  "open_question_statuses": [
+    {
+      "question": "native_helper_renderer_equivalence",
+      "status": "partially_resolved"
+    },
+    {
+      "question": "specialist_class_names",
+      "status": "operational_consumption_resolved_training_names_open"
+    },
+    {
+      "question": "checkpoint_export_parity",
+      "status": "reported_lineage_rechecked_tensor_chain_open"
+    },
+    {
+      "question": "real_scan_normal_sampling",
+      "status": "recipe_clarified_real_scan_parity_deferred"
+    },
+    {
+      "question": "automatic_roof_ceiling_curved_routes",
+      "status": "inspected_main_route_resolved_other_routes_unqualified"
+    },
+    {
+      "question": "building_and_hardware_quality",
+      "status": "cpu_settings_checked_external_qualification_deferred"
+    }
+  ],
+  "application_code_changed": false,
+  "windows_executable_executed": false
+}
