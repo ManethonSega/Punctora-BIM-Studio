@@ -22,7 +22,8 @@ def load_input(manifest_path):
         raise ValueError("Recognition normals require the complete original registered cloud")
     validate_identity(manifest["identity"])
     arrays = manifest["arrays"]
-    if set(arrays) != {"points", "scan_ids", "record_ids", "working_rows"}:
+    if (not {"points", "scan_ids", "record_ids", "working_rows"} <= set(arrays)
+            or set(arrays) - {"points", "scan_ids", "record_ids", "working_rows", "colors", "color_valid"}):
         raise ValueError("Recognition input requires original points and all source-row identities")
     opened = {}
     try:
@@ -32,13 +33,14 @@ def load_input(manifest_path):
                 raise ValueError("Recognition input-array digest mismatch: " + name)
             value = np.load(artifact, mmap_mode="r", allow_pickle=False)
             opened[name] = value
-            dtype = "<f8" if name == "points" else "<u8"
+            dtype = "<f8" if name in {"points", "colors"} else "|b1" if name == "color_valid" else "<u8"
             if value.dtype.str != dtype or list(value.shape) != descriptor["shape"] or descriptor["dtype"] != dtype:
                 raise ValueError("Recognition input must preserve f64 geometry and uint64 identity")
         count = len(opened["points"])
-        if opened["points"].shape != (count, 3) or any(opened[n].shape != (count,) for n in arrays if n != "points"):
+        if opened["points"].shape != (count, 3) or any(opened[n].shape != ((count, 3) if n == "colors" else (count,)) for n in arrays if n != "points"):
             raise ValueError("Recognition input arrays must have equal source lengths")
-        cloud = CloudData(opened["points"], scan_index=opened["scan_ids"], source_record_index=opened["record_ids"],
+        cloud = CloudData(opened["points"], colors=opened.get("colors"), color_valid=opened.get("color_valid"),
+                          scan_index=opened["scan_ids"], source_record_index=opened["record_ids"],
                           working_index=opened["working_rows"], metadata={"source_scope": manifest["source_scope"]})
         yield cloud, manifest["identity"]
     finally:

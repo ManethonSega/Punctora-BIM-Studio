@@ -8,6 +8,30 @@ import numpy as np
 from .model import Opening
 
 
+def projected_bay_groups(instances, minimum_bays=3, maximum_pier_m=.6, tolerance_m=.1):
+    """Record repeated proposed bays without asserting glass/curtain-wall type.
+
+    Geometry and material acceptance stay in later runs. A measured opaque
+    pier separates bays; grouping cannot collapse repeated holes into one.
+    """
+    groups = []
+    for item in sorted(instances, key=lambda i: (i.get("host_id", ""), i.get("wall_local_bounds_m", [0, 0, 0, 0]))):
+        if item["class"] not in {"opening", "window", "door"} or not item.get("wall_local_bounds_m"):
+            continue
+        bounds = item["wall_local_bounds_m"]
+        group = next((g for g in groups if g[-1]["host_id"] == item["host_id"]
+                      and abs(g[-1]["wall_local_bounds_m"][1] - bounds[1]) <= tolerance_m
+                      and abs(g[-1]["wall_local_bounds_m"][3] - bounds[3]) <= tolerance_m
+                      and 0 <= bounds[0] - g[-1]["wall_local_bounds_m"][2] <= maximum_pier_m), None)
+        if group is None:
+            groups.append([item])
+        else:
+            group.append(item)
+    return [{"member_ids": [i["id"] for i in g], "host_id": g[0]["host_id"],
+             "material": "unknown", "system_type": "unresolved", "status": "proposed"}
+            for g in groups if len(g) >= minimum_bays]
+
+
 def frame_bays(wall, face, returns, depth, signed, reference, cell, settings, padding=0, vertical_sill=None):
     nz, nx = face.shape
     count, labels, stats, _ = cv2.connectedComponentsWithStats(1-face, 8)

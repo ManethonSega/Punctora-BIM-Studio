@@ -30,6 +30,9 @@ class RecognitionProvider(ABC):
     instances = ()
     warnings = ()
 
+    def bind_source(self, cloud, control):
+        """Fingerprint optional source channels before any cache lookup."""
+
     @abstractmethod
     def descriptor(self):
         """All runtime/model/preprocessing settings affecting predictions."""
@@ -44,6 +47,13 @@ class RecognitionProvider(ABC):
 
     def combine_tiles(self, shards, count, directory, control):
         return combine_tiles(shards, count, directory, control)
+
+    def prepare_instances(self, cloud, identity, directory, control, spatial_index):
+        """Optional original-evidence work reusing the job's single index."""
+
+    def write_artifacts(self, directory, control):
+        """Optional validated extension artifacts inside private staging."""
+        return {}
 
     def close(self):
         pass
