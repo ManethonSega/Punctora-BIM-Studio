@@ -1,10 +1,10 @@
 # Cloud2BIM consolidated technical reference
 
-Reference version: **1.0**. Updated: **2026-10-13**. Project: **Punctora BIM Studio**.
+Reference version: **1.1**. Updated: **2026-10-13**. Project: **Punctora BIM Studio**.
 
 This is the maintained reference for Cloud2BIM research, the supplied Cloud2BIM-AI package, the repeated deep passes and their implementation consequences. It consolidates the current conclusions; historical reports remain the audit trail. Update this file through normal Git commits as implementation or new assets change the evidence.
 
-**Current direction:** use the earlier research results and the user's successful Cloud2BIM experience as the development premise. Integrate the specialist plan/section/refinement pipeline, preserve original point evidence, and improve the result through the user's subsequent testing. The next implementation work is Run 4. No further broad research pass is needed before implementation.
+**Current direction:** use the earlier research results and the user's successful Cloud2BIM experience as the development premise. Integrate the specialist plan/section/refinement pipeline, preserve original point evidence, and improve the result through the user's subsequent testing. The additional open-ended audit requested after version 1.0 adds nine findings and answers the open questions to the extent supported by the supplied copy. Run 4 remains the next implementation, with the corrected kernel order and additional recall/repeatability fixtures below.
 
 The [nine-run design](https://github.com/ManethonSega/Punctora-BIM-Studio/issues/1#issuecomment-6143707055) governs implementation order. Internal checks gate each engineering run. Independent real-scan annotations, visual review and designated-hardware qualification follow completion of all nine runs. Missing external checks never require repeating an engineering run.
 
@@ -24,7 +24,7 @@ The [nine-run design](https://github.com/ManethonSega/Punctora-BIM-Studio/issues
 12. [Open questions and update procedure](#12-open-questions-and-update-procedure)
 13. [Fingerprint and inspection appendices](#13-fingerprint-and-inspection-appendices)
 
-The companion [evidence register](cloud2bim-evidence-v1.json) retains derived asset signatures, CPU smoke results and generated probe summaries in machine-readable form. It contains no supplied weights, executable, scans or recovered full application source.
+The companion [evidence register](cloud2bim-evidence-v1.json) retains derived asset signatures, CPU smoke results and generated probe summaries in machine-readable form. The [additional audit evidence](cloud2bim-open-ended-audit-v1.json) preserves version 1.1's native anchors, source recheck and eleven generated probe groups. Neither file contains supplied weights, executable, scans or recovered full application source.
 
 ## 1. Evidence, sources and superseded conclusions
 
@@ -63,6 +63,7 @@ Pointcept files used: [structure.py](https://github.com/Pointcept/Pointcept/blob
 | [Decoder and geometry pass](https://github.com/ManethonSega/Punctora-BIM-Studio/issues/1#issuecomment-6150181520) | Actual section decoder branches, sill classification, 88 geometry defaults, staged refitting, pixel conventions and surface partitions. |
 | [ONNX-focused pass](https://github.com/ManethonSega/Punctora-BIM-Studio/issues/1#issuecomment-6150621195) | Odd/rectangular mask shapes, wrong companions, malformed-but-accepted indices, corner transforms, RPE scale and recursive operators. |
 | [Final handoff pass](https://github.com/ManethonSega/Punctora-BIM-Studio/issues/1#issuecomment-6150920920) | Representative ordering, vote confidence, counters, caps, live sessions, slab reset, stair completion and thin surfaces. |
+| [Additional open-ended audit evidence](cloud2bim-open-ended-audit-v1.json) | Corrected native kernel order, centring-order sensitivity, class/foreground votes, connected rescue, component restoration, renderer/storage fidelity, query identity and native stage ordering. |
 
 ### CB-001: current interpretation and corrections
 
@@ -72,7 +73,8 @@ Pointcept files used: [structure.py](https://github.com/Pointcept/Pointcept/blob
 | Run 2 could not establish a supplied executable exact inference route. | S3 supplies usable ONNX assets, including I on CPU. Keep Run 2's completed boundary and add a distinct ONNX provider. |
 | Every recognition model shares PTv3's synthetic provenance. | B/E legacy names indicate real/mixed-data specialist lineages. Aliases are provenance clues, not verified datasets. |
 | B column 0 means door and column 1 means window. | The downstream native choice uses local sill height; the classifier column is not used for that choice. |
-| Normal sign, representative choice or legal-shaped indices are harmless. | Controlled changes materially alter logits/labels. Pin and validate those contracts. |
+| Normal sign, representative choice or legal-shaped indices are harmless. | Controlled changes materially alter logits/labels. Pin and validate those contracts; stable ordering must precede centring as well as representative selection. |
+| The earlier exploratory kernel-column order can become the native adapter template. | CB-035 resolves the native order: the last grid column varies fastest. Correct the earlier independent builder before integration; historical sensitivity results retain their original scope. |
 | Shape-compatible external tensors can substitute for one another. | Exact bindings are required; a wrong companion can load and produce finite, incorrect output. |
 | Every mask needs dimensions divisible by 32. | All five accepted the six tested odd/rectangular sizes with exact output dimensions. Preserve the trained physical scale. |
 | Native confidence is model probability. | I's emitted confidence is overlap vote agreement. Store classifier margin and coverage separately. |
@@ -220,7 +222,7 @@ All section boxes are normalized `(cx,cy,w,h)`. Restore `(x1,y1,x2,y2)` using or
 
 For B, the winning softmax is at least 0.5. At a 0.4 threshold, all 300 queries survive, including in the tested white section. This native score cannot establish a physical opening. Preserve raw logits and native decoding; any alternate sigmoid/calibration must have a distinct decoder identity and be tested separately.
 
-The native opening height function selects the highest-confidence box. Downstream extraction assigns **door when local lower height <0.15 m above the floor; window otherwise**. It does not use B's winning column for that choice. Low windows, uneven floors, absent sill returns and semantic disagreement need explicit handling. A manual base constrains interpretation; it does not become a measured floor.
+The native opening height function selects the highest-confidence box. Downstream extraction assigns **door when local lower height <0.15 m above the floor; window otherwise**. It does not use B's winning column for that choice. The additional audit confirms that E's nonzero classes are consumed together as opening-plan candidates. Low windows, uneven floors, absent sill returns and semantic disagreement need explicit handling. A manual base constrains interpretation; it does not become a measured floor.
 
 B's section includes 0.15 m context above/below. Invert height using the actual section transform, remove the extension and only then add world base. The illustrative inversion is `local_height = (H-y)*pixel_size - 0.15`. Store actual rendered dimensions and every preceding crop/resize offset.
 
@@ -289,7 +291,7 @@ The companion evidence register records the exact 40 graph input names. Validate
 
 1. Finite contiguous float32 features with exactly three columns; unique nonnegative int64 voxel coordinates aligned with retained source mappings.
 2. Four curve orders: Morton, transposed Morton, Hilbert, transposed Hilbert. Use pinned stable sorting and exact order scheduling. Exploratory depth is `max(1,(max_grid+1).bit_length())`, bounded to 16.
-3. k3/k5 maps have 27/125 columns and values only in `[0,Ns]`; Ns is the missing-neighbor sentinel. Verify centre/self and each requested spatial offset. The independent probe enumerates z/y/x loops with vectors x/y/z; complete native-helper parity remains separate.
+3. k3/k5 maps have 27/125 columns and values only in `[0,Ns]`; Ns is the missing-neighbor sentinel. Verify centre/self and each requested spatial offset. **Use CB-035's recovered native column order**, with grid column 0 slowest and column 2 fastest. The earlier independent probe's opposite order is retained only as a historical experiment, not the adapter template. Complete native-helper execution parity remains separate.
 4. Window padding repeats real rows from the preceding window for a tail, rather than wrapping arbitrarily or fabricating zeros. A flattened window and its inverse must restore every original stage row exactly.
 5. Pooling follows the pinned stride-two/code-right-shift-by-three convention when depth permits, stable cluster heads and matching parent coordinates/IDs.
 6. Finite `[N0,12]` output is restored through voxel inverse and original source keys. Empty views yield valid empty artifacts without inference.
@@ -429,6 +431,8 @@ G proposes circular/rectangular column footprints; F/C propose beam plans/height
 
 There is no language-captioning graph among A-J. Run 8 descriptions use accepted geometry, evidence states and ElementGraph relationships. Each claim retains source/evidence IDs, wording state and provider/version. Descriptions do not feed geometry or cuts. Do not infer material, load-bearing status, complete height, ramp/landing role or calibrated certainty from a model label.
 
+The supplied IFC authoring constants also contain stock concrete/load-bearing wall names. Those are authoring defaults, not evidence that a model recognized a material or structural role. Do not inherit them as grounded descriptions.
+
 Show experimental/fallback state, unknown coverage, weak classifier margins and inferred additions accurately. The planned top status/progress banner makes save/revert/failure and detection stages noticeable. Retain the user's palette: `#1C8DFF`, `#21E6E8`/`#18D7F1`, `#FF922E`, `#081327`/`#1A2436`, `#EDF2F7`; gentle change pulse with reduced-motion handling.
 
 ## 9. Memory, lifecycle and diagnostics
@@ -502,6 +506,8 @@ Analysis runtime: Python 3.12.14, NumPy 2.5.4, ONNX 1.20.1, ORT 1.23.2, CPUExecu
 | 8: grounded descriptions and top status | DescriptorSet from accepted facts/relations/states; truthful score/agreement/coverage; experimental/fallback diagnostics and visible progress/status palette. | Unsupported-claim rejection, missing role/material/height, weak margins/uncovered points, inferred steps/thickness, status transitions and reduced motion. |
 | 9: selective Rust and final qualification | Profile verified Python path; one measured kernel at a time; optional ort deployment after CPU parity; complete recursive operator/index/session/source contracts. | Typed f64/int64/uint64 boundary; memory/cancel/determinism; exact source restoration; Python/native labels/scores/geometry/evidence parity; final complete matrix and deferred external quality checks. |
 
+**Version 1.1 handoff:** Run 4 additionally requires native-ordered kernel maps, source-key ordering before centring, foreground/subclass TTA separation, attached semantic-rescue candidates, point-gated restored tails, exact overlay/storage recipes and query-aware deduplication. Runs 4/5/6 must tile before model-scale coarsening and keep inference buffers independent of debug JPEG output. Runs 5/6 must revalidate stairs/opening associations after late surface changes. Run 8 inherits the corresponding uncertainty and stock-name restrictions; Run 9 uses tolerance-based CPU/backend parity with the corrected inputs.
+
 Runs 1-3 remain implemented with revised future scope. The supplied graphs resolve earlier missing-asset assumptions without replacing those completed contracts. Preserve ProposalSet v1, review-only ElementGraph and later DescriptorSet separately from accepted geometry.
 
 ### CB-032: Rust scope
@@ -526,22 +532,104 @@ Items 1-4 are mutually exclusive dispositions; item 5 is an additional action. R
 
 ### CB-034: focused questions
 
-| Question | Where to resolve | Sequencing |
+| Question | Answer from the additional audit | Remaining scope |
 | --- | --- | --- |
-| Exact native helper/renderer equivalence beyond recovered branches | A concrete Run 4/5 adapter disagreement; declare independent behavior when appropriate. | Not a prerequisite to the independent implementation. |
-| Specialist native class-column meanings not established by graph metadata | Task-specific adapter/configuration and geometry tests. | Retain local IDs/unknown mappings; do not guess. |
-| Export/checkpoint lineage and full patched-reference parity | Exact upstream reference when available. | External provenance/parity item; no completed-run reset. |
-| Model-view sampling/normal recipe on real sparse/occluded scans | Internal recipe fixtures, then user/independent scan testing after Run 9. | Preserve original evidence and report coverage. |
-| Automatic native roof/ceiling/curved helper use | Focused orchestration inspection only if it changes implementation. | Current independent geometry scope is explicit. |
-| Full building outcomes and target backend/hardware parity | Final qualification after nine implementation runs. | User testing guides subsequent quality repairs. |
+| Exact native helper/renderer equivalence beyond recovered branches | **Partly resolved.** Kernel offset order is now recovered; explicit mask palette/alpha, per-class TTA, rescue/restoration gates, memory/JPEG raster choices and native centring are clarified in CB-035 through CB-040. | Complete helper/renderer execution parity still requires a matching native reference execution or supplied tensors. Independently declared implementation can proceed. |
+| Specialist native class-column meanings not established by graph metadata | **Operational use resolved for the inspected paths.** D's native wall gate accepts configured foreground classes, including 1/2; E's 1/2 are both opening candidates; J preserves local IDs but accepted OBBs enter wall construction. B's sill rule remains downstream. | Exact training names for D/E subtypes and J columns are still absent. Do not invent door/window/background mappings or use local IDs as IFC class authority. |
+| Export/checkpoint lineage and full patched-reference parity | **Available lineage rechecked.** Both public repository and user's fork still resolve to the pinned commit. The run_20260803_0021 LFS pointer and embedded I lineage agree with the recorded provenance claim. No export/helper harness or reference arrays appeared in the refreshed listings. | The 554659890-byte checkpoint was not downloaded/loaded; no tensor-by-tensor checkpoint-to-I chain or native-reference parity is claimed. |
+| Model-view sampling/normal recipe on real sparse/occluded scans | **Input recipe clarified; real-scan question remains open.** Native float32 centring precedes voxelization and can depend on input order. Normals remain tile-local Open3D radius 0.30 m/max 30 without orientation. Generated radius-count fixtures expose unsupported sparse neighborhoods. | Open3D/native real-scan normal equivalence and actual class errors are not established by generated unit features or neighbor counts. Qualify after Run 9. |
+| Automatic native roof/ceiling/curved helper use | **Inspected main route resolved.** The recovered entry pipeline authors slabs/local slabs, walls, beams, columns and detected stair assemblies. It does not directly invoke the roof/curved-wall authoring helpers. Curved/spiral/elliptic stair builders consume explicit configuration in a separate manager helper. | This bounded route inspection is not an assertion that no other dynamic/manual path exists. Automatic sloped roof and ceiling-role reconstruction remains Punctora work. |
+| Full building outcomes and target backend/hardware parity | **CPU settings partially checked.** Corrected generated I inputs retain identical labels across the tested ORT optimization/thread settings, with small logit differences. | Complete building outcomes, Windows/AMD providers, real-scan geometry, Open3D preprocessing and hardware qualification remain after the nine implementations. No external-check Repeat gate. |
 
 The public README's referenced `DL_module/segmentation_report.tex` was unavailable at the pinned commit. The original checkpoint/export harness/reference tensors were not supplied as an editable complete reference during these audits. Missing external material does not negate the executable ONNX assets or stop implementation.
 
-Do another focused pass when an internal fixture conflicts with a recovered contract, a geometry decision requires the exact branch behind a documented rule, or an asset/configuration changes. Another open-ended pass is not the current next step.
+Version 1.1 incorporates the user's additional open-ended audit request. Its new findings change concrete implementation contracts. Further source work should answer a named mismatch, geometry rule or changed asset; unresolved external qualification does not hold implementation in a research loop.
+
+### CB-035: native kernel column order, correction to the exploratory template [N/V]
+
+The compiled `_offsets` constructs `meshgrid(..., indexing='ij')`, flattens its first/second/third arrays in that order, and the compiled kernel mapper adds the same ordered triplet to the grid row. **Grid column 0 varies slowest, column 2 fastest.** For side k and half-width h, the column number is `(d0+h)*k*k + (d1+h)*k + (d2+h)`.
+
+Examples: k3 column 1 is `[-1,-1,0]`; k5 column 1 is `[-2,-2,-1]`. Centre/self remains column 13/62. This describes actual grid-column order, avoiding ambiguous x/z naming.
+
+The old independent builder varied grid column 0 fastest. Its generated CPU execution and permutation checks were valid for its own inputs, but did not establish native input equivalence. Preserve those records and correct the template before integration. A new dense 125-voxel oracle matches the corrected builder exactly; the old maps differ in 1,846 k3 and 7,600 k5 entries. The 513-voxel inference comparison changes 31.58% of labels, max logit delta 8.4182. This is a contract correction, not real-scan accuracy or a Run 1-3 reset.
+
+Native anchors: `_offsets` `0x14acb7320`, ordered flatten/stack `0x14acb7b16` through `0x14acb7c70`, kernel offset array construction `0x14acb9330` through `0x14acb93af`. The native helper itself was not executed.
+
+### CB-036: stable ordering must precede centring [N/V/A]
+
+The inspected I engine casts its model view to contiguous float32 before tile extraction, subtracts separate X/Y float32 means and Z minimum, then floors by the 0.06 m grid. Stable representatives alone do not stabilize an earlier order-dependent reduction.
+
+A generated 128-sample permutation changes eight voxel-coordinate rows through tiny mean differences. Original-row label agreement is 87.5%, max logit delta 0.9711. Sorting exact source keys **before centring** makes all inputs identical in the two orders. Retain both the reduction/order recipe and representative rule in the provider fingerprint. Deterministic f64 local-frame/reduction choices are explicit Punctora adaptations.
+
+Input must already be an appropriate local frame before float32 conversion. Passing the generated survey-coordinate fixture directly to float32 loses up to 0.24 m; subtracting the f64 origin first avoids that loss in the fixture. This does not prove that the native importer supplies unsafe global coordinates; it establishes the adapter's precondition.
+
+Native anchors: float32 model-view cast `0x14acb01b8`; X/Y means `0x14acb1852`/`0x14acb1950`; quantization `0x14acb1bc9`.
+
+### CB-037: class consensus can lose unanimous foreground [N/V/A]
+
+The native D wall gate accepts `wall_classes`, default `[1,2,3,4,5,6]`; with D's three channels, 1/2 are both foreground. E similarly combines nonzero classes for opening-plan contours. Their training subtype names remain unresolved, but this downstream consumption is concrete.
+
+The native six-view TTA requires four votes for the **same class**, then initializes failures to zero. On a 100-pixel fixture with three class-1 and three class-2 votes everywhere, it outputs zero foreground pixels despite six foreground votes at every pixel. Keep class/subclass disagreement separate from background evidence.
+
+Run 4 can test an explicitly versioned foreground-consensus proposal alongside the faithful native decode. Preserve subtype uncertainty, original view votes and the J renderer's class colors; do not silently replace the native rule or promote the alternative into measured geometry. Add both a 3/3 foreground fixture and genuine background-disagreement negatives.
+
+Anchors: class gate `0x14adf4422` through `0x14adf4476`; TTA four-vote comparison `0x14ac3ea70`; E foreground conversion near `0x14ab3aedf`.
+
+### CB-038: attached semantic rescue can be rejected as one component [N/V/A]
+
+The native rescue gate retains whole connected components only when their area is at least 0.15 m2 and at most 30% lies within 0.30 m of existing U-Net walls. This deliberately limits semantic thickening, but component connectedness can couple a new branch to a known wall.
+
+In the generated fixture, a 9,000-pixel connected component has 62.22% near existing walls and is rejected. Its uncovered residual is 3,400 pixels, **0.34 m2**, large enough for a separate candidate. This is a rule probe, not an observed failure in the user's building.
+
+Test residual/branch candidate decomposition after measuring proximity, then fit the candidate and junction against original points. Protect openings and separate corridor walls. Do not simply disable the overlap guard or extend existing walls from semantics alone. Anchor: `_rescue_only_new_segments` `0x14adf2720`, overlap decision around `0x14adf3a23` through `0x14adf3aec`.
+
+### CB-039: component restoration is not terminal support [N/V/A]
+
+The verticality filter restores a whole component when its supported fraction reaches 0.85. A generated component with 90% support restores an unsupported 20-pixel tail (0.20 m at the tested scale), totaling 400 pixels. Later mask-only refitting can inherit this restored extent; the final native outcome was not executed here.
+
+Record which pixels were original support, dilated support, semantic protection or component restoration. Run 4's final endpoint fit must use original terminal/continuation evidence independently of the restored mask. Add a well-supported long wall with an unsupported tail and a separate truly supported short continuation. Anchor: component restoration `0x14ade80c5` through `0x14ade8121`.
+
+### CB-040: model scale, overlay and debug storage are detection inputs [N/V/A]
+
+The native horizontal raster cap is 64 million pixels/16,000 per side and can increase pixel size. A 200x200 m footprint requested at 0.01 m/pixel becomes 0.025 m/pixel under that area cap. A 1024-pixel plan window then covers 25.6 m instead of 10.24 m; H's 2048 window covers 51.2 m instead of 20.48 m. Correct metric conversion does not restore the model's original physical field of view. Tile original points before rasterizing, at a declared fixed model scale.
+
+Native raster dot radius is two pixels. A generated 0.03 m gap becomes connected after that dilation at 0.01 m/pixel. Preserve raw occupancy/visibility separately from dilated model images; never certify openings or thickness from the dilation alone.
+
+The J overlay uses alpha 0.5 and BGR palette class 1 `[0,0,255]`, class 2 `[0,255,0]`. Keep these colors rather than repaint every accepted foreground class red. On white background the illustrated blended values are `[127,127,255]` and `[127,255,127]`. The training subtype names remain unknown.
+
+The optional native disk raster is JPEG quality 95, whereas the memory path uses the original image buffer. In the generated 512x512 room fixture, JPEG changes 2,828 input pixels and 74 D class pixels, max logit delta 0.9212. This is storage sensitivity, not class accuracy. Debug export must not change inference buffers. Persist lossless model inputs or fingerprint an explicit compression recipe.
+
+Anchors: horizontal raster/module defaults `0x14ac2fd10`/`0x14ac30920`; overlay alpha assignment `0x14adffc75` through `0x14adffc8a`; blending `0x14adfbb36`; JPEG settings in the pinned horizontal-section constants.
+
+### CB-041: preserve detector query identity [V/A]
+
+J's flat query/class top selection can retain several class hypotheses from one query's box. A constructed one-query `[3,2,1]` logit fixture retains three local class hypotheses above 0.25. They are not three independent wall observations.
+
+Keep query ID, tile ID and raw class-score vector. Fuse duplicate geometry with explicit competing class hypotheses and source evidence; do not increase support counts or confidence by treating those hypotheses as independent detections. Native class names remain unresolved; do not drop a column as background without evidence.
+
+### CB-042: inspected native orchestration and late geometry dependencies [N/A]
+
+Bounded inspection of `Cloud2BIMApp._run_bim_pipeline` confirms the following late sequence: wall/beam/column extraction, wall-based slab fitting, stair extraction, openings, semantic local slabs, tiled slab refinement, local thickness reconstruction, ground-slab trim, then IFC local slabs/walls/beams/columns/stairs.
+
+The inspected route does not directly call roof or curved-wall authoring helpers. Its semantic roof handling helps slab/surface levels; it does not establish automatic sloped IfcRoof generation. Separate curved/spiral/elliptic stair builders consume explicit configuration in `ifc_manager.create_ifc_stair`. This is bounded route evidence, not a complete assertion about every possible manual/dynamic application path.
+
+Stairs/openings are detected before some later surface operations. Punctora must invalidate and revalidate associations, endpoints, clearance and cuts whenever those final surface operations change relevant geometry. Checking only after user edits is insufficient. Add a late raised/lowered slab patch affecting an already-proposed stair endpoint and headroom region.
+
+Anchors: entry method `0x140559720`; stair extraction `0x14055ef6b`; openings `0x14055f8a6`; local patches `0x14055fbeb`; tiled refinement `0x14055ff52`; thickness `0x140560343`; ground trim `0x1405606a5`; IFC authoring `0x140561207` through `0x1405615fe`.
+
+### CB-043: expanded CPU check and remaining qualification [V/Q]
+
+Corrected generated I inputs were tested with one thread/optimizations disabled and four threads/optimizations enabled against two-thread CPU inference. All labels matched; maximum logit differences were about 9.54e-6 and 5.72e-6. Backend parity should therefore declare score tolerances rather than demand cross-setting bit equality everywhere.
+
+The generated 81-point plane at 0.06 m spacing had 26..77 neighbors within 0.30 m (before a maximum-30 estimator cap). At 0.5 m spacing, every point had only itself. Normal validity requires neighborhood count and geometric conditioning, not only a finite/unit output vector. Those counts do not execute Open3D or establish real-scan normal parity.
+
+CPUExecutionProvider was the only provider used. No Windows/AMD inference, complete Windows application run or independent real-building accuracy was established. Those questions remain explicitly deferred; they do not require repeating completed implementation runs.
+
+The eleven probe groups and source/native anchors are preserved in [cloud2bim-open-ended-audit-v1.json](cloud2bim-open-ended-audit-v1.json). Original probe-summary SHA-256: `6033300935c599be118312acd42f4a06511cd29e4f29b3569d3c41375a7c2518`.
 
 ### Updating this reference
 
-Stable finding IDs `CB-001` through `CB-034` identify current conclusions. Keep IDs stable when revising; add new IDs for new findings. For each update:
+Stable finding IDs `CB-001` through `CB-043` identify current conclusions. Keep IDs stable when revising; add new IDs for new findings. For each update:
 
 1. Record date, source URL/path, exact revision/asset hashes, evidence label and test scope.
 2. Update the affected finding's current conclusion; mark any superseded interpretation explicitly and retain its historical source.
@@ -556,6 +644,7 @@ Keep supplied executable/model assets, customer scans and complete recovered thi
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.1 | 2026-10-13 | Added the requested open-ended audit, CB-035 through CB-043, eleven probe groups and explicit answers to all six open questions. Corrected the exploratory kernel-order template and added centring, foreground/connectedness, storage/scale, query-identity and late-dependency handoffs. Preserved historical results and deferred qualification. Documentation/evidence only. |
 | 1.0 | 2026-10-13 | Consolidated the five supplied-copy reports, earlier research lessons, verified contracts/probes, current Run 1-3 state and Run 4-9 handoff. Established stable finding IDs and a machine-readable evidence register. Corrected the earlier aggregate model-byte total from independently rehashed files. Documentation only. |
 
 ## 13. Fingerprint and inspection appendices

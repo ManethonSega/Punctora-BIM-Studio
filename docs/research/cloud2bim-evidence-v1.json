@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "reference_version": "1.0",
+  "reference_version": "1.1",
   "updated": "2026-10-13",
   "scope": "Derived signatures, graph observations and controlled generated probe results. Not complete Windows application parity or independent real-building accuracy. No supplied executable, weights or scans are included.",
   "reference_document": "CLOUD2BIM_REFERENCE.md",
@@ -7412,5 +7412,13 @@
     "geometry_types": 9,
     "oriented_box_metadata_defaults": 4,
     "publication": "Implementation-relevant settings are summarized in CB-020 of the reference; full recovered configuration is not included."
-  }
+  },
+  "follow_up_audits": [
+    {
+      "file": "cloud2bim-open-ended-audit-v1.json",
+      "sha256": "a67229657a398239f1552ad90153fb5e928a570de3ad1b58cbcbe5c706d149e2",
+      "findings": "CB-035 through CB-043",
+      "supersession": "CB-035 resolves native kernel column order. Historical independent-index results retain their original inputs/scope and are not the native adapter template."
+    }
+  ]
 }
