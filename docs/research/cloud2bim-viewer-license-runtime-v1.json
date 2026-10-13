@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "reference_version": "1.4",
+  "updated": "2026-10-13",
+  "finding_ids": [
+    "CB-061"
+  ],
+  "application_code_changed": false,
+  "sdk_purchased_or_trial_downloaded": false,
+  "licensing_scope": "Published upstream terms checked at the user explicit request; not final installer clearance or individual legal advice.",
+  "sources": [
+    {
+      "url": "https://www.kitware.eu/wp-content/uploads/2023/11/ActiViz.NET_9.7_Users_Guide.pdf",
+      "sections": [
+        "1.4",
+        "2"
+      ],
+      "conclusions": [
+        "ActiViz 9.7 proprietary",
+        "5.8 identified as latest open-source edition"
+      ]
+    },
+    {
+      "url": "https://www.kitware.eu/activiz/",
+      "conclusions": [
+        "Free evaluation trial",
+        "Purchased version-specific licences",
+        "Packaged commercial redistribution described without additional end-user development licence fees"
+      ]
+    },
+    {
+      "url": "https://github.com/pyvista/pyvista/blob/main/LICENSE",
+      "conclusions": [
+        "MIT"
+      ]
+    },
+    {
+      "url": "https://github.com/pyvista/pyvistaqt/blob/main/LICENSE",
+      "conclusions": [
+        "MIT"
+      ]
+    },
+    {
+      "url": "https://docs.vtk.org/en/latest/about.html",
+      "conclusions": [
+        "Free open-source BSD toolkit"
+      ]
+    },
+    {
+      "url": "https://doc.qt.io/qtforpython-6/commercial/index.html",
+      "conclusions": [
+        "Community LGPLv3/GPLv3 and commercial editions"
+      ]
+    },
+    {
+      "url": "https://www.qt.io/development/open-source-lgpl-obligations",
+      "conclusions": [
+        "LGPL route permits proprietary application code subject to obligations",
+        "GPL-only modules differ"
+      ]
+    },
+    {
+      "url": "https://docs.pyvista.org/user-guide/vtk_to_pyvista",
+      "conclusions": [
+        "Python interface over native C++ VTK"
+      ]
+    },
+    {
+      "url": "https://qt.pyvista.org/usage.html",
+      "conclusions": [
+        "Qt event-loop and widget integration required"
+      ]
+    }
+  ],
+  "current_decision": {
+    "paid_option": "ActiViz VTK control in Avalonia",
+    "option_without_sdk_licence_fees": "Dedicated PySide6/PyVistaQt/PyVista/VTK viewer process with IPC and immutable binary caches",
+    "initial_python_scope": "Separate viewer window; embedding not claimed",
+    "application_ui_migration_authorized": false,
+    "previous_unconditional_activiz_first_order_superseded": true,
+    "owner_run": 8,
+    "external_qualification": "After all nine runs"
+  }
+}
