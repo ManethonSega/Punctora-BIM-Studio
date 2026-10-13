@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "reference_version": "1.2",
+  "reference_version": "1.3",
   "updated": "2026-10-13",
   "scope": "Derived signatures, graph observations and controlled generated probe results. Not complete Windows application parity or independent real-building accuracy. No supplied executable, weights or scans are included.",
   "reference_document": "CLOUD2BIM_REFERENCE.md",
@@ -7425,6 +7425,12 @@
       "sha256": "771eeeb710ec94a79815b9aca8e7c6bbb2bef539feae98ac9c75bb9d16ed8f7a",
       "findings": "CB-044 through CB-058",
       "scope": "Viewer architecture, visual comfort, native camera/IFC recipes and six generated contracts. No application implementation or native runtime qualification."
+    },
+    {
+      "file": "cloud2bim-viewer-integration-xyz-v1.json",
+      "sha256": "a3928e2a967b5c4a04c6b5278f72dea220e170052c61d77d1ca00e5791a13616",
+      "findings": "CB-059 and CB-060",
+      "scope": "Primary-source direct VTK/Avalonia integration revision and bounded native E57-to-XYZ reconstruction trace; generated format probe only."
     }
   ]
 }

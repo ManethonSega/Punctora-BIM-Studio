@@ -1,6 +1,6 @@
 # Cloud2BIM viewer audit and Punctora visual-quality plan
 
-Audit version **1.0**, consolidated reference **1.2**, 2026-10-13. Findings **CB-044 through CB-058** extend the [maintained reference](CLOUD2BIM_REFERENCE.md). The [viewer evidence](cloud2bim-viewer-audit-v1.json) records native anchors, source fingerprints, visual observations and six generated probes.
+Audit version **1.1**, consolidated reference **1.3**, 2026-10-13. Findings **CB-044 through CB-060** extend the [maintained reference](CLOUD2BIM_REFERENCE.md). The [viewer evidence](cloud2bim-viewer-audit-v1.json) records native anchors, source fingerprints, visual observations and six generated probes.
 
 **Conclusion:** Cloud2BIM uses a mature Qt/PyVista/VTK viewer with custom CAD navigation, actual IFC tessellation, explicit face lighting and architectural outlines. We can reproduce those useful behaviours in Punctora and improve review through detailed local point loading, accurate occlusion, linked views and preserved element/evidence identities. Visual comfort is an explicit implementation outcome alongside geometric fidelity.
 
@@ -154,7 +154,7 @@ The model and evidence palettes must remain distinct: class colour describes ele
 
 ## 4. Technical architecture and implementation order
 
-**Recommended direction:** retain the Avalonia shell and place rendering behind a replaceable interface. Repair the current OpenGL visual/fidelity gaps first, using a VTK reference to qualify the result. A production VTK renderer remains a candidate if that evidence favours it. QtInteractor is a Qt integration route, not an already-proven drop-in Avalonia control. Do not decide on a full desktop rewrite from this screenshot.
+**Revised direction, version 1.3:** retain the Avalonia shell and evaluate direct VTK integration through ActiViz 9.7 first. Kitware now explicitly documents an Avalonia 12 rendering control. This supersedes the version 1.2 repair-custom-OpenGL-first ordering, although projection, clipping, identity and comparison requirements still apply to either backend. Keep the existing renderer as fallback and behind a replaceable interface. QtInteractor remains a Qt integration route; it is not necessary to migrate the application to Qt to obtain VTK rendering. Exact compatibility with our Avalonia 12.1.3/.NET 10 build and resource lifecycle is an internal Run 8 check.
 
 | Work package | Concrete changes | Owner / dependencies |
 | --- | --- | --- |
@@ -164,13 +164,13 @@ The model and evidence palettes must remain distinct: class colour describes ele
 | D. Detailed cloud presentation | Spatial tile/LOD requests for view/crop/section; bounded RAM/GPU residency; valid colour/intensity channels; original uint64 source IDs retained in CPU tables | Run 8, optional native acceleration in Run 9 |
 | E. Review composition | Solid shared depth, translucent comparison and explicit X-ray; linked cloud/IFC cameras; saved view bookmarks; per-element picking and evidence focus | Run 8, after A-D |
 | F. Visual workspace | Light/dark canvas, focused view, compact controls, readable legends, top status/progress and state emphasis | Run 8; prior user palette/status requirements retained |
-| G. Backend qualification | Same generated mesh/point fixtures, camera/material recipe and capture settings on OpenGL and a VTK candidate; compare fidelity, context recovery, DPI and selection | Run 8; hardware/user qualification after Run 9 |
+| G. Backend qualification, performed first | ActiViz 9.7 Avalonia 12 integration spike using our actual locked build; then same generated mesh/point fixtures and camera/material recipe on VTK and existing OpenGL; compare fidelity, overlays, context recovery, DPI and selection | Run 8; hardware/user qualification after Run 9 |
 
 Recommended interface inputs are: immutable generation/source identity; f64 working coordinates and source mapping; explicit display origin; double-precision camera pose; indexed position/normal/material buffers; per-triangle GUID/project-ID ranges; point tile IDs and source-key tables; clip state; presentation mode. A render result includes loaded/displayed point counts, pending-detail state and failures. None of these display buffers becomes geometry authority.
 
 Worker mesh/tile generation happens off the UI thread. GPU resource creation and rendering stay on the appropriate graphics/UI lifecycle. New scene generations cancel obsolete requests; results from stale revisions are discarded. Make cache keys include source/model revision, meshing settings, coordinate frame and tile/LOD version. Closing/reopening the viewport releases resources safely; a failed renderer leaves saved project/evidence intact and permits fallback.
 
-A VTK candidate must prove Avalonia window/context integration, focus/input, scaling, resize, screenshot, cancellation and teardown behaviour. An offscreen framebuffer bridge or native control host has its own lifecycle and latency costs; neither is assumed solved. Rust is useful for spatial indexing, tile decoding, immutable buffer construction or a picking BVH if measured need justifies it. Rust does not supply face lighting, IFC boolean fidelity or a pleasant colour/legend design automatically. Keep that selective work in Run 9.
+ActiViz 9.7 supplies a documented Avalonia 12 control using an offscreen VTK scene integrated into Avalonia's Skia canvas, including before/after rendering hooks. Qualify this supported route first. Our build still must verify focus/input, overlays, scaling, resize, screenshot, cancellation and teardown. A custom bridge or generic NativeControlHost is a fallback engineering route, with separate lifecycle and composition constraints. Rust is useful for spatial indexing, tile decoding, immutable buffer construction or a picking BVH if measured need justifies it. Rust does not supply face lighting, IFC boolean fidelity or a pleasant colour/legend design automatically. Keep that selective work in Run 9.
 
 ## 5. Internal acceptance and nine-run decisions
 
@@ -196,3 +196,44 @@ For the implementation owner, apply all five existing decisions: **Proceed** aft
 4. What default dot size, light balance and canvas best match the existing requested colour scheme? Retain user-selectable presets and current palette tokens until reviewed together.
 
 Another unrestricted package pass is not a prerequisite. The newly recovered camera module, explicit render recipes and identified Punctora gaps provide enough evidence to implement the viewer scope. Return to source inspection when a concrete runtime mismatch appears.
+
+
+## 7. Integration and E57-to-XYZ follow-up
+
+### CB-059: direct VTK integration is a stronger first option [P/A]
+
+The follow-up primary-source check found Kitware's [ActiViz 9.7 release](https://www.kitware.com/activiz-9-7-release/), published 2026-09-04, explicitly describing a redesigned **Avalonia 12** rendering control. It integrates the VTK scene with Avalonia's Skia canvas and exposes hooks for 2D drawing around the VTK pass. [ActiViz 9.6](https://www.kitware.com/activiz-9-6-release/) also documents Avalonia context management and hardware picking. This is a concrete .NET integration resource omitted from the initial viewer audit.
+
+**Revised Run 8 ordering:** evaluate the supplied ActiViz Avalonia control first, rather than commit first to rebuilding VTK capabilities in custom OpenGL. Retain our UI, Python reconstruction worker and source/evidence contracts. Use VTK for scene rendering, materials, outlines, clipping and picking. Implement our CAD navigation behaviour using VTK camera/picker primitives in C#; it is custom interaction code, not an automatic consequence of adding VTK. Continue using IfcOpenShell in the worker to tessellate actual IFC solids, then send vertices, normals, materials, placements and element IDs to the viewer. The tessellator and renderer are different responsibilities.
+
+Qt/PyVista/VTK as a complete Python viewer can also be used for a reference or a separate viewer process. A full Qt shell is possible, but it expands migration to menus, editing, jobs, packaging and window lifecycle. Native PyVista objects are not C# Avalonia controls. For an integrated Punctora viewer, direct .NET VTK is now the preferred first evaluation. A supported offscreen Avalonia control is distinct from generic native child-window embedding, which has overlay/z-order limitations documented by [Avalonia](https://docs.avaloniaui.net/docs/app-development/native-interop).
+
+The vendor's capability statement is not a local build result. Validate our exact Avalonia 12.1.3, .NET 10, Windows/Linux packages and the earlier generated fixtures during Run 8. No trial was downloaded, production dependency added or vendor contacted in this documentation pass. External hardware/user review stays after all nine runs. The replacement decision remains evidence-based, and camera/depth correctness is required under either backend.
+
+### CB-060: E57-to-XYZ participates in reconstruction, but format is not the recognition mechanism [N/V/A]
+
+The supplied import route explicitly branches on `.e57`, calls `read_e57`, calls `e57_data_to_xyz`, obtains the `.xyz` path and feeds it to the XYZ loader. It concatenates resulting arrays, rounds coordinates and can apply line/spatial thinning. The GUI load thread calls that importer and assigns its returned coordinates to the working point cloud. The normal reconstruction entry obtains `_get_points_for_inference`, whose path prefers/builds diluted points, and proceeds into surface and storey processing. This supports **E57 -> XYZ -> working arrays -> preprocessing/detection -> IFC**, rather than an XYZ file used only for display.
+
+Anchors at the pinned executable:
+
+| Operation | Anchor |
+| --- | --- |
+| E57 read wrapper | `0x14ac4f9c0`, dispatch to `e57.read_points` near `0x14ac4fd35` |
+| XYZ writer body | `0x14ac51760` |
+| XYZ coordinate formats / rounding | `0x14ac51f40` / `0x14ac52892` |
+| E57 branch invokes writer | `0x14ac5562b` |
+| XYZ loader invocation | `0x14ac56b08` |
+| Post-concatenation rounding / spatial dilution | `0x14ac5801a` / `0x14ac5878a` |
+| GUI invokes structured importer | `0x1405204a7` |
+| Main reconstruction selects inference points | `0x140559e64` |
+| Diluted/source inference-point choice | around `0x1405bd763` through `0x1405bd818` |
+
+The native XYZ header contains **X, Y, Z, R, G, B, Intensity**. Coordinates use three decimal places; other channels use seven significant digits. The writer stages a `.part` file before replacement. The inspected seven-column text does not carry scan IDs, source record IDs, scan poses, validity masks or coordinate metadata. Those require source retention and a sidecar. This is a statement about that representation, not a claim that Cloud2BIM deletes the original E57 or cannot have other metadata paths. The reader's explanatory text refers to pye57, while the traced wrapper dispatches to `e57.read_points`; source-reader registration/pose parity must be verified at the reader boundary, not assumed from that text.
+
+**Value for IFC reconstruction:** a common working dataset lets all specialist stages share coordinate conventions, channels and preprocessing. Persisting it can support inspection and repeatable processing when it is keyed to source identity and preprocessing settings. It can change the IFC if scan pose application, invalid-point filtering, line sampling, spatial dilution, coordinate rounding or channel handling change. The same exact coordinates and preprocessing produce the same model inputs irrespective of whether they came from E57, XYZ or a binary cache; ONNX detectors consume tensors, not a magical filename extension.
+
+At metre units, rounding to 0.001 m contributes at most about **0.0005 m per axis**, or **0.000866 m in 3D** for an individual rounded position. A generated 1,000-row, seven-channel text roundtrip stayed within this coordinate bound and preserved its uint8 RGB values. This format probe did not run native recognition or show equivalent real-building results. Near-threshold decisions can still be sensitive to small perturbations, but coordinate rounding alone does not explain a wall missing or extending substantially past its evidence. Much larger point thinning and pose/frame errors deserve separate examination.
+
+**Punctora adaptation:** retain E57 as the source, decode/apply scan poses once and keep f64 working coordinates with scan IDs, original record IDs, validity masks and a reversible frame transform. Our disk-backed binary source cache already serves as an intermediate working dataset. Add versioned specialist analysis views derived from that cache, with declared thinning/normalisation and reverse mappings; the viewer uses its own tiles/LOD. Optional XYZ export/import is useful for interchange, debugging or a controlled Cloud2BIM-input comparison. It should not replace the evidence-bearing source cache by default.
+
+Before attributing an IFC improvement to conversion, compare the **decoded inputs**: counts, bounds, pose transforms, finite-point masks, XYZ residuals, RGB/intensity/missing-channel handling, retained IDs and applied thinning. Then compare the same preprocessing and detector stages. If the paths differ, fix the identified ingestion or analysis-view contract. Do not conclude that writing XYZ improves recognition merely because the complete Cloud2BIM pipeline succeeds. This is a bounded integration check within the existing runs; external real-scan quality review remains after Run 9.
