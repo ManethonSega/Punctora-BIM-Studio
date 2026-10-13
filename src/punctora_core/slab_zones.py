@@ -14,6 +14,7 @@ from shapely.ops import unary_union
 
 from .model import Slab, SlabOpening, Storey
 from .sampling import resolved_cpu_workers
+from .level_bounds import LevelDetectionError
 
 
 @dataclass
@@ -65,7 +66,7 @@ def occupancy_geometry(xy, cell, close_gap, maximum_cells):
 def horizontal_surfaces(sample, settings):
     points = sample.points
     if len(points) < 12:
-        raise ValueError("Insufficient spatial evidence for horizontal surfaces")
+        raise LevelDetectionError("Insufficient spatial evidence for horizontal surfaces",{'normal_tested_points':len(points)})
     tree = cKDTree(points)
     keep, normals = np.zeros(len(points), bool), np.zeros(len(points))
     workers = resolved_cpu_workers(settings.cpu_workers)
@@ -81,7 +82,7 @@ def horizontal_surfaces(sample, settings):
             & (distance[:, -1] <= max(.30, 4*sample.voxel_size_m)))
     indices = np.flatnonzero(keep)
     if len(indices) < 24:
-        raise ValueError("No supported horizontal planes; provide explicit storeys")
+        raise LevelDetectionError("No supported horizontal planes; use manual level bounds or Exterior mode",{'horizontal_points':len(indices),'normal_tested_points':len(points)})
     horizontal = points[indices]
     size = min(.025, settings.level_bin_size_m)
     first = int(np.floor(horizontal[:, 2].min()/size))
@@ -134,7 +135,7 @@ def horizontal_surfaces(sample, settings):
 def detect_slab_zones(sample, settings):
     surfaces, statistics = horizontal_surfaces(sample, settings)
     if len(surfaces) < 2:
-        raise ValueError("Fewer than two supported horizontal boundary surfaces")
+        raise LevelDetectionError("Fewer than two supported horizontal boundary surfaces",{'surfaces':[{'elevation_m':s.elevation,'area_m2':s.geometry.area} for s in surfaces],**statistics})
     largest = max(s.geometry.area for s in surfaces)
     minimum_area = max(settings.minimum_footprint_area_m2, largest*settings.slab_minimum_area_fraction)
     candidates = []
@@ -204,11 +205,11 @@ def detect_slab_zones(sample, settings):
                 best = (score, paths[j][1]+[i])
         paths.append(best)
     if not paths:
-        raise ValueError("No building-scale slab sequence; provide explicit storeys")
+        raise LevelDetectionError("No building-scale slab sequence; use manual level bounds or Exterior mode",{'candidates':candidates,**statistics})
     _, selected_ids = max(paths, key=lambda p: (len(p[1]) >= 2, p[0]))
     zones = [eligible[i] for i in selected_ids]
     if len(zones) < 2:
-        raise ValueError("No supported floor-to-floor sequence; provide explicit storeys")
+        raise LevelDetectionError("No supported floor-to-floor sequence; use manual level bounds or Exterior mode",{'candidates':candidates,'selected_zone_count':len(zones),**statistics})
     selected = {id(c) for c in zones}
     for c in candidates:
         c["selected"] = id(c) in selected
@@ -305,6 +306,27 @@ def _fixture_pattern(hole, candidates):
     return len(similar) >= 3
 
 
+def coverage_evidence(exported, raw, justified):
+    """Partition horizontal coverage into disjoint, inspectable evidence classes."""
+    measured=exported.intersection(raw)
+    completed=exported.intersection(justified).difference(measured)
+    unsupported=exported.difference(measured.union(completed))
+    regions={}
+    for name,shape in [('measured',measured),('justified_completion',completed),
+                       ('unsupported',unsupported)]:
+        regions[name]={'area_m2':float(shape.area),
+                       'percent':float(100*shape.area/exported.area),
+                       'components':[{'area_m2':float(p.area),'bounds_xy_m':list(p.bounds)}
+                                     for p in _polygons(shape) if p.area>1e-8]}
+    return {'coverage_classes':regions,
+            'justified_inferred_area_m2':float(completed.area),
+            'justified_inferred_percent':float(100*completed.area/exported.area),
+            'unsupported_area_m2':float(unsupported.area),
+            'unsupported_percent':float(100*unsupported.area/exported.area),
+            'coverage_review_required':bool(unsupported.area>1e-6),
+            'coverage_scope':'raw horizontal occupancy; bounded adjacent completion; remaining extrapolation is unsupported'}
+
+
 def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
     slabs, openings = [], []
     for index, zone in enumerate(zones):
@@ -321,6 +343,9 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
         geometry, seam_area = consolidate_scan_fragments(geometry, settings.slab_close_gap_m)
         face_holes = [_face_holes(lower), _face_holes(upper)]
         owner = storeys[min(index, len(storeys)-1)]
+        from .slab_corners import complete_wall_corners
+        geometry,corner_addition,corner_report=complete_wall_corners(
+            geometry,walls,upper.elevation,settings,owner.id)
         # A wall outline can resolve only a narrow occluded strip adjacent to
         # observed horizontal support. Protect all large interior gaps. Original
         # observed faces, not inferred/snapped wall extents, constrain this fill.
@@ -351,6 +376,9 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
             if piece.area < settings.slab_minimum_component_area_m2:
                 continue
             exterior = Polygon(piece.exterior).simplify(1e-9, preserve_topology=True)
+            from .profile_geometry import clean_profile
+            profile, profile_repair = clean_profile(list(exterior.exterior.coords)[:-1])
+            exterior = Polygon(profile)
             prefix = "top-slab" if index == len(zones)-1 else f"{owner.id}-floor"
             slab_id = prefix if len(components) == 1 else f"{prefix}-component-{number}"
             # Preserve gaps seen on just one face as review candidates too.
@@ -361,7 +389,13 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
             exported = exterior
             support = exported.intersection(raw).area
             inferred = max(0., exported.area-support)
+            justified=(geometry.intersection(raw.buffer(settings.slab_close_gap_m/2))
+                       .difference(raw).union(addition).union(corner_addition))
+            coverage=coverage_evidence(exported,raw,justified)
             evidence = {"method": "separate_face_occupancy_union", "zone_index": index,
+                        "profile_repair": profile_repair, **coverage,
+                        "wall_corner_completion":corner_report,
+                        "wall_corner_inferred_area_m2":float(exterior.intersection(corner_addition).area),
                         "lower_surface_m": lower.elevation, "upper_surface_m": upper.elevation,
                         "paired_faces": zone["paired"], "raster_cell_m": settings.slab_raster_cell_m,
                         "maximum_closed_gap_m": settings.slab_close_gap_m,
@@ -383,6 +417,7 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
                               "NOTDEFINED" if index == len(zones)-1 else "FLOOR",
                               {"thickness": "measured" if zone["paired"] else "inferred",
                                "footprint": "inferred", "material": "unknown"},
+                              review_state='flagged' if coverage['coverage_review_required'] else 'unreviewed',
                               confidence=zone["confidence"], evidence=evidence))
             for hole_index, hole in enumerate(retained_holes, 1):
                 # Independent face holes, not perimeter support alone, validate a cut.

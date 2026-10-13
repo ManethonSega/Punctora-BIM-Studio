@@ -49,6 +49,8 @@ class Wall:
     observed_faces: list[dict] = field(default_factory=list)
     evidence: dict = field(default_factory=dict)
     detection_method: str = "contour"
+    profile_xz: list = field(default_factory=list)
+    preview_geometry: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -281,6 +283,11 @@ class BuildingModel:
                 positive(dist(obj.start, obj.end), "Wall length")
                 positive(obj.thickness, "Wall thickness")
                 positive(obj.height, "Wall height")
+                if obj.profile_xz:
+                    polygon_check(obj.profile_xz)
+                    if any(x < -1e-8 or x > dist(obj.start,obj.end)+1e-8 or z < -1e-8
+                           or z > obj.height+1e-8 for x,z in obj.profile_xz):
+                        raise ValueError("Wall profile exceeds its host envelope")
                 if not isinstance(obj.evidence_count, int) or obj.evidence_count < 0:
                     raise ValueError("Wall evidence count must be nonnegative")
                 if obj.fit_rmse_m is not None and (not isfinite(obj.fit_rmse_m) or obj.fit_rmse_m < 0):
@@ -311,7 +318,14 @@ class BuildingModel:
             if not isfinite(opening.offset) or not isfinite(opening.sill) or opening.offset < 0 or opening.sill < 0:
                 raise ValueError("Opening offset and sill must be finite and nonnegative")
             if opening.offset + opening.width > dist(host.start, host.end) + 1e-8 or opening.sill + opening.height > host.height + 1e-8:
-                raise ValueError("Opening exceeds its host wall")
+                raise ValueError(f"Opening exceeds its host wall: {opening.id} on {host.id} "
+                    f"(horizontal end {opening.offset+opening.width:.9g} m / host {dist(host.start,host.end):.9g} m; "
+                    f"vertical end {opening.sill+opening.height:.9g} m / host {host.height:.9g} m)")
+            if host.profile_xz:
+                from shapely.geometry import Polygon,box
+                if not Polygon(host.profile_xz).buffer(1e-8).covers(box(opening.offset,opening.sill,
+                        opening.offset+opening.width,opening.sill+opening.height)):
+                    raise ValueError(f"Opening exceeds its host wall profile: {opening.id} on {host.id}")
         for stair in self.stairs:
             if stair.storey_id not in storeys or not isfinite(stair.base):
                 raise ValueError("Stair requires a known storey and finite base")
@@ -382,6 +396,11 @@ class BuildingModel:
         from shapely import constrained_delaunay_triangles
         from shapely.geometry import Polygon
         from shapely.ops import unary_union
+        from .wall_profiles import preview_wall_mesh
+        for wall,source in zip(result['walls'],self.walls):
+            if source.profile_xz:
+                wall['preview_geometry']=preview_wall_mesh(source,
+                    [o for o in self.openings if o.host_wall_id==source.id and o.review_state!='rejected'])
         def preview_mesh(shape, scope):
             pieces = [] if shape.is_empty else ([shape] if isinstance(shape, Polygon) else list(shape.geoms))
             # Desktop-only contours. Keep the exact mesh and model footprint

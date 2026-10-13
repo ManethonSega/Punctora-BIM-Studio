@@ -21,6 +21,8 @@ from .ifc_export import write_ifc
 from .model import BuildingModel, Landing, Opening, SlabOpening, Stair, slab_opening_is_validated
 from .convergence import compare_budgets
 from .reconstruction import ReconstructionSettings, reconstruct
+from .level_bounds import validate_detection_options
+from dataclasses import replace
 from .wall_editing import merge_walls, split_wall
 
 # The preview is a display-only sample. 500k points remains small compared with
@@ -218,10 +220,11 @@ def load_project(path):
     if state.get("schema_version") != 1 or state.get("assets_directory") != assets_for(path).name:
         raise ValueError("Unsupported project schema or data folder")
     state["crop"] = validate_crop(state.get("crop"))
+    state['reconstruction_options']=validate_detection_options(state.get('reconstruction_options'))
     state["model_crop"] = validate_crop(state.get("model_crop"))
     if not isinstance(state.get("model_crop_stale", False), bool):
         raise ValueError("Invalid crop/model state")
-    state["model_crop_stale"] = state.get("model") is not None and state["crop"] != state["model_crop"]
+    state["model_crop_stale"] = model_input_stale(state)
     uuid.UUID(hex=state["project_id"])
     uuid.UUID(hex=state["revision"])
     root = assets_for(path)
@@ -423,6 +426,10 @@ def reconstruct_project(path, request, progress=lambda *_: None):
     with project_lock(path):
         state = load_project(path)
         check_revision(state, request["expected_revision"])
+        mode=request.get('model_action','replace')
+        if mode not in {'replace','add'}:raise ValueError('Model action must be replace or add')
+        previous_model=BuildingModel.from_dict(state['model']) if mode=='add' and state.get('model') else None
+        previous_generations=list(state['generations'])
         if not request.get("confirm_z_up"):
             raise ValueError("Confirm that the scan uses Z as the upward direction before reconstruction")
         token = request["job_id"]
@@ -436,6 +443,8 @@ def reconstruct_project(path, request, progress=lambda *_: None):
             source_cloud = load_cloud(path, state)
             cloud = source_cloud
             settings = ReconstructionSettings(**request.get("settings", {}))
+            options=validate_detection_options(request.get('reconstruction_options',state.get('reconstruction_options')))
+            settings=replace(settings,reconstruction_scope=options['scope'])
             crop_directory = stage / "crop-working"
             try:
                 if crop_active(state["crop"]):
@@ -447,12 +456,14 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                                    "selected_points": len(source_cloud.points), "crop": state["crop"]}
                 progress(20, "Finding surfaces and fitting elements")
                 if request.get("compare_budgets"):
+                    if options['manual_levels']:
+                        raise ValueError('Budget comparison requires automatic levels; disable it for manual bounds')
                     model, budget_report = compare_budgets(
                         cloud,settings,progress=progress,diagnostics=save_performance,scratch_directory=stage)
                     atomic_json(assets_for(path) / "budget-comparison.json", budget_report)
                     model.metadata["budget_comparison"] = budget_report
                 else:
-                    model = reconstruct(cloud, settings, name=state["name"],
+                    model = reconstruct(cloud, settings,manual_levels=options['manual_levels'],name=state["name"],
                                         progress=progress, diagnostics=save_performance,scratch_directory=stage,
                                         diagnostic_context={"job_id": token, "command": "reconstruct",
                                                             "project_name": state["name"],
@@ -460,6 +471,8 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                                                             "e57_read_decompression": {"seconds": 0.0,
                                                                 "scope": "not repeated; memory-mapped import cache"}})
                 model.metadata["project_id"] = state["project_id"]
+                state['reconstruction_options']=options
+                model.metadata['reconstruction_options']=options
                 model.metadata["crop"] = crop_report
                 if crop_report["active"]:
                     model.warnings.append(
@@ -486,10 +499,19 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                         record["path"] = f"generations/{token}/{record['path']}"
                 model.warnings = [w for w in model.warnings if "No desktop review" not in w]
                 model.warnings.append("Whole-cloud deviation reporting remains pending; review observed and inferred geometry separately.")
+                if previous_model is not None:
+                    from .model_merge import merge_models
+                    current=model
+                    model,merge_report=merge_models(previous_model,current,namespace='run-'+token[:8])
+                    model._spatial_index=getattr(current,'_spatial_index',None)
+                    model.metadata['reconstruction_options']=options
+                    model.metadata['crop']=crop_report
+                    model.metadata['performance']=current.metadata.get('performance',{})
                 state["model"] = model.to_dict()
                 state["model_crop"] = deepcopy(state["crop"])
                 state["model_crop_stale"] = False
-                state["generations"] = list(dict.fromkeys([state["cloud"]["generation"], token]))
+                state["generations"] = list(dict.fromkeys([
+                    *(previous_generations if previous_model is not None else [state['cloud']['generation']]),token]))
                 state["coordinate_confirmation"]["z_up"] = True
                 state["revision"] = uuid.uuid4().hex
                 state["processing_backend"] = model.metadata.get("performance", {}).get(
@@ -507,6 +529,54 @@ def reconstruct_project(path, request, progress=lambda *_: None):
             return state
 
 
+def add_project_model(path,request,progress=lambda *_:None):
+    """Atomically add another saved model and copy its complete reference arrays."""
+    from contextlib import ExitStack
+    from .model_merge import merge_models
+    source_path=project_path(request['source_project'])
+    target_path=project_path(path)
+    with ExitStack() as stack:
+        for item in sorted({source_path,target_path}):stack.enter_context(project_lock(item))
+        state=load_project(target_path);check_revision(state,request['expected_revision'])
+        incoming_state=load_project(source_path)
+        if not state.get('model') or not incoming_state.get('model'):
+            raise ValueError('Both projects need a saved detected model before adding')
+        if incoming_state['model_crop_stale']:
+            raise ValueError('Source model is stale; redetect or restore its saved detection bounds before adding')
+        if state['model_crop_stale']:
+            raise ValueError('Restore or redetect the target bounds before adding another project')
+        token=request['job_id']
+        with generation_stage(target_path,state['project_id'],token) as stage:
+            data=deepcopy(incoming_state['model']);copies={}
+            def copy_records(value):
+                if isinstance(value,dict):
+                    relative=value.get('path')
+                    if isinstance(relative,str) and relative.startswith('generations/') and relative.endswith('.npy'):
+                        if relative not in copies:
+                            name=f'imported-evidence/records-{len(copies)+1}.npy'
+                            source=safe_path(assets_for(source_path),relative)
+                            destination=safe_path(stage,name);destination.parent.mkdir(parents=True,exist_ok=True)
+                            shutil.copyfile(source,destination)
+                            copies[relative]=f'generations/{token}/{name}'
+                        value['path']=copies[relative]
+                    for child in value.values():copy_records(child)
+                elif isinstance(value,list):
+                    for child in value:copy_records(child)
+            progress(20,'Preserving source evidence');copy_records(data)
+            existing=BuildingModel.from_dict(state['model']);incoming=BuildingModel.from_dict(data)
+            progress(60,'Aligning and reconciling model results')
+            combined,report=merge_models(existing,incoming,namespace='project-'+token[:8],
+                alignment_matrix=request.get('alignment_matrix'),
+                confirm_shared_frame=request.get('confirm_shared_source_frame') is True)
+            combined.metadata['project_id']=state['project_id']
+            combined.metadata['reconstruction_options']=state['reconstruction_options']
+            report['evidence_files_copied']=len(copies)
+            state['model']=combined.to_dict();state['revision']=uuid.uuid4().hex
+            state['generations']=list(dict.fromkeys([*state['generations'],token]))
+            publish_generation(target_path,token,stage);atomic_json(target_path,state)
+            progress(100,'Combined model ready for review');return state
+
+
 def draft_model(state, data):
     model = BuildingModel.from_dict(deepcopy(data))
     if model.metadata.get("project_id") != state["project_id"]:
@@ -516,10 +586,18 @@ def draft_model(state, data):
 
 def apply_draft_context(state, request):
     result = deepcopy(state)
+    result['reconstruction_options']=validate_detection_options(request.get('reconstruction_options',result.get('reconstruction_options')))
     result["crop"] = validate_crop(request.get("crop", result["crop"]))
     result["model_crop"] = validate_crop(request.get("model_crop", result["model_crop"]))
-    result["model_crop_stale"] = result.get("model") is not None and result["crop"] != result["model_crop"]
+    result["model_crop_stale"] = model_input_stale(result)
     return result
+
+
+def model_input_stale(state):
+    model=state.get('model')
+    return bool(model is not None and (state['crop']!=state['model_crop'] or
+        validate_detection_options(state.get('reconstruction_options'))!=
+        validate_detection_options(model.get('metadata',{}).get('reconstruction_options'))))
 
 
 def edit_model(state, data, element_id, changes):
@@ -553,6 +631,8 @@ def edit_model(state, data, element_id, changes):
             element.provenance[field] = "user_supplied"
     if element in model.openings and element.evidence.get('facade_system') and set(changes)-{"review_state"}:
         element.evidence["facade_geometry_stale"] = True
+    if element in model.walls and set(changes)&{'start','end','base','height'}:
+        element.profile_xz=[]
     if element in model.slab_openings:
         if set(changes)-{"review_state", "ifc_cut_approved"}:
             element.ifc_cut_approved = False
@@ -786,12 +866,13 @@ def save_project(path, request):
         if not isinstance(name, str) or not name.strip():
             raise ValueError("Project name cannot be empty")
         state["name"] = name
+        state['reconstruction_options']=validate_detection_options(request.get('reconstruction_options',state.get('reconstruction_options')))
         if model is not None:
             model.name = name
             state["model"] = model.to_dict()
         state["crop"] = validate_crop(request.get("crop", state["crop"]))
         state["model_crop"] = validate_crop(request.get("model_crop", state["model_crop"]))
-        state["model_crop_stale"] = state.get("model") is not None and state["crop"] != state["model_crop"]
+        state["model_crop_stale"] = model_input_stale(state)
         state["revision"] = uuid.uuid4().hex
         atomic_json(path, state)
         return state
@@ -804,13 +885,14 @@ def save_copy(path, destination, request):
     with project_lock(path), project_lock(destination):
         state = load_project(path)
         check_revision(state, request["expected_revision"])
+        state['reconstruction_options']=validate_detection_options(request.get('reconstruction_options',state.get('reconstruction_options')))
         if destination.exists():
             raise ValueError("Choose a new filename for the project copy")
         if request.get("model"):
             state["model"] = draft_model(state, request["model"]).to_dict()
         state["crop"] = validate_crop(request.get("crop", state["crop"]))
         state["model_crop"] = validate_crop(request.get("model_crop", state["model_crop"]))
-        state["model_crop_stale"] = state.get("model") is not None and state["crop"] != state["model_crop"]
+        state["model_crop_stale"] = model_input_stale(state)
         root = ensure_assets(destination, state["project_id"])
         try:
             for token in state["generations"]:
@@ -835,7 +917,7 @@ def export_project(path, request, progress=lambda *_: None):
         requested_crop = validate_crop(request.get("crop", state["crop"]))
         requested_model_crop = validate_crop(request.get("model_crop", state["model_crop"]))
         if state["model_crop_stale"] or requested_crop != requested_model_crop:
-            raise ValueError("The saved crop changed after detection; run Detect elements again before IFC conversion")
+            raise ValueError("The crop or level settings changed after detection; run Detect elements again before IFC conversion")
         model = draft_model(state, request.get("model") or state["model"])
         rejected = {w.id for w in model.walls if w.review_state == "rejected"}
         rejected_slabs = {s.id for s in model.slabs if s.review_state == "rejected"}

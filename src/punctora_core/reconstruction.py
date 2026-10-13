@@ -34,6 +34,7 @@ from threadpoolctl import threadpool_limits
 
 @dataclass(frozen=True)
 class ReconstructionSettings:
+    reconstruction_scope: str = 'auto'
     grid_size_m: float = 0.02
     contour_tolerance_m: float = 0.04
     minimum_wall_length_m: float = 0.5
@@ -97,7 +98,7 @@ class ReconstructionSettings:
 
     def validate(self):
         for name, value in asdict(self).items():
-            if name in {"surface_method", "region_adaptive", "detect_openings_enabled", "detect_stairs_enabled", "consolidate_walls_enabled", "cpu_workers", "compute_backend"}:
+            if name in {"reconstruction_scope","surface_method", "region_adaptive", "detect_openings_enabled", "detect_stairs_enabled", "consolidate_walls_enabled", "cpu_workers", "compute_backend"}:
                 continue
             if name == "maximum_working_memory_gb" and value == 0:
                 continue
@@ -105,6 +106,8 @@ class ReconstructionSettings:
                 raise ValueError(f"{name} must be finite and positive")
         if self.surface_method not in {"contour", "region_growing"}:
             raise ValueError("surface_method must be contour or region_growing")
+        if self.reconstruction_scope not in {'auto','interior','exterior'}:
+            raise ValueError('reconstruction_scope must be auto, interior or exterior')
         if self.compute_backend not in {"auto", "cpu", "cuda", "opencl"}:
             raise ValueError("compute_backend must be auto, cpu, cuda or opencl")
         if not isinstance(self.gpu_memory_mb, int) or isinstance(self.gpu_memory_mb, bool) or self.gpu_memory_mb < 32:
@@ -317,7 +320,10 @@ def streaming_level_sample(points, settings):
             retained_hashes[level], retained_points[level], retained_indices[level] = hashes, candidate, ids
     available = [index for index, values in enumerate(retained_points) if len(values) >= 20]
     if len(available) < 2:
-        raise ValueError("No spatially supported floor/ceiling candidates found; add or adjust explicit storey bounds")
+        from .level_bounds import LevelDetectionError
+        raise LevelDetectionError("No spatially supported floor/ceiling candidates; use manual bounds or Exterior mode",
+                                  {'candidate_level_bins':[int(v) for v in absolute_peaks],
+                                   'source_points_scanned':source_count,'points_processed':2*source_count})
     sample_points = np.concatenate([retained_points[index] for index in available])
     sample_indices = np.concatenate([retained_indices[index] for index in available])
     return DetectionSample(sample_points, sample_indices, footprint_cell, source_count, 2), {
@@ -549,7 +555,8 @@ def _snap_walls(walls, settings):
         walls, corner_tolerance_m=settings.corner_snap_tolerance_m,
         t_tolerance_m=settings.t_junction_snap_tolerance_m,
         t_minimum_angle_deg=settings.t_junction_minimum_angle_deg,
-        support_validator=observed_junction_support)
+        support_validator=observed_junction_support,
+        minimum_wall_length_m=settings.minimum_wall_length_m)
     retained = []
     dropped = []
     for wall in walls:
@@ -642,6 +649,7 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
     from .features import detect_openings, detect_stairs
     workers = resolved_cpu_workers(settings.cpu_workers)
     warnings = []
+    opening_boundary_reports = []
     with profiler.stage("wall_proposals", storey_id=level.id, point_budget=settings.maximum_detection_points) as record:
         if settings.surface_method == "region_growing":
             walls, patches, statistics = _region_walls(cloud, level, settings, backend)
@@ -655,7 +663,10 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
                                   workers, backend)
             walls = detect_walls(sample.points, level, settings, workers)
             proposals = []
+            import hashlib
             statistics = {"sample_points": len(sample.points), "source_point_count": sample.source_point_count,
+                          'sample_record_selector_sha256':hashlib.sha256(
+                              sample.cloud_indices.astype('<i8',copy=False).tobytes()).hexdigest(),
                           "voxel_size_m": sample.voxel_size_m,
                           "full_cloud_passes": sample.full_cloud_passes,
                           "points_processed": sample.source_point_count*sample.full_cloud_passes}
@@ -686,6 +697,17 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
                         radius=settings.region_plane_tolerance_m if settings.surface_method == "region_growing" else settings.grid_size_m/2,
                         workers=workers, spatial_index=spatial_index,stage=fitting_stage)
         topology = _snap_walls(walls, settings)
+        if settings.reconstruction_scope=='exterior':
+            for wall in walls:
+                faces=[f for f in wall.observed_faces if f.get('original_inlier_fit_points',0)>=20
+                       and 'observed_z_min_m' in f]
+                if faces:
+                    low=min(f['observed_z_min_m'] for f in faces)
+                    high=max(f['observed_z_max_m'] for f in faces)
+                    if high-low>.1:
+                        wall.base,wall.height=low,high-low
+                        wall.provenance.update(base='measured',height='measured')
+                        wall.evidence['vertical_extent_scope']='observed return envelope; occluded structural endpoints are not established'
         counts = topology["connectivity"]["counts"]
         if topology["dropped_wall_ids"]:
             warnings.append(f"{level.id}: discarded {len(topology['dropped_wall_ids'])} wall candidate(s) collapsed by junction snapping")
@@ -703,7 +725,8 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
                       corner_clusters=len(topology["corner_clusters"]),
                       t_junctions=len(topology["t_junctions"]))
     with profiler.stage("space_topology", storey_id=level.id) as record:
-        spaces = spaces_for_storey(level, walls, settings.minimum_space_area_m2, warnings)
+        spaces = (spaces_for_storey(level, walls, settings.minimum_space_area_m2, warnings)
+                  if settings.reconstruction_scope!='exterior' else [])
         record.update(sample_points=len(walls), detected_elements={"spaces": len(spaces)},
                       warnings=list(warnings))
     with profiler.stage("openings", storey_id=level.id, source_points=len(cloud.points)) as record:
@@ -737,12 +760,13 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
                               if opening.host_wall_id not in replaced_ids]
                 carried = rehost_reconciled_openings(
                     openings, walls, reconciled, replaced_ids,
-                    angle_deg=settings.wall_merge_angle_deg)
+                    angle_deg=settings.wall_merge_angle_deg, diagnostics=opening_boundary_reports)
                 walls = reconciled
                 openings = merge_reconciled_openings(unaffected, carried, refreshed, walls)
                 from .glazed_facades import refresh_repeated_window_groups
                 refresh_repeated_window_groups(walls, openings)
-                spaces = spaces_for_storey(level, walls, settings.minimum_space_area_m2, warnings)
+                spaces = (spaces_for_storey(level, walls, settings.minimum_space_area_m2, warnings)
+                          if settings.reconstruction_scope!='exterior' else [])
                 record.update(spatial_index.report(reconcile_stage),
                               reconciliation=reconciliation,
                               affected_wall_count=len(affected),
@@ -750,6 +774,58 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
                                                  "spaces": len(spaces)})
             warnings.append(
                 f"{level.id}: reconciled {len(reconciliation)} parallel wall-face span(s) using matching opening evidence")
+    from .wall_editing import (reconcile_observed_wall_overlaps,
+                               rehost_reconciled_openings, merge_reconciled_openings)
+    final_walls, affected, replaced_ids, overlap_report = reconcile_observed_wall_overlaps(
+        walls, minimum_length_m=settings.minimum_wall_length_m)
+    if overlap_report:
+        with profiler.stage('wall_overlap_reconciliation',storey_id=level.id,
+                            source_points=len(cloud.points)) as record:
+            stage=f'wall_overlap_{level.id}'
+            spatial_index.observe(stage,record)
+            attach_evidence(source_cloud,affected,settings.processing_chunk_points,
+                endpoint_margin=max(.08,3*settings.grid_size_m),radius=settings.grid_size_m/2,
+                workers=workers,spatial_index=spatial_index,stage=stage)
+            refreshed=(detect_openings(source_cloud,affected,settings,workers,spatial_index,stage)
+                       if settings.detect_openings_enabled else [])
+            carried=rehost_reconciled_openings(openings,walls,final_walls,replaced_ids,
+                                               diagnostics=opening_boundary_reports)
+            # A changed retained host also needs its pre-refit opening evidence.
+            changed_ids={w.id for w in affected}
+            carried.extend(rehost_reconciled_openings(openings,walls,final_walls,changed_ids,
+                                                       diagnostics=opening_boundary_reports))
+            unaffected=[o for o in openings if o.host_wall_id not in replaced_ids|changed_ids]
+            walls=final_walls
+            openings=merge_reconciled_openings(unaffected,carried,refreshed,walls)
+            from .glazed_facades import refresh_repeated_window_groups
+            refresh_repeated_window_groups(walls,openings)
+            spaces=(spaces_for_storey(level,walls,settings.minimum_space_area_m2,warnings)
+                    if settings.reconstruction_scope!='exterior' else [])
+            record.update(spatial_index.report(stage),reconciliation=overlap_report,
+                          detected_elements={'walls':len(walls),'openings':len(openings)})
+        consolidation['observed_overlap_reconciliation']=overlap_report
+    from .opening_bounds import validate_generated_openings, invalidate_changed_facade_groups
+    if settings.reconstruction_scope=='exterior':
+        from .wall_profiles import fit_exterior_profiles
+        consolidation['exterior_wall_profiles']=fit_exterior_profiles(walls,openings)
+        uncertain=sum(r['status']=='review_required' for r in consolidation['exterior_wall_profiles'])
+        if uncertain:warnings.append(f'{level.id}: {uncertain} wall outline(s) lack sufficient distributed extent support; review required.')
+    with profiler.stage('opening_host_validation',storey_id=level.id) as record:
+        openings, final_reports = validate_generated_openings(openings, walls)
+        opening_boundary_reports.extend(final_reports)
+        if final_reports:
+            from .glazed_facades import refresh_repeated_window_groups
+            # Changed membership invalidates cached curtain-wall group extents.
+            invalidate_changed_facade_groups(openings,final_reports)
+            refresh_repeated_window_groups(walls,openings)
+        review_count=sum(r['action']=='review_only' for r in opening_boundary_reports)
+        consolidation['opening_boundary_validation']=opening_boundary_reports
+        record.update(opening_boundary_validation=opening_boundary_reports,
+                      review_candidate_count=review_count,
+                      detected_elements={'openings':len(openings)})
+        if review_count:
+            warnings.append(f'{level.id}: {review_count} opening proposal(s) retained for review '
+                'because no final host contains their full bounds; other geometry is available.')
     # Stairs cross clear-height and storey boundaries. Detect once globally
     # after slab zones, never independently inside each storey worker.
     stairs, landings = [], []
@@ -759,7 +835,7 @@ def _reconstruct_storey(cloud, level, settings, backend, profiler, spatial_index
 def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None,
                 storeys: list[Storey] | None = None, name: str = "Punctora reconstruction",
                 progress=lambda *_: None, diagnostics=None, diagnostic_context=None,
-                scratch_directory=None) -> BuildingModel:
+                scratch_directory=None,manual_levels=None) -> BuildingModel:
     """Run adaptive multicore reconstruction with optional bounded GPU arithmetic."""
     started = time.perf_counter()
     settings = settings or ReconstructionSettings()
@@ -769,33 +845,58 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
     spatial_index = None
     try:
         with threadpool_limits(limits=1, user_api="blas"):
-            initial_plan = ResourcePlan.create(settings, len(cloud.points))
+            initial_plan = ResourcePlan.create(settings, len(cloud.points),source_cloud=cloud)
             workers = initial_plan.workers
             level_sample = None
             level_statistics = None
             slab_zones, slab_surfaces, slab_report = None, None, None
-            if storeys is None:
+            manual_report=None
+            effective_scope=settings.reconstruction_scope
+            from .level_bounds import LevelDetectionError,source_search_bounds
+            if manual_levels:
+                from .level_bounds import validate_detection_options
+                entries=validate_detection_options({'manual_levels':manual_levels})['manual_levels']
+                with profiler.stage('level_detection',source_points=len(cloud.points)) as record:
+                    levels,manual_report=source_search_bounds(cloud,settings,entries)
+                    record.update(points_processed=manual_report['points_processed'],point_cloud_passes=1,
+                                  method='user_supplied_level_bounds',manual_level_bounds=manual_report)
+                effective_scope='interior' if effective_scope=='auto' else effective_scope
+            elif storeys is None:
                 with profiler.stage("level_detection", source_points=len(cloud.points)) as record:
-                    level_sample, level_statistics = streaming_level_sample(cloud.points, settings)
-                    if cloud.working_index is not None:
-                        level_sample.cloud_indices = cloud.working_index[level_sample.cloud_indices]
-                    from .slab_zones import detect_slab_zones
-                    levels, slab_zones, slab_surfaces, slab_report = detect_slab_zones(level_sample, settings)
-                    record.update(sample_points=len(level_sample.points),
-                                  point_cloud_passes=level_statistics["full_cloud_passes"],
-                                  points_processed=level_statistics["points_processed"],
-                                  detected_elements={"storeys": len(levels)},
-                                  method=level_statistics["method"])
+                    try:
+                        if effective_scope=='exterior':raise LevelDetectionError('Explicit exterior scope')
+                        level_sample, level_statistics = streaming_level_sample(cloud.points, settings)
+                        record.update(sample_points=len(level_sample.points),
+                                      points_processed=level_statistics['points_processed'],
+                                      point_cloud_passes=level_statistics['full_cloud_passes'])
+                        if cloud.working_index is not None:
+                            level_sample.cloud_indices = cloud.working_index[level_sample.cloud_indices]
+                        from .slab_zones import detect_slab_zones
+                        levels, slab_zones, slab_surfaces, slab_report = detect_slab_zones(level_sample, settings)
+                        effective_scope='interior'
+                        record.update(detected_elements={'storeys':len(levels)},method=level_statistics['method'])
+                    except LevelDetectionError as error:
+                        record.update(level_detection_failure={'message':str(error),**error.diagnostics})
+                        if effective_scope=='interior':raise
+                        levels,bounds_report=source_search_bounds(cloud,settings)
+                        record.update(points_processed=record.get('points_processed',error.diagnostics.get('points_processed',0))+bounds_report['points_processed'],
+                                      point_cloud_passes=record.get('point_cloud_passes',0)+1,
+                                      exterior_search_bounds=bounds_report,detected_elements={'storeys':len(levels)})
+                        slab_report={'status':'no_supported_slab_sequence','failure':error.diagnostics,
+                                     'message':str(error),'scope':'exterior search bounds, not detected floors'}
+                        effective_scope='exterior'
             else:
                 levels = storeys
+                effective_scope='interior' if effective_scope=='auto' else effective_scope
             model = BuildingModel(name, list(levels))
             model.validate()
             sorted_levels = sorted(levels, key=lambda s: s.elevation)
             if any(a.ceiling > b.elevation + 1e-8 for a, b in zip(sorted_levels, sorted_levels[1:])):
                 raise ValueError("Storey clear-height intervals overlap")
-            plan = ResourcePlan.create(settings, len(cloud.points), len(sorted_levels))
+            plan = ResourcePlan.create(settings, len(cloud.points), len(sorted_levels),source_cloud=cloud)
             profiler.set_resource_plan(plan.report())
             local_settings = replace(settings, cpu_workers=plan.workers_per_storey,
+                                     reconstruction_scope=effective_scope,
                                      maximum_working_memory_gb=plan.memory_bytes/1024**3,
                                      maximum_detection_points=plan.point_limit,
                                      region_minimum_points=min(settings.region_minimum_points, plan.point_limit),
@@ -856,7 +957,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                         model.warnings.append(
                             f"{level.id}: unresolved {gap:.3g} m vertical zone above {sorted_levels[index-1].id}; "
                             "the upper floor slab keeps its assumed thickness instead of filling the gap")
-                if slab_zones is None:
+                if slab_zones is None and effective_scope!='exterior':
                     model.slabs.append(Slab(f"{level.id}-floor", level.id, level.footprint, base, thickness,
                                             "FLOOR", {"thickness": state, "footprint": "inferred", "material": "unknown"}))
             if not sorted_levels:
@@ -864,17 +965,24 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
             last = sorted_levels[-1]
             if level_sample is not None and level_sample.voxel_size_m > settings.detection_voxel_size_m:
                 model.warnings.append(f"Level detection voxels enlarged to {level_sample.voxel_size_m:.6g} m; horizontal levels and footprints need review")
-            if slab_zones is None:
+            if slab_zones is None and effective_scope!='exterior':
                 model.slabs.append(Slab("top-slab", last.id, last.footprint,
                                         last.ceiling, settings.assumed_slab_thickness_m, "NOTDEFINED",
                                         {"thickness": "inferred", "footprint": "inferred", "material": "unknown"}))
-            else:
+            elif slab_zones is not None:
                 from .slab_zones import slab_zone_geometry
                 model.slabs, model.slab_openings = slab_zone_geometry(
                     slab_zones, slab_surfaces, sorted_levels, settings, model.walls)
+                for slab in model.slabs:
+                    if slab.evidence.get('coverage_review_required'):
+                        model.warnings.append(f"{slab.id}: {slab.evidence['unsupported_percent']:.2f}% "
+                            "of horizontal coverage lacks direct or bounded-completion support; review required")
             from .features import detect_stairs, derive_stair_slab_openings
             from .stair_voids import reconcile_stair_voids
             with profiler.stage("global_stairs", source_points=len(cloud.points)) as record:
+                spatial_index.release_query_cache()
+                from .sampling import release_mapped_source_pages
+                release_mapped_source_pages(cloud)
                 stair_statistics = []
                 floor_surfaces = []
                 if slab_zones is not None:
@@ -920,7 +1028,14 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                         flight.evidence[f"{label}_slab_zone_index"] = (nearest.evidence.get("zone_index")
                             if distance is not None and distance <= .3 else None)
                         flight.evidence[f"{label}_slab_association_distance_m"] = distance
-                record.update(sampling=stair_statistics,
+                from .stair_connections import verify_stair_connections
+                connection_report=verify_stair_connections(model.stairs,model.slabs,
+                                                           model.landings,floor_surfaces)
+                for item in connection_report:
+                    if item['connection_status']!='connected':
+                        model.warnings.append(f"{item['stair_id']}: endpoint connection is "
+                            f"{item['connection_status']}; local clearance does not establish a complete stair connection")
+                record.update(sampling=stair_statistics,endpoint_verification=connection_report,
                     point_cloud_passes=sum(x.get("full_cloud_passes", 0) for x in stair_statistics),
                     points_processed=sum(x.get("source_point_count", 0)*x.get("full_cloud_passes", 0)
                                          for x in stair_statistics),
@@ -951,17 +1066,26 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                 "Stair systems contain measured straight-flight and landing candidates; curved flights, railings and support structure are not reconstructed.",
                 "Candidate scores are geometric support indicators, not calibrated accuracy probabilities. No whole-cloud deviation report is implemented.",
             ])
+            if effective_scope=='exterior':
+                model.warnings.append('Exterior/partial scan: level bounds are search extents; no unobserved floors, ceilings or interior spaces were generated.')
             perf = profiler.report()
+            from .reproducibility import geometry_signature
             model.metadata = {"engine": settings.surface_method, "settings": asdict(settings),
+                              'reconstruction_scope':effective_scope,
+                              'manual_level_bounds':manual_report,
+                              'reproducibility':geometry_signature(model),
                               "source_points": len(cloud.points),
                               "coordinate_frame": cloud.metadata.get("coordinate_frame", "caller-supplied metres, Z up"),
                               "fit_rmse_scope": "original points selected near observed wall faces, not whole-cloud deviation",
                               "detection": detection, "surface_proposals": proposals,
                               "wall_consolidation": consolidation,
+                              'opening_boundary_validation':[report for item in consolidation
+                                  for report in item.get('opening_boundary_validation',[])],
                               "wall_topology": wall_topology,
                               "inter_storey_gaps": inter_storey_gaps,
                               "slab_opening_detection": slab_opening_diagnostics,
                               "stairwell_verification": void_report,
+                              'stair_connection_verification':connection_report,
                               "slab_zones": slab_report,
                               "level_detection": None if level_sample is None else {
                                   "sample_points": len(level_sample.points), "voxel_size_m": level_sample.voxel_size_m,

@@ -58,11 +58,14 @@ jobs:
           name: m3-desktop-checks-${{ matrix.os }}
           path: |
             outputs/m3-*/ui-verification.json
+            outputs/m3-*/manual-level-verification.json
+            outputs/m3-*/additive-verification.json
             outputs/m3-*/ui-error.txt
             outputs/m3-*/desktop.png
             outputs/m3-*/height-legend.png
             outputs/m3-*/small-window.png
             outputs/m3-*/viewport-gl.png
+            outputs/m3-*/alpha-*.png
           retention-days: 7
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows'

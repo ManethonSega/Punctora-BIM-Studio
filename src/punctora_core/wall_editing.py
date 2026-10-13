@@ -1,5 +1,6 @@
 """Conservative wall consolidation and explicit topology corrections."""
 from copy import deepcopy
+from dataclasses import replace
 from math import acos, degrees, dist, radians, sin
 
 import numpy as np
@@ -225,7 +226,9 @@ def reconcile_opening_supported_faces(walls, openings, *, angle_deg=2.0,
         first_interval = sorted((float(a@direction), float(b@direction)))
         for second in walls[index+1:]:
             second_openings = openings_by_wall.get(second.id, [])
-            if not second_openings:
+            if (not second_openings or first.storey_id != second.storey_id
+                    or min(first.base+first.height,second.base+second.height)
+                    <= max(first.base,second.base)):
                 continue
             c, d, other_direction, second_length = _axis(second)
             if abs(direction@other_direction) < cosine:
@@ -246,7 +249,7 @@ def reconcile_opening_supported_faces(walls, openings, *, angle_deg=2.0,
                         continue
                     along = abs(float((other_centre-centre)@direction))
                     if (along <= .15 and abs(opening.width-other.width) <= .2
-                            and abs(opening.sill-other.sill) <= .1
+                            and abs(first.base+opening.sill-second.base-other.sill) <= .1
                             and abs(opening.height-other.height) <= .15):
                         choices.append((along, candidate_index, other))
                 if choices:
@@ -373,7 +376,7 @@ def reconcile_opening_supported_faces(walls, openings, *, angle_deg=2.0,
 def rehost_reconciled_openings(openings, source_walls, final_walls,
                                replaced_wall_ids, *, angle_deg=2.0,
                                maximum_axis_distance_m=.65,
-                               endpoint_margin_m=.1):
+                               endpoint_margin_m=.1, diagnostics=None):
     """Carry measured openings from removed faces onto the final wall axis.
 
     Re-detecting openings after face reconciliation remains authoritative, but
@@ -383,6 +386,7 @@ def rehost_reconciled_openings(openings, source_walls, final_walls,
     the final-host raster.
     """
     sources = {wall.id: wall for wall in source_walls}
+    from .opening_bounds import fit_generated_opening, proposal_record
     cosine = np.cos(np.deg2rad(angle_deg))
     carried = []
     for opening in openings:
@@ -408,17 +412,28 @@ def rehost_reconciled_openings(openings, source_walls, final_walls,
             distance = abs(float((centre-start)@normal))
             if distance > maximum_axis_distance_m:
                 continue
+            # Preserve world height and dimensions. Endpoint matching slack
+            # is not permission to put an opening outside its final solid.
+            trial = replace(opening, host_wall_id=wall.id,
+                offset=float(along-opening.width/2),
+                sill=float(source.base+opening.sill-wall.base))
+            bounded, repair = fit_generated_opening(trial, wall)
+            if bounded is None:
+                continue
             # Prefer a measured face pair, then the closest compatible axis.
             candidates.append((distance, wall.classification != "paired_faces",
-                               abs(along-length/2), wall.id, wall, along))
+                               abs(along-length/2), wall.id, wall, bounded, repair))
         if not candidates:
+            if diagnostics is not None:
+                diagnostics.append(proposal_record(opening, source,
+                    "no_final_host_contains_original_bounds"))
             continue
-        *_, wall, along = min(candidates)
-        item = deepcopy(opening)
-        original_id, original_host = item.id, item.host_wall_id
+        *_, wall, bounded, repair = min(candidates)
+        item = deepcopy(bounded)
+        original_id, original_host = opening.id, opening.host_wall_id
         item.host_wall_id = wall.id
-        item.offset = max(0., min(float(along-item.width/2),
-                                  _axis(wall)[3]-item.width))
+        if repair is not None and diagnostics is not None:
+            diagnostics.append(repair)
         item.evidence = deepcopy(item.evidence)
         item.evidence.pop("facade_system", None)
         item.evidence["reconciled_host"] = {
@@ -454,7 +469,7 @@ def merge_reconciled_openings(unaffected, carried, refreshed, walls,
         if (first_wall.storey_id != second_wall.storey_id
                 or abs(float(first_direction@second_direction)) < cosine
                 or (first.kind != second.kind and "unknown" not in {first.kind, second.kind})
-                or abs(first.sill-second.sill) > .1
+                or abs(first_wall.base+first.sill-second_wall.base-second.sill) > .1
                 or abs(first.height-second.height) > .15
                 or abs(first.width-second.width) > .2):
             return False
@@ -497,6 +512,201 @@ def clipped_face_for_interval(face, direction, low, high):
     return {**face, "start": start.tolist(), "end": end.tolist()}
 
 
+def reconcile_observed_wall_overlaps(walls, *, minimum_length_m=.5,
+                                     plane_tolerance_m=.03, angle_deg=2.):
+    """Trim duplicate solids only when their refitted original planes agree.
+
+    Unlike opening-based pairing, opaque walls can supply this evidence. Every
+    observed plane of the trimmed candidate must already be represented by the
+    retained host. Proximity of assumed solid footprints alone is insufficient.
+    """
+    from shapely.geometry import LineString
+    from shapely.ops import unary_union
+    result = {w.id: deepcopy(w) for w in walls}
+    removed, affected_ids, report = set(), set(), []
+    cosine = np.cos(np.deg2rad(angle_deg))
+
+    def supported_faces(wall):
+        return [f for f in wall.observed_faces
+                if f.get('original_inlier_fit_points', 0) >= 20
+                and f.get('original_plane_fit_rmse_m', 1.) <= .02]
+
+    def footprint(wall):
+        return LineString([wall.start, wall.end]).buffer(wall.thickness/2, cap_style=2)
+
+    def planes(faces, normal):
+        return [float(np.asarray([f['start'],f['end']]).mean(axis=0)@normal)
+                for f in faces]
+
+    def distributed_height_support(wall, faces):
+        # Judge the original observations over the whole host height. A sparse
+        # slice at an opening edge must not veto otherwise distributed support.
+        counts = np.zeros(12)
+        for face in faces:
+            bands = face.get('original_height_band_counts')
+            if bands is None:
+                bands = np.full(12, face.get('original_vertical_support_fraction', 0))
+            bands = np.asarray(bands, float)
+            if not len(bands):
+                continue
+            z = face['z_min']+(np.arange(len(bands))+.5)/len(bands)*(face['z_max']-face['z_min'])
+            positions = np.clip(((z-wall.base)/wall.height*12).astype(int), 0, 11)
+            if 'original_height_band_counts' in face:
+                np.add.at(counts, positions, bands)
+            else:
+                np.maximum.at(counts, positions, bands*100)
+        return float(np.mean(counts >= max(6, counts.sum()*.005)))
+
+    ordered = sorted(walls, key=lambda w:(w.classification!='paired_faces',
+                                          -w.evidence_count, w.id))
+    for original_host in ordered:
+        if original_host.id in removed:
+            continue
+        host = result[original_host.id]
+        a, b, direction, host_length = _axis(host)
+        normal = np.array([-direction[1], direction[0]])
+        host_faces = supported_faces(host)
+        if not host_faces:
+            continue
+        host_planes = planes(host_faces, normal)
+        if (max(host_planes)-min(host_planes)>plane_tolerance_m
+                and host.classification!='paired_faces'):
+            continue
+        for original_target in ordered:
+            if original_target.id==host.id or original_target.id in removed:
+                continue
+            target = result[original_target.id]
+            if target.id in affected_ids or target.storey_id != host.storey_id:
+                continue
+            c,d,other_direction,target_length = _axis(target)
+            if (abs(direction@other_direction)<cosine or abs(host.base-target.base)>.05
+                    or abs(host.base+host.height-target.base-target.height)>.05):
+                continue
+            target_faces = supported_faces(target)
+            if len(target_faces)!=len(target.observed_faces) or not target_faces:
+                continue
+            target_planes=planes(target_faces,normal)
+            shared=all(min(abs(value-old) for old in host_planes)<=plane_tolerance_m
+                       for value in target_planes)
+            # A measured body can also contain a return/recess plane that was
+            # erroneously extruded as another wall. Keep that observation in
+            # the evidence, but do not count the same opaque volume twice.
+            contained=(host.classification=='paired_faces'
+                and min(host_planes)-plane_tolerance_m<=min(target_planes)
+                and max(target_planes)<=max(host_planes)+plane_tolerance_m)
+            if not shared and not contained:
+                continue
+            overlap_area = footprint(host).intersection(footprint(target)).area
+            if (overlap_area<=.02 or overlap_area/min(footprint(host).area,
+                                                     footprint(target).area)<.5):
+                continue
+            if not shared and overlap_area/min(footprint(host).area,
+                                               footprint(target).area)<.8:
+                continue
+            projected=sorted((float((c-a)@direction),float((d-a)@direction)))
+            low,high=max(0.,projected[0]),min(host_length,projected[1])
+            if high-low<minimum_length_m:
+                continue
+            # Preserve every tail with meaningful source geometry. A tiny
+            # discarded tail must not contain any observed span >= the limit.
+            target_normal=np.array([-other_direction[1],other_direction[0]])
+            cut=sorted(float((a+direction*t)@other_direction) for t in (low,high))
+            first,last=sorted((float(c@other_direction),float(d@other_direction)))
+            tails=[]
+            for lo,hi in ((first,min(last,cut[0])),(max(first,cut[1]),last)):
+                if hi-lo<1e-8:
+                    continue
+                tail=deepcopy(target)
+                tail.id=f'{target.id}-overlap-tail-{len(tails)+1}'
+                plane=float(c@target_normal)
+                tail.start=tuple(other_direction*lo+target_normal*plane)
+                tail.end=tuple(other_direction*hi+target_normal*plane)
+                tail.observed_faces=[f for face in target.observed_faces
+                    if (f:=clipped_face_for_interval(face,other_direction,lo,hi)) is not None]
+                if not tail.observed_faces:
+                    continue
+                tail.evidence={**tail.evidence,'overlap_reconciliation':{
+                    'source_wall_id':target.id,'retained_host_id':host.id}}
+                tails.append(tail)
+            host.observed_faces.extend(f for face in target_faces
+                if (f:=clipped_face_for_interval(face,direction,
+                           float(a@direction)+low,float(a@direction)+high)) is not None)
+            host.evidence.setdefault('overlap_source_wall_ids',[]).append(target.id)
+            removed.add(target.id);affected_ids.add(host.id)
+            for tail in tails:
+                result[tail.id]=tail;affected_ids.add(tail.id)
+            report.append({'retained_wall_id':host.id,'trimmed_wall_id':target.id,
+                'overlap_area_m2':float(overlap_area),'source_basis':'refitted_original_planes',
+                'decision':'shared_plane' if shared else 'contained_return_plane',
+                'retained_tail_ids':[t.id for t in tails]})
+    # Opposite exterior faces may both carry assumed thicknesses.
+    # Independent original-point support allows one measured common span.
+    remaining=[w for key,w in result.items() if key not in removed]
+    for i,first in enumerate(remaining):
+        if first.id in removed or first.classification!='exterior_candidate':continue
+        af=supported_faces(first)
+        if not af or len(af)!=len(first.observed_faces) or distributed_height_support(first,af)<.55:continue
+        a,b,direction,length=_axis(first);normal=np.array([-direction[1],direction[0]])
+        av=planes(af,normal)
+        if max(av)-min(av)>plane_tolerance_m:continue
+        for second in remaining[i+1:]:
+            if second.id in removed or second.classification!='exterior_candidate':continue
+            bf=supported_faces(second)
+            if (not bf or first.storey_id!=second.storey_id or
+                    len(bf)!=len(second.observed_faces) or distributed_height_support(second,bf)<.55):continue
+            c,d,other_direction,other_length=_axis(second)
+            bv=planes(bf,normal)
+            separation=abs(float(np.median(av)-np.median(bv)))
+            if (abs(direction@other_direction)<cosine or max(bv)-min(bv)>plane_tolerance_m
+                    or not .08<=separation<=.3 or abs(first.base-second.base)>.05
+                    or abs(first.base+first.height-second.base-second.height)>.05):continue
+            area=footprint(first).intersection(footprint(second)).area
+            if area<=.02 or area/min(footprint(first).area,footprint(second).area)<.5:continue
+            values=sorted((float(c@direction),float(d@direction)))
+            low,high=max(float(a@direction),values[0]),min(float(b@direction),values[1])
+            if high-low<minimum_length_m:continue
+            plane=float(np.median(av+bv))
+            clipped_groups=[[f for face in w.observed_faces
+                if (f:=clipped_face_for_interval(face,direction,low,high)) is not None]
+                for w in (first,second)]
+            if not all(clipped_groups):continue
+            # The fitter's first two faces must be the two opposite planes,
+            # rather than adjacent height slices of the same plane.
+            paired_faces=[group[0] for group in clipped_groups]
+            paired_faces.extend(f for group in clipped_groups for f in group[1:])
+            pair=Wall(first.id+'-observed-pair',first.storey_id,
+                tuple(direction*low+normal*plane),tuple(direction*high+normal*plane),
+                first.base,first.height,separation,'paired_faces',
+                {**first.provenance,'axis':'measured','thickness':'measured'},
+                observed_faces=paired_faces,
+                detection_method='original_face_pair',evidence={'source_wall_ids':[first.id,second.id]})
+            result[pair.id]=pair;affected_ids.add(pair.id)
+            tails=[]
+            for wall in (first,second):
+                start,end,axis,wall_length=_axis(wall);side=np.array([-axis[1],axis[0]])
+                cuts=sorted(float((direction*t+normal*plane)@axis) for t in (low,high))
+                first_t,last_t=sorted((float(start@axis),float(end@axis)))
+                for lo,hi in ((first_t,min(last_t,cuts[0])),(max(first_t,cuts[1]),last_t)):
+                    if hi-lo<1e-6:continue
+                    tail=deepcopy(wall);tail.id=wall.id+f'-pair-tail-{len(tails)+1}'
+                    offset=float(start@side)
+                    tail.start=tuple(axis*lo+side*offset);tail.end=tuple(axis*hi+side*offset)
+                    tail.observed_faces=[f for face in wall.observed_faces
+                        if (f:=clipped_face_for_interval(face,axis,lo,hi)) is not None]
+                    if not tail.observed_faces:continue
+                    result[tail.id]=tail;affected_ids.add(tail.id);tails.append(tail)
+            removed.update([first.id,second.id])
+            report.append({'retained_wall_id':pair.id,'trimmed_wall_id':second.id,
+                'source_wall_ids':[first.id,second.id],'source_basis':'independent_distributed_original_faces',
+                'original_height_support_fractions':[distributed_height_support(first,af),
+                                                     distributed_height_support(second,bf)],
+                'decision':'measured_opposite_face_pair','overlap_area_m2':float(area),
+                'retained_tail_ids':[t.id for t in tails]})
+            break
+    final=[w for identifier,w in result.items() if identifier not in removed]
+    return final,[w for w in final if w.id in affected_ids],removed,report
+
+
 def _cross(first, second):
     return float(first[0]*second[1]-first[1]*second[0])
 
@@ -533,7 +743,8 @@ def _angle_degrees(first_start, first_end, second_start, second_end):
 
 
 def snap_wall_topology(walls, *, corner_tolerance_m=.3, t_tolerance_m=.1,
-                       t_minimum_angle_deg=25.0, support_validator=None):
+                       t_minimum_angle_deg=25.0, support_validator=None,
+                       minimum_wall_length_m=1e-6):
     """Snap corners and credible T-junctions from one immutable geometry snapshot.
 
     Corner endpoints are clustered through common axis intersections. T-junctions
@@ -673,6 +884,20 @@ def snap_wall_topology(walls, *, corner_tolerance_m=.3, t_tolerance_m=.1,
                           "distance_m": distance, "host_offset_m": along,
                           "host_length_m": host_length, "angle_deg": angle})
 
+    restored = set()
+    for wall in walls:
+        start_key, end_key = (wall.id, "start"), (wall.id, "end")
+        if (np.linalg.norm(original[end_key]-original[start_key]) >= minimum_wall_length_m
+                and np.linalg.norm(proposed[end_key]-proposed[start_key]) < minimum_wall_length_m):
+            rejected.append({"kind": "snap_would_collapse_supported_wall", "wall_id": wall.id,
+                             "original_start": original[start_key].tolist(),
+                             "original_end": original[end_key].tolist()})
+            proposed[start_key], proposed[end_key] = original[start_key], original[end_key]
+            relations.pop(start_key, None); relations.pop(end_key, None)
+            restored.add(wall.id)
+    for cluster in cluster_records:
+        cluster["restored_wall_ids"] = sorted({key[0] for key in cluster["wall_ends"]} & restored)
+    t_records = [record for record in t_records if record["wall_id"] not in restored]
     for wall in walls:
         for end in ("start", "end"):
             key = (wall.id, end)

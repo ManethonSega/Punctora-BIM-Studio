@@ -48,6 +48,15 @@ try
     if(duplicateMesh.Vertices.Length!=unique.Vertices.Length||duplicateMesh.RemovedTriangles==0||duplicateMesh.Batches.Count>=scene.Elements.Count*2)throw new Exception("Material batching retained overlapping surfaces");
     if(state.ToJsonString()!=unchanged)throw new Exception("Render preparation changed the export model");
     var checkedFaces=0;
+    foreach(var wall in model["walls"]!.AsArray().Where(n=>n!["profile_xz"]?.AsArray().Count>0))
+    {
+        var element=scene.Elements.Single(e=>e.Id==wall!["id"]!.GetValue<string>());
+        var expected=wall!["preview_geometry"]!["triangles_xyz"]!.AsArray()
+            .SelectMany(t=>t!.AsArray()).SelectMany(p=>p!.AsArray().Select(v=>(float)v!.GetValue<double>())).ToArray();
+        var actual=Enumerable.Range(0,element.Triangles.Length/7)
+            .SelectMany(i=>new[]{element.Triangles[i*7],element.Triangles[i*7+1],element.Triangles[i*7+2]}).ToArray();
+        if(!actual.SequenceEqual(expected))throw new Exception("Supported wall profile changed in native preview");
+    }
     foreach(var slabNode in model["slabs"]!.AsArray())
     {
         var slab=slabNode!.AsObject();
@@ -101,6 +110,23 @@ try
     var redundant=new Vector2[]{new(0,0),new(1,0),new(1,0),new(2,0),new(2,2),new(1,2),new(1,1),new(0,1),new(0,0)};
     var capArea=SceneData.Triangulate(redundant).Sum(t=>{var a=redundant[t[0]];var b=redundant[t[1]];var c=redundant[t[2]];return Math.Abs((b.X-a.X)*(c.Y-a.Y)-(b.Y-a.Y)*(c.X-a.X))/2;});
     if(Math.Abs(capArea-3)>1e-6)throw new Exception("Concave fallback triangulation changed polygon area");
+    // Full-width opening and offset host have different float lengths.
+    var boundaryModel=new JsonObject {
+        ["walls"]=new JsonArray(new JsonObject {
+            ["id"]="rounding-host",["storey_id"]="level",
+            ["start"]=new JsonArray(10d,10d),["end"]=new JsonArray(12.95d,10d),
+            ["base"]=0d,["height"]=3d,["thickness"]=.2d }),
+        ["slabs"]=new JsonArray(),
+        ["openings"]=new JsonArray(new JsonObject {
+            ["id"]="boundary-window",["host_wall_id"]="rounding-host",["kind"]="window",
+            ["offset"]=0d,["width"]=2.95d,["sill"]=.5d,["height"]=2d }) };
+    var boundaryState=(JsonObject)state.DeepClone();boundaryState["model"]=boundaryModel;
+    var boundaryBefore=boundaryState.ToJsonString();
+    var boundaryScene=SceneData.Load(Path.Combine(temporary,"check.punctora"),boundaryState);
+    if(boundaryScene.Elements.Count(e=>e.Id=="rounding-host")!=2)
+        throw new Exception("Opening-boundary rounding changed the supported wall pieces");
+    if(boundaryState.ToJsonString()!=boundaryBefore)
+        throw new Exception("Opening-boundary preview changed the saved model");
     Console.WriteLine($"Native preview verified: {model["slabs"]!.AsArray().Count} slabs, {checkedFaces} void-cut cap triangles, all landing and void contours");
 }
 finally

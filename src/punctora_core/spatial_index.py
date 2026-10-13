@@ -3,8 +3,9 @@ from collections import OrderedDict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import RLock
-from weakref import ref
+from weakref import ref, finalize
 import numpy as np
+from .storage import mapped_array
 
 CELL_DTYPE = np.dtype([("x", "<i8"), ("y", "<i8"), ("z", "<i8")])
 
@@ -62,8 +63,7 @@ class SpatialPointIndex:
     def _retain(self, values, name):
         if not self.spilled:
             return values
-        result = np.lib.format.open_memmap(Path(self.scratch.name)/f"{name}.npy",
-                                          mode="w+", dtype=values.dtype, shape=values.shape)
+        result = mapped_array(Path(self.scratch.name)/f"{name}.npy",values.dtype,values.shape)
         result[:] = values
         result.flush()
         return result
@@ -120,10 +120,15 @@ class SpatialPointIndex:
     def _allocate(self, shape, dtype, mapped):
         if not mapped:
             return np.empty(shape,dtype=dtype)
-        result = np.lib.format.open_memmap(Path(self.scratch.name)/f"query-{len(self.mapped_arrays)}.npy",
-                                          mode="w+",dtype=dtype,shape=shape)
+        result = mapped_array(Path(self.scratch.name)/f"query-{len(self.mapped_arrays)}.npy",dtype,shape)
         # Do not keep evicted query maps resident merely to remember cleanup.
         self.mapped_arrays.append(ref(result))
+        mapping=result._mmap
+        filename=Path(result.filename)
+        def cleanup():
+            mapping.close()
+            filename.unlink(missing_ok=True)
+        finalize(result,cleanup)
         return result
 
     @staticmethod
@@ -131,20 +136,39 @@ class SpatialPointIndex:
         return local.points.nbytes+rows.nbytes+sum(getattr(local,n).nbytes for n in
                   ("scan_index","source_record_index","working_index") if getattr(local,n) is not None)
 
-    def local_cloud(self, faces, radius_m, endpoint_margin_m, stage=None):
+    def local_cloud(self, faces, radius_m, endpoint_margin_m, stage=None, exact=False):
         from .cloud_io import CloudData
         key = (tuple((tuple(f["start"]),tuple(f["end"]),f["z_min"],f["z_max"]) for f in faces),
-               float(radius_m),float(endpoint_margin_m))
+               float(radius_m),float(endpoint_margin_m),bool(exact))
         with self.lock:
             cached = self.cache.get(key)
             if cached is not None:
                 self.cache.move_to_end(key)
                 local, rows = cached
+                visited_rows=rows
             else:
                 rows = self.rows_near_faces(faces,radius_m,endpoint_margin_m)
+                visited_rows=rows
                 if not len(rows):
                     return None, rows
                 c = self.cloud
+                materialized_visits=0
+                if exact:
+                    from .evidence import face_selection
+                    selected=[]
+                    for begin in range(0,len(rows),self.chunk_points):
+                        ids=rows[begin:begin+self.chunk_points]
+                        batch=c.points[ids]
+                        materialized_visits+=len(ids)
+                        keep=np.zeros(len(ids),dtype=bool)
+                        for face in faces:
+                            mask,_=face_selection(batch,face,radius_m,endpoint_margin_m)
+                            keep|=mask
+                        selected.append(ids[keep].copy())
+                    rows=np.concatenate(selected)
+                    if not len(rows):
+                        if stage:self._record_rows(stage,visited_rows,materialized_visits)
+                        return None,rows
                 row_bytes = 32+sum(getattr(c,n).dtype.itemsize for n in
                                   ("scan_index","source_record_index","working_index") if getattr(c,n) is not None)
                 mapped = len(rows)*row_bytes>self.query_memory_limit
@@ -165,22 +189,34 @@ class SpatialPointIndex:
                         self.cache_bytes -= self._size(*old)
                     self.cache[key] = (local,rows)
                     self.cache_bytes += size
-            if stage:
-                visited = self.visited.get(stage)
-                if visited is None:
-                    visited = np.memmap(Path(self.scratch.name)/f"visited-{len(self.visited)}.bin",mode="w+",
-                                        dtype=np.bool_,shape=(len(self.cloud.points),))
-                    self.visited[stage] = visited
-                record = self.stats.setdefault(stage,{"points_processed":0,"unique_points_visited":0})
-                for begin in range(0,len(rows),self.chunk_points):
-                    ids = rows[begin:begin+self.chunk_points]
-                    record["unique_points_visited"] += int(np.count_nonzero(~visited[ids]))
-                    visited[ids] = True
-                if cached is None:
-                    record["points_processed"] += len(rows)  # original-record materialization
-                if stage in self.observers:
-                    self.observers[stage].update(self.report(stage))
+            if stage:self._record_rows(stage,visited_rows,
+                len(rows)+materialized_visits if cached is None else 0)
             return local, rows
+
+    def _record_rows(self,stage,rows,processed):
+        visited = self.visited.get(stage)
+        if visited is None:
+            visited = mapped_array(Path(self.scratch.name)/f"visited-{len(self.visited)}.bin",
+                                   np.bool_,(len(self.cloud.points),),raw=True)
+            self.visited[stage] = visited
+        record = self.stats.setdefault(stage,{"points_processed":0,"unique_points_visited":0})
+        for begin in range(0,len(rows),self.chunk_points):
+            ids = rows[begin:begin+self.chunk_points]
+            record["unique_points_visited"] += int(np.count_nonzero(~visited[ids]))
+            visited[ids] = True
+        record['points_processed']+=processed
+        if stage in self.observers:self.observers[stage].update(self.report(stage))
+
+    def release_query_cache(self):
+        """Keep the index/selectors while dropping reusable resident query data."""
+        with self.lock:
+            self.cache.clear();self.cache_bytes=0
+            import mmap
+            for array in [a for run in self.runs for a in run]+list(self.visited.values()):
+                if isinstance(array,np.memmap):
+                    array.flush()
+                    if hasattr(array._mmap,'madvise'):
+                        array._mmap.madvise(mmap.MADV_DONTNEED)
 
     def observe(self, stage, record):
         with self.lock:

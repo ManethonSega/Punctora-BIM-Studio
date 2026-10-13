@@ -15,6 +15,8 @@ def multi_slice_walls(points, storey, settings, workers=1):
     count = max(6, min(12, int(np.ceil(height/.4))))
     edges = np.linspace(storey.elevation+.04, storey.ceiling-.04, count+1)
     records = []
+    from .planar_index import PlanarPointIndex
+    whole_index=PlanarPointIndex(points)
     tolerance = max(.025,min(settings.wall_merge_lateral_tolerance_m,settings.minimum_wall_thickness_m*.8))
     # Normal-based whole-storey patches supply stable plane proposals where
     # several windows fragment individual contours. They do not bypass the
@@ -40,8 +42,11 @@ def multi_slice_walls(points, storey, settings, workers=1):
         if len(section) < 12:
             continue
         segments = _segments(section, settings)+seeds
+        section_index=PlanarPointIndex(section)
         def fit(segment):
-            return _fit_face(segment, section, max(.025, 2*settings.grid_size_m))
+            radius=max(.025,2*settings.grid_size_m)
+            ids=section_index.near_segment(segment[0],segment[1],radius)
+            return _fit_face(segment,section[ids],radius)
         if workers > 1 and len(segments) > 1:
             with ThreadPoolExecutor(max_workers=min(workers, len(segments))) as pool:
                 fits = list(pool.map(fit, segments))
@@ -53,7 +58,8 @@ def multi_slice_walls(points, storey, settings, workers=1):
             face, amount, error = item
             if np.linalg.norm(face[1]-face[0]) >= settings.minimum_wall_length_m and error <= .035:
                 records.append(dict(face=face, slice=index, count=amount, rmse=error))
-    records.sort(key=lambda r: (-np.linalg.norm(r['face'][1]-r['face'][0]), r['slice']))
+    records.sort(key=lambda r: (-round(float(np.linalg.norm(r['face'][1]-r['face'][0])),6),
+                                r['slice'],tuple(np.round(np.asarray(r['face']).ravel(),6))))
     clusters = []
     angle = np.cos(np.deg2rad(settings.wall_merge_angle_deg))
     for record in records:
@@ -93,7 +99,10 @@ def multi_slice_walls(points, storey, settings, workers=1):
         if bins*count > settings.maximum_grid_cells:
             continue
         occupied = np.zeros((count,bins),bool)
-        nearby = points[np.abs(points[:,:2]@normal-offset) <= tolerance]
+        candidate_ids=whole_index.near_segment(axis*low+normal*offset,
+                                      axis*(low+bins*cell)+normal*offset,tolerance)
+        candidates=points[candidate_ids]
+        nearby = candidates[np.abs(candidates[:,:2]@normal-offset) <= tolerance]
         x = np.floor((nearby[:,:2]@axis-low)/cell).astype(int)
         z = np.searchsorted(edges,nearby[:,2],side='right')-1
         keep = (x>=0)&(x<bins)&(z>=0)&(z<count)

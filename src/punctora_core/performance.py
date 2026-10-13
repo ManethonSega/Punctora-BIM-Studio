@@ -59,10 +59,15 @@ class ResourcePlan:
     available_memory_fraction_limit: float
 
     @classmethod
-    def create(cls, settings, source_points, storeys=1):
+    def create(cls, settings, source_points, storeys=1, source_cloud=None):
+        mapped=False
+        if source_cloud is not None:
+            from .sampling import release_mapped_source_pages
+            mapped=release_mapped_source_pages(source_cloud)
         available = available_memory_bytes()
         baseline = _process().memory_info().rss
-        source_reserve = int(source_points)*24
+        source_reserve = (min(int(source_points),settings.processing_chunk_points)*24
+                          if mapped else int(source_points)*24)
         # Zero means automatic. The process may use at most 70% of the memory
         # that was available when planning began; the remaining 30% protects
         # the desktop, OS and other applications. A non-zero user ceiling can
@@ -152,15 +157,20 @@ class StageProfiler:
     def _snapshot_unlocked(self):
         active = [r["stage"] for r in self.records if r.get("status") == "running"]
         compute = self.backend.report()
+        visits = sum(r.get("points_processed") or 0 for r in self.records)
+        source_points = self.context.get("source_points") or max(
+            (r.get("unique_source_points", 0) or 0 for r in self.records), default=0)
         return {"schema_version": 2, **deepcopy(self.context), "status": self.status,
                 "started_at_utc": self.started_at, "updated_at_utc": self.updated_at,
                 "elapsed_seconds": time.perf_counter()-self.started,
                 "active_stages": active, "heartbeat_seconds": self.heartbeat_seconds,
                 "resource_plan": deepcopy(self.resource_plan),
                 "stages": deepcopy(self.records), "events": deepcopy(self.events),
-                "point_cloud_passes_total": sum(r.get("point_cloud_passes") or 0 for r in self.records),
-                "points_processed_total": sum(r.get("points_processed") or 0 for r in self.records),
-                "logical_point_visits_total": sum(r.get("points_processed") or 0 for r in self.records),
+                "point_cloud_passes_total": visits/source_points if source_points else None,
+                "point_cloud_passes_total_scope": "logical point visits / complete source cloud; subset stage passes are not added",
+                "stage_passes_total": sum(r.get("point_cloud_passes") or 0 for r in self.records),
+                "points_processed_total": visits,
+                "logical_point_visits_total": visits,
                 "unique_points_visited_total": max((r.get("unique_points_visited",0) for r in self.records),default=0),
                 "unique_source_points_reference": max((r.get("unique_source_points", 0) or 0
                                                         for r in self.records), default=0),

@@ -3,6 +3,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import numpy as np
+from .storage import mapped_array
 from .sampling import point_batches
 
 _scope_lock=Lock()
@@ -65,6 +66,9 @@ def face_selection(points, face, radius, endpoint_margin):
 
 def _refine_face(points, face, radius, margin, chunk_points, visit=lambda _: None):
     """Fit XY covariance on original records without collecting all support."""
+    # Reduction grouping must not depend on a machine's worker/RAM plan.
+    # This bounded block is < 1 MiB of fitting temporaries per worker.
+    chunk_points = 8192
     anchor = np.asarray(face["start"])
     histogram = np.zeros(257, dtype=np.int64)
     edges = np.linspace(-radius, radius, len(histogram)+1)
@@ -82,11 +86,34 @@ def _refine_face(points, face, radius, margin, chunk_points, visit=lambda _: Non
     mad_index = np.searchsorted(np.cumsum(histogram[order]), (histogram.sum()+1)//2)
     trim = max(radius/5, 3*deviations[order[mad_index]])
     count, sums, products = 0, np.zeros(2), np.zeros((2, 2))
+    height_counts = np.zeros(12, dtype=np.int64)
+    measured_z_min,measured_z_max=np.inf,-np.inf
+    # Bounded original-record support in the wall's longitudinal/height plane.
+    # A global min/max envelope otherwise extends every column to the height
+    # of a small chimney, stair return or low ground trace at one endpoint.
+    axis=np.asarray(face['end'],dtype=float)-anchor
+    length=float(np.linalg.norm(axis));axis/=length
+    x_cell,z_cell=.04,.05
+    x_origin=-margin
+    nx=max(1,int(np.ceil((length+2*margin)/x_cell)))
+    nz=max(1,int(np.ceil((face['z_max']-face['z_min'])/z_cell)))
+    support=np.zeros((nx,nz),dtype=np.int64) if nx*nz<=2_000_000 else None
     for batch, _ in point_batches(points, chunk_points):
         visit(len(batch))
         mask, residual = face_selection(batch, face, radius, margin)
         mask &= np.abs(residual-median) <= trim
         xy = batch[mask, :2]-anchor
+        z = batch[mask, 2]
+        if support is not None and len(z):
+            ix=np.floor((xy@axis-x_origin)/x_cell).astype(np.int64)
+            iz=np.floor((z-face['z_min'])/z_cell).astype(np.int64)
+            valid=(ix>=0)&(ix<nx)&(iz>=0)&(iz<nz)
+            support+=np.bincount(ix[valid]*nz+iz[valid],minlength=nx*nz).reshape(nx,nz)
+        if len(z):
+            measured_z_min=min(measured_z_min,float(z.min()))
+            measured_z_max=max(measured_z_max,float(z.max()))
+        height_counts += np.histogram(z, bins=np.linspace(face['z_min'],
+            max(face['z_min']+1e-9,face['z_max']),13))[0]
         count += len(xy)
         sums += xy.sum(axis=0)
         products += xy.T @ xy
@@ -103,6 +130,25 @@ def _refine_face(points, face, radius, margin, chunk_points, visit=lambda _: Non
     centre += anchor
     result = {**face, "start": centre.tolist(), "end": (centre+direction*np.linalg.norm(original_direction)).tolist(),
               "original_inlier_fit_points":count, "original_plane_fit_rmse_m":float(np.sqrt(max(0.,values[0])))}
+    result['original_vertical_support_fraction'] = float(np.mean(
+        height_counts >= max(6, count*.005)))
+    result['original_height_band_counts'] = height_counts.tolist()
+    result['fit_reduction_block_points'] = chunk_points
+    result['observed_z_min_m'],result['observed_z_max_m']=measured_z_min,measured_z_max
+    if support is not None:
+        columns=[]
+        from .wall_slices import runs
+        for i,row in enumerate(support):
+            dense_runs=[(a,b) for a,b in runs(row>=2) if b-a>=4]
+            ids=np.concatenate([np.arange(a,b) for a,b in dense_runs]) if dense_runs else np.empty(0,dtype=int)
+            if len(ids)<4:continue
+            bottom=max(measured_z_min,face['z_min']+ids[0]*z_cell)
+            top=min(measured_z_max,face['z_min']+(ids[-1]+1)*z_cell)
+            if top-bottom<.15:continue
+            p=anchor+axis*(x_origin+i*x_cell);q=p+axis*x_cell
+            columns.append({'start_xy':p.tolist(),'end_xy':q.tolist(),
+                'bottom_m':float(bottom),'top_m':float(top),'point_count':int(row[ids].sum())})
+        result['supported_extent_columns']=columns
     # Use the original proposal's finite interval for refinement, so unrelated
     # collinear walls elsewhere cannot extend this candidate.
     low, high = np.inf, -np.inf
@@ -144,7 +190,7 @@ def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=
             local = cloud
             visit = lambda _: None
             if spatial_index is not None:
-                local, _ = spatial_index.local_cloud([face],radius,endpoint_margin,stage)
+                local, _ = spatial_index.local_cloud([face],radius,endpoint_margin,stage,exact=True)
                 if local is None:
                     return face
                 visit = lambda count: spatial_index.visit(stage,count)
@@ -160,7 +206,7 @@ def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=
             if len(slices)==len(wall.observed_faces):
                 previous_evidence['slices']=[{**r,'proposal_start':r['start'],'proposal_end':r['end'],**f}
                                              for r,f in zip(slices,wall.observed_faces)]
-        elif len(wall.observed_faces) == 2 and wall.classification == "paired_faces":
+        elif len(wall.observed_faces) >= 2 and wall.classification == "paired_faces":
             from .reconstruction import _paired_axis
             second = wall.observed_faces[1]
             axis, thickness = _paired_axis([a, b], [second["start"], second["end"]])
@@ -185,7 +231,7 @@ def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=
         evidence_cloud = cloud
         visit = lambda _: None
         if spatial_index is not None:
-            evidence_cloud, _ = spatial_index.local_cloud(wall.observed_faces,radius,endpoint_margin,stage)
+            evidence_cloud, _ = spatial_index.local_cloud(wall.observed_faces,radius,endpoint_margin,stage,exact=True)
             visit = lambda count: spatial_index.visit(stage,count)
         if evidence_cloud is None:
             wall.evidence_count = 0
@@ -239,7 +285,7 @@ def write_wall_evidence(cloud, walls, directory, chunk_points=100_000, surface_p
     directory.mkdir(parents=True, exist_ok=False)
     for index, wall in enumerate(walls):
         path = directory/f"wall-{index+1}.npy"
-        records = np.lib.format.open_memmap(path, mode="w+", dtype="<i8", shape=(wall.evidence_count, 3))
+        records = mapped_array(path,"<i8",(wall.evidence_count,3))
         cursor = 0
         local = cloud
         visit = lambda _: None
