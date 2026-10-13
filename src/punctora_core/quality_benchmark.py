@@ -426,9 +426,9 @@ def run_benchmark(manifest_path, cancelled=lambda: False):
               "suite_kind": manifest["suite_kind"],
               "manifest_sha256": content_digest(manifest), "passed": passed, "cases": reports,
               "decision": {"disposition": None,
-                           "scope": "External quality evaluation, not an implementation gate",
+                           "scope": "External responsibility checkpoint after the internal implementation gate",
                            "future_run_action": None, "affected_future_runs": [],
-                           "reason": "Implementation decisions use internal tests. External qualification is deferred until after Run 9; this report never requests a repeat solely for missing external evidence."},
+                           "reason": "Internal checks run first. This report informs the applicable external checkpoint disposition; unavailable external inputs leave it awaiting checkpoint, while a reproduced defect can request targeted repair or redesign."},
               "limitations": ["Numerical gates do not substitute for independent visual overlay review",
                               "This evaluator never tunes thresholds or changes the reconstruction model"]}
     report["report_sha256"] = content_digest(report)

@@ -1,6 +1,6 @@
 # Quality Run 1: frozen truth and evaluation foundation
 
-This is Run 1 of the nine-run quality plan in issue #1. It is separate from
+This is Run 1 of the thirteen-run quality plan in issue #1. It is separate from
 the earlier spatial-index scale work. Starting commit:
 `5327fdc172edec7849cbd30553591945b71aeb9b` (a27 development branch).
 Reconstruction, detection thresholds, model schema and desktop behavior are
@@ -167,13 +167,13 @@ also needs separately reviewed revisions even though it stays outside git.
 ## Current Run 1 implementation decision
 
 **Proceed.** The evaluator foundation and internal regression suite passed.
-Real-scan numerical/overlay acceptance and independent truth remain pending
-until all nine implementation runs finish. Missing external checks do not
-trigger a repeat. Quality reports return numerical results and missing-input
-status, but no automatic engineering-run disposition. Repeat applies only to
-a repairable internal implementation defect.
+The revised plan applies real-scan numerical/overlay evidence at each relevant
+responsibility checkpoint. An unavailable external input leaves that checkpoint
+awaiting evidence; a reproduced defect can request targeted repair or redesign.
+Quality reports return numerical results and missing-input status, but no
+automatic engineering-run disposition.
 
-**Redesign/update future run**, Run 5 must export full coverage-class polygon
+**Redesign/update future run**, Run 6 must export full coverage-class polygon
 partitions (not only areas/bounds), and Run 2 must provide source-keyed semantic
 sample predictions through this contract. This clarifies evaluation artifacts,
 not recognition thresholds. Existing source/provenance/geometry safety rules

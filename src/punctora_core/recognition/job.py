@@ -267,7 +267,7 @@ def run_recognition(cloud, identity, provider, cache_directory, *, tile_settings
                                 "overlap_rule": "majority_count_then_lowest_taxonomy_id; score=max_native_winner_score",
                                 "instances": deepcopy(list(provider.instances)),
                                 "warnings": [*warnings, *provider.warnings],
-                                "qualification": "Internal conformance only. External real-scan qualification after Run 9."}
+                                "qualification": "Internal conformance only until the applicable real-scan and designated-computer responsibility checkpoint passes."}
                     extensions = provider.write_artifacts(stage, control)
                     if extensions:
                         manifest["extensions"] = extensions

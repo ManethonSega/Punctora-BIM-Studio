@@ -142,10 +142,12 @@ The generated smoke also runs the actual classical detector and cache replay.
 
 **Implementation disposition: Proceed with revised future scope**, once these
 internal checks pass. No repeat is required for absent external annotations,
-visual review, designated hardware or externally supplied model weights.
-Those qualify the completed nine-run system after Run 9, not each engineering
-iteration. No improved real-building recognition or release acceptance is
-claimed by this implementation.
+visual review, designated hardware or externally supplied model weights during
+this historical internal gate. The revised plan carries those questions into
+the applicable Run 4 through 13 responsibility checkpoint. Unavailable evidence
+leaves that checkpoint awaiting review; a reproduced defect can request targeted
+repair. No improved real-building recognition or release acceptance is claimed
+by this implementation.
 
 Future scope must not assume Cloud2BIM publishes an executable exact runtime.
 Before any learned-provider promotion, provide a pinned configuration and

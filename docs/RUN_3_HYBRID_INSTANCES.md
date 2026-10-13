@@ -3,7 +3,7 @@
 Based on Run 2 commit `c2de73669c60a8b5118838397f25a79f826517eb`, stacked on
 its development branch, not the older main branch. Run 2 Linux/Windows core
 and desktop CI passed before this work began. This is the third run in the
-nine-run quality plan, separate from earlier stair/slab work numbered Run 3.
+thirteen-run quality plan, separate from earlier stair/slab work numbered Run 3.
 
 ## Implemented workflow
 
@@ -13,8 +13,9 @@ ProposalSet and ElementGraph -> review`
 
 The developer workflow writes immutable proposal generations. It does not
 change accepted model objects, desktop detection, saved projects, preview
-cuts, opening hosts or IFC export. Run 4 remains responsible for validating
-hosts, dimensions, profiles and cuts. No learned weights are downloaded or
+cuts, opening hosts or IFC export. Run 4 now owns the specialist runtime;
+Run 5 validates hosts, dimensions, profiles and cuts.
+No learned weights are downloaded or
 bundled, and no new inference dependencies enter the base converter.
 
 | Component | Behavior |
@@ -109,7 +110,8 @@ still fails. No new Column IFC/model schema is introduced in Run 3.
 
 The classical baseline does not promise free-standing column recognition
 without a semantic or projection cue. Real column recall, detector choice and
-domain gap are final qualification items after Run 9, not invented capabilities.
+domain gap are evaluated at the Run 7 beam/column checkpoint, not invented
+capabilities.
 
 ## Optional isolated detector
 
@@ -203,16 +205,17 @@ publishes the graph and replays the cache without changing point labels/scores.
 
 **Implementation disposition: Proceed with revised future scope**, after
 internal regressions pass. Missing independent annotations, visual review,
-model assets or designated hardware do not require repetition. External
-recognition/geometry improvement is evaluated after all nine runs finish.
+model assets or designated hardware did not invalidate this historical internal
+gate. External recognition and geometry improvement are evaluated at the
+applicable Run 4, 5 and 7 responsibility checkpoints.
 
-Run 4 must validate host profiles, physical openings, cross-host duplicates,
+Run 5 must validate host profiles, physical openings, cross-host duplicates,
 visibility/occlusion and class disagreements before applying any cut. It must
 also treat incomplete column envelopes as unresolved geometry, not infer a
-positive thickness just to satisfy a schema. Run 7 must preserve/align exact
+positive thickness just to satisfy a schema. Run 9 must preserve/align exact
 proposal evidence separately from accepted geometry when composing models.
-Run 8 must ground descriptions in support/state and omit unmeasured material,
-structural function and unresolved dimensions. Run 9 must retain deterministic
+Run 12 must ground descriptions in support/state and omit unmeasured material,
+structural function and unresolved dimensions. Run 13 must retain deterministic
 source-order/clustering/graph parity and the classical fallback in native or
-inference optimizations. None of these updates requires external qualification
-before implementation can continue.
+inference optimizations. Each owner now completes its internal gate and then its
+applicable external checkpoint before dependent work continues.
