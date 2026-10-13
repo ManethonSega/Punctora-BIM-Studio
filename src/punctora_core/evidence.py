@@ -63,12 +63,13 @@ def face_selection(points, face, radius, endpoint_margin):
     return mask, residual
 
 
-def _refine_face(points, face, radius, margin, chunk_points):
+def _refine_face(points, face, radius, margin, chunk_points, visit=lambda _: None):
     """Fit XY covariance on original records without collecting all support."""
     anchor = np.asarray(face["start"])
     histogram = np.zeros(257, dtype=np.int64)
     edges = np.linspace(-radius, radius, len(histogram)+1)
     for batch, _ in point_batches(points, chunk_points):
+        visit(len(batch))
         mask, residual = face_selection(batch, face, radius, margin)
         histogram += np.histogram(residual[mask], bins=edges)[0]
     if histogram.sum() < 6:
@@ -82,6 +83,7 @@ def _refine_face(points, face, radius, margin, chunk_points):
     trim = max(radius/5, 3*deviations[order[mad_index]])
     count, sums, products = 0, np.zeros(2), np.zeros((2, 2))
     for batch, _ in point_batches(points, chunk_points):
+        visit(len(batch))
         mask, residual = face_selection(batch, face, radius, margin)
         mask &= np.abs(residual-median) <= trim
         xy = batch[mask, :2]-anchor
@@ -105,6 +107,7 @@ def _refine_face(points, face, radius, margin, chunk_points):
     # collinear walls elsewhere cannot extend this candidate.
     low, high = np.inf, -np.inf
     for batch, _ in point_batches(points, chunk_points):
+        visit(len(batch))
         original, residual = face_selection(batch, face, radius, margin)
         normal = np.array([-direction[1], direction[0]])
         # Apply the robust gate to the refitted plane, not the slightly skewed
@@ -119,9 +122,10 @@ def _refine_face(points, face, radius, margin, chunk_points):
     return face
 
 
-def wall_batches(cloud, wall, chunk_points):
+def wall_batches(cloud, wall, chunk_points, visit=lambda _: None):
     selector = wall.evidence["selector"]
     for points, indices in point_batches(cloud.points, chunk_points):
+        visit(len(points))
         selected = np.zeros(len(points), dtype=bool)
         distances = np.full(len(points), np.inf)
         for face in wall.observed_faces:
@@ -132,11 +136,20 @@ def wall_batches(cloud, wall, chunk_points):
             yield indices[selected], distances[selected]
 
 
-def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=0.04, radius=0.01):
+def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=0.04, radius=0.01,
+                            spatial_index=None, stage="original_wall_fitting"):
     for wall in walls:
         previous_evidence = dict(wall.evidence)
-        wall.observed_faces = [_refine_face(cloud.points, f, radius, endpoint_margin, chunk_points)
-                               for f in wall.observed_faces]
+        def refine(face):
+            local = cloud
+            visit = lambda _: None
+            if spatial_index is not None:
+                local, _ = spatial_index.local_cloud([face],radius,endpoint_margin,stage)
+                if local is None:
+                    return face
+                visit = lambda count: spatial_index.visit(stage,count)
+            return _refine_face(local.points,face,radius,endpoint_margin,chunk_points,visit)
+        wall.observed_faces = [refine(f) for f in wall.observed_faces]
         if not wall.observed_faces:
             continue
         first = wall.observed_faces[0]
@@ -169,20 +182,28 @@ def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=
                          "index_semantics": "working cloud row; E57 scan index and original scan record when available",
                          "record_examples": [], "scan_counts": []}
         count, squared, maximum, scan_counts = 0, 0.0, 0.0, {}
-        for ids, distances in wall_batches(cloud, wall, chunk_points):
+        evidence_cloud = cloud
+        visit = lambda _: None
+        if spatial_index is not None:
+            evidence_cloud, _ = spatial_index.local_cloud(wall.observed_faces,radius,endpoint_margin,stage)
+            visit = lambda count: spatial_index.visit(stage,count)
+        if evidence_cloud is None:
+            wall.evidence_count = 0
+            continue
+        for ids, distances in wall_batches(evidence_cloud, wall, chunk_points,visit):
             count += len(ids)
             squared += float(distances @ distances)
             maximum = max(maximum, float(distances.max()))
-            scans = cloud.scan_index[ids] if cloud.scan_index is not None else np.full(len(ids), -1)
+            scans = evidence_cloud.scan_index[ids] if evidence_cloud.scan_index is not None else np.full(len(ids), -1)
             unique, counts = np.unique(scans, return_counts=True)
             for scan, amount in zip(unique, counts):
                 scan_counts[int(scan)] = scan_counts.get(int(scan), 0)+int(amount)
             remaining = 32-len(wall.evidence["record_examples"])
             for row, scan in zip(ids[:remaining], scans[:remaining]):
                 wall.evidence["record_examples"].append({
-                    "cloud_index": int(_working_rows(cloud, np.asarray([row]))[0]),
+                    "cloud_index": int(_working_rows(evidence_cloud, np.asarray([row]))[0]),
                     "scan_index": int(scan) if scan >= 0 else None,
-                    "source_record_index": int(cloud.source_record_index[row]) if cloud.source_record_index is not None else None})
+                    "source_record_index": int(evidence_cloud.source_record_index[row]) if evidence_cloud.source_record_index is not None else None})
         wall.evidence_count = count
         wall.fit_rmse_m = float(np.sqrt(squared/count)) if count else None
         wall.evidence["scan_counts"] = [{"scan_index": s if s >= 0 else None, "count": n}
@@ -191,16 +212,24 @@ def _attach_evidence_serial(cloud, walls, chunk_points=100_000, endpoint_margin=
 
 
 def attach_evidence(cloud, walls, chunk_points=100_000, endpoint_margin=0.04,
-                    radius=0.01, workers=1):
+                    radius=0.01, workers=1, spatial_index=None, stage="original_wall_fitting"):
     """Fit independent wall regions in parallel without duplicating the cloud."""
+    def attach(wall):
+        _attach_evidence_serial(cloud,[wall],chunk_points,endpoint_margin,radius,spatial_index,stage)
+        if spatial_index is not None:
+            wall.evidence["spatial_selector"] = {
+                "cell_size_m": spatial_index.cell_size_m,
+                "scope": "immutable spatial cells; exact original-record selector remains authoritative"}
     if workers <= 1 or len(walls) <= 1:
-        return _attach_evidence_serial(cloud, walls, chunk_points, endpoint_margin, radius)
+        for wall in walls:
+            attach(wall)
+        return
     with ThreadPoolExecutor(max_workers=min(workers, len(walls))) as executor:
-        list(executor.map(lambda wall: _attach_evidence_serial(
-            cloud, [wall], chunk_points, endpoint_margin, radius), walls))
+        list(executor.map(attach, walls))
 
 
-def write_wall_evidence(cloud, walls, directory, chunk_points=100_000, surface_proposals=None):
+def write_wall_evidence(cloud, walls, directory, chunk_points=100_000, surface_proposals=None,
+                        spatial_index=None, visit_stage="evidence_export"):
     """Write complete source references as mapped N x 3 int64 arrays.
 
     Columns: working-cloud row, E57 scan, original scan record. -1 means the
@@ -212,11 +241,19 @@ def write_wall_evidence(cloud, walls, directory, chunk_points=100_000, surface_p
         path = directory/f"wall-{index+1}.npy"
         records = np.lib.format.open_memmap(path, mode="w+", dtype="<i8", shape=(wall.evidence_count, 3))
         cursor = 0
-        for ids, _ in wall_batches(cloud, wall, chunk_points):
+        local = cloud
+        visit = lambda _: None
+        if spatial_index is not None:
+            selector = wall.evidence["selector"]
+            local, _ = spatial_index.local_cloud(wall.observed_faces,selector["radius_m"],
+                                                  selector["endpoint_margin_m"],visit_stage)
+            visit = lambda count: spatial_index.visit(visit_stage,count)
+        batches = wall_batches(local,wall,chunk_points,visit) if local is not None else []
+        for ids, _ in batches:
             end = cursor+len(ids)
-            records[cursor:end, 0] = _working_rows(cloud, ids)
-            records[cursor:end, 1] = cloud.scan_index[ids] if cloud.scan_index is not None else -1
-            records[cursor:end, 2] = cloud.source_record_index[ids] if cloud.source_record_index is not None else -1
+            records[cursor:end, 0] = _working_rows(local, ids)
+            records[cursor:end, 1] = local.scan_index[ids] if local.scan_index is not None else -1
+            records[cursor:end, 2] = local.source_record_index[ids] if local.source_record_index is not None else -1
             cursor = end
         records.flush()
         del records
@@ -234,4 +271,33 @@ def write_wall_evidence(cloud, walls, directory, chunk_points=100_000, surface_p
         proposal["representative_cloud_records"] = {"path": f"evidence/{directory.name}/{path.name}",
                                                      "count": len(ids), "dtype": "int64"}
         del proposal["representative_cloud_indices"]
+
+
+def write_model_evidence(cloud, model, directory, chunk_points=100_000):
+    """Reuse reconstruction's index and report export as part of the same job."""
+    index = getattr(model,"_spatial_index",None)
+    profiler = getattr(model,"_performance_profiler",None)
+    try:
+        if profiler is None:
+            write_wall_evidence(cloud,model.walls,directory,chunk_points,
+                                model.metadata.get("surface_proposals"),index)
+        else:
+            profiler.resume_for_evidence()
+            with profiler.stage("evidence_export",source_points=len(cloud.points)) as record:
+                if index is not None:
+                    index.observe("evidence_export",record)
+                write_wall_evidence(cloud,model.walls,directory,chunk_points,
+                                    model.metadata.get("surface_proposals"),index)
+                if index is not None:
+                    record.update(index.report("evidence_export"))
+            profiler.finish("completed")
+            model.metadata["performance"].update(profiler.report())
+            model.metadata["performance"]["total_seconds"] = profiler.report()["elapsed_seconds"]
+    except BaseException as exc:
+        if profiler is not None:
+            profiler.finish("failed",exc)
+        raise
+    finally:
+        if index is not None:
+            index.close()
 

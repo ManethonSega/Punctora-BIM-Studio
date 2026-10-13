@@ -2,9 +2,10 @@ import numpy as np
 import pytest
 from punctora_core.cloud_io import CloudData
 from punctora_core.model import BuildingModel, Storey, Wall
-from punctora_core.reconstruction import ReconstructionSettings, detect_walls, _snap_walls
+from punctora_core.reconstruction import ReconstructionSettings, detect_walls, _snap_walls, _walls_from_faces
 from punctora_core.features import detect_openings
 from punctora_core.evidence import attach_evidence
+from punctora_core.wall_editing import trim_walls_covered_by_paired_faces
 
 
 def cloud_face():
@@ -88,6 +89,34 @@ def test_recessed_window_plane_does_not_shorten_host_as_opposite_wall_face():
     assert detect_openings(CloudData(points),[host],ReconstructionSettings(),1)
 
 
+def test_partial_opposite_face_keeps_unmatched_wall_tail_without_overlap():
+    settings=ReconstructionSettings(minimum_wall_length_m=.5)
+    faces=[([np.array([0.,0.]),np.array([8.,0.])],800,.002),
+           ([np.array([0.,.2]),np.array([12.,.2])],1200,.003)]
+    walls=_walls_from_faces(faces,level(),settings,(0.,3.),pair_validator=lambda *_:True)
+    paired=[wall for wall in walls if wall.classification=='paired_faces']
+    tails=[wall for wall in walls if wall.classification!='paired_faces']
+    assert len(paired)==1 and len(tails)==1
+    assert paired[0].thickness==pytest.approx(.2)
+    assert abs(paired[0].end[0]-paired[0].start[0])==pytest.approx(8.)
+    assert abs(tails[0].end[0]-tails[0].start[0])==pytest.approx(4.)
+    assert max(paired[0].start[0],paired[0].end[0])==pytest.approx(
+           min(tails[0].start[0],tails[0].end[0]))
+
+
+def test_paired_face_span_trims_duplicate_single_face_but_keeps_both_tails():
+    paired=Wall('paired','s',(2,.1),(8,.1),0,3,.2,'paired_faces',
+        observed_faces=[dict(start=[2,0],end=[8,0],z_min=0,z_max=3),
+                        dict(start=[2,.2],end=[8,.2],z_min=0,z_max=3)])
+    duplicate=Wall('single','s',(0,0),(10,0),0,3,.2,'single_face_candidate',
+        observed_faces=[dict(start=[0,0],end=[10,0],z_min=0,z_max=3)])
+    walls,report=trim_walls_covered_by_paired_faces([paired,duplicate])
+    assert len(walls)==3 and len(report)==1
+    tails=[wall for wall in walls if wall.id!='paired']
+    assert sorted(abs(w.end[0]-w.start[0]) for w in tails)==pytest.approx([2,2])
+    assert all(max(min(w.start[0],w.end[0]),2)>=min(max(w.start[0],w.end[0]),8) for w in tails)
+
+
 def test_oversized_void_is_not_bridged_as_solid_wall():
     points=cloud_face()
     void=(points[:,0]>.7)&(points[:,0]<5.3)&(points[:,2]>.5)&(points[:,2]<2.5)
@@ -117,3 +146,22 @@ def test_exact_storey_working_set_preserves_cropped_source_identities(monkeypatc
     assert set(records[:,0])==set(cloud.working_index[keep])
     assert np.array_equal(records[:,2]-records[:,0],np.full(len(records),500))
     assert storey_source_cloud(cloud,.5,2.,317,1) is cloud
+
+
+def test_spatial_wall_cells_preserve_source_records_without_scanning_far_points():
+    from punctora_core.spatial_index import SpatialPointIndex
+    near = cloud_face()
+    far = near + np.array([100., 100., 0.])
+    points = np.vstack([near, far])
+    rows = np.arange(len(points), dtype=np.int64)
+    cloud = CloudData(points, scan_index=(rows % 3).astype(np.int32),
+                      source_record_index=rows+700, working_index=rows+900)
+    index = SpatialPointIndex.build(cloud, .20)
+    face = dict(start=[0,0], end=[6,0], z_min=0, z_max=3)
+    local, selected = index.local_cloud([face], .05, .08)
+    assert local is not None
+    assert len(selected) <= len(points)/2
+    assert selected.max() < len(near)
+    assert np.array_equal(local.working_index, cloud.working_index[selected])
+    assert np.array_equal(local.scan_index, cloud.scan_index[selected])
+    assert np.array_equal(local.source_record_index, cloud.source_record_index[selected])

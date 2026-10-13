@@ -16,9 +16,9 @@ from .stair_sequences import fit_tread_sequences
 from .sampling import adaptive_point_limit, resolved_cpu_workers, voxel_sample
 
 
-def detect_openings(cloud, walls, settings, workers=None):
+def detect_openings(cloud, walls, settings, workers=None, spatial_index=None, stage="openings"):
     from .opening_raster import detect_signed_openings
-    return detect_signed_openings(cloud, walls, settings, workers)
+    return detect_signed_openings(cloud,walls,settings,workers,spatial_index,stage)
 
 
 def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landing_output=None,
@@ -34,16 +34,44 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
     global_scope = Storey("building", "Global stair evidence",
         actual_storeys[0].elevation, max(s.ceiling for s in actual_storeys),
         actual_storeys[0].footprint)
-    for storey in [global_scope]:
+    # Analyse the full-height sample first. If dominant floor/ceiling returns
+    # mask a shorter flight, make one focused sample with a different voxel
+    # origin. Merely filtering the first sample cannot recover tread points
+    # that lost the original voxel competition. The focused retry still keeps
+    # total source passes bounded and preserves the selected source rows.
+    scopes = [global_scope]
+    full_sample = None
+    full_statistic = None
+    for storey in scopes:
         flight_start = len(flights)
-        sample = voxel_sample(cloud.points, max(0.035, settings.detection_voxel_size_m),
-                              point_limit, settings.processing_chunk_points,
-                              (storey.elevation+0.02, storey.ceiling-0.02), workers, backend)
-        if statistics is not None:
-            statistics.append({"storey_id": storey.id, "sample_points": len(sample.points),
-                               "source_point_count": sample.source_point_count,
-                               "full_cloud_passes": sample.full_cloud_passes,
-                               "voxel_size_m": sample.voxel_size_m})
+        if full_sample is None:
+            sample = voxel_sample(cloud.points, max(0.035, settings.detection_voxel_size_m),
+                                  point_limit, settings.processing_chunk_points,
+                                  (storey.elevation+0.02, storey.ceiling-0.02), workers, backend)
+            full_sample = sample
+            if statistics is not None:
+                full_statistic = {"storey_id": storey.id, "sample_points": len(sample.points),
+                                  "source_point_count": sample.source_point_count,
+                                  "full_cloud_passes": sample.full_cloud_passes,
+                                  "voxel_size_m": sample.voxel_size_m,
+                                  "analysis_bands": []}
+                statistics.append(full_statistic)
+        else:
+            sample = voxel_sample(cloud.points, max(0.035, settings.detection_voxel_size_m),
+                                  point_limit, settings.processing_chunk_points,
+                                  (storey.elevation, storey.ceiling), workers, backend)
+            band_statistic = {"storey_id": storey.id, "sample_points": len(sample.points),
+                              "source_point_count": sample.source_point_count,
+                              "full_cloud_passes": sample.full_cloud_passes,
+                              "voxel_size_m": sample.voxel_size_m,
+                              "focused_retry": True}
+            if statistics is not None:
+                statistics.append(band_statistic)
+            if full_statistic is not None:
+                full_statistic["analysis_bands"].append({
+                    "from_m": float(storey.elevation), "to_m": float(storey.ceiling),
+                    "sample_points": len(sample.points),
+                    "source_cloud_passes": sample.full_cloud_passes})
         points = sample.points
         if len(points) < 60:
             continue
@@ -260,9 +288,65 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
         for flight in local_flights:
             flight.evidence["inferred_tread_percent"] = (
                 100*len(flight.evidence["inferred_missing_step_indices"])/flight.steps)
+        if storey.id == "building" and not local_flights:
+            low, high = storey.elevation+0.02, storey.ceiling-0.02
+            span = high-low
+            width = min(span, max(settings.minimum_storey_height_m+.2, span*.74))
+            if span-width >= .30:
+                # Offset by 0.30 m so a flight masked by the dominant floor
+                # grid receives a different XY/Z voxel origin. A single retry
+                # adds at most two bounded source passes.
+                start = min(high-width, low+.30)
+                scopes.append(Storey("building-focused", "Focused stair evidence",
+                    float(start), float(start+width), storey.footprint))
+    flights, replacements = _deduplicate_flights(flights)
+    if replacements:
+        for landing in detected_landings:
+            landing.connected_stair_ids = list(dict.fromkeys(
+                replacements.get(identifier, identifier)
+                for identifier in landing.connected_stair_ids))
+        _assign_stair_systems(flights, detected_landings)
     if landing_output is not None:
         landing_output.extend(detected_landings)
     return flights
+
+
+def _deduplicate_flights(flights):
+    """Keep the strongest proposal when overlapping analysis bands repeat it."""
+    retained, replacements = [], {}
+    def direction(flight):
+        vector = np.asarray(flight.end)-flight.start
+        return vector/np.linalg.norm(vector)
+    def score(flight):
+        evidence = flight.evidence
+        return (len(evidence.get("observed_step_indices", [])), flight.steps,
+                -len(evidence.get("inferred_missing_step_indices", [])),
+                sum(evidence.get("tread_support_counts", [])))
+    for flight in flights:
+        axis = direction(flight)
+        corridor = LineString([flight.start, flight.end]).buffer(flight.width/2, cap_style=2)
+        low, high = flight.base, flight.base+flight.steps*flight.rise
+        duplicate = None
+        for existing in retained:
+            other_axis = direction(existing)
+            other = LineString([existing.start, existing.end]).buffer(existing.width/2, cap_style=2)
+            other_low, other_high = existing.base, existing.base+existing.steps*existing.rise
+            vertical_overlap = min(high,other_high)-max(low,other_low)
+            horizontal_overlap = corridor.intersection(other).area/max(1e-12,min(corridor.area,other.area))
+            if (abs(axis@other_axis) >= .98 and vertical_overlap >= min(flight.rise,existing.rise)
+                    and horizontal_overlap >= .45
+                    and abs(flight.rise-existing.rise) <= .015
+                    and abs(flight.going-existing.going) <= .03):
+                duplicate = existing
+                break
+        if duplicate is None:
+            retained.append(flight)
+        elif score(flight) > score(duplicate):
+            retained[retained.index(duplicate)] = flight
+            replacements[duplicate.id] = flight.id
+        else:
+            replacements[flight.id] = duplicate.id
+    return retained, replacements
 
 
 def _assign_stair_systems(flights, landings):
@@ -323,6 +407,7 @@ def derive_stair_slab_openings(stairs, slabs, landings=None, margin_m=.1,
     """Create reviewable, host-clipped stairwell polygons using headroom evidence."""
     openings, diagnostics = [], []
     landings = landings or []
+    from .model import confirmed_stair_geometry, confirmed_landing_geometry
     systems = {}
     for stair in stairs:
         systems.setdefault(stair.system_id or stair.id, []).append(stair)
@@ -371,6 +456,7 @@ def derive_stair_slab_openings(stairs, slabs, landings=None, margin_m=.1,
                 source_steps[stair.id] = indices
             connected_landings = [landing for landing in landings
                                   if landing.system_id == system_id
+                                  and landing.review_state != "rejected"
                                   and landing.evidence.get("source_floor_id") != slab.id
                                   and slab.base-headroom_m <= landing.base+landing.thickness
                                   <= slab.base+slab.thickness+max(.12, vertical_tolerance_m)]
@@ -400,6 +486,9 @@ def derive_stair_slab_openings(stairs, slabs, landings=None, margin_m=.1,
                     {"footprint": "inferred", "host_slab_id": "inferred", "headroom": "inferred"},
                     confidence=min((stair.confidence or 0 for stair in flights), default=0),
                     evidence={"method": "stair_system_headroom_envelope",
+                              "validation_state": "validated" if all(confirmed_stair_geometry(s) for s in flights if s.id in contributing)
+                                  and all(confirmed_landing_geometry(l) for l in connected_landings) else "review_required",
+                              "validation_basis": "confirmed_stair_geometry",
                               "source_stair_ids": contributing,
                               "source_step_indices": source_steps,
                               "source_landing_ids": [landing.id for landing in connected_landings],

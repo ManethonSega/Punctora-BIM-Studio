@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Punctora.Desktop;
@@ -32,6 +33,9 @@ public sealed class WorkerClient
         var id = Guid.NewGuid().ToString("N");
         request["protocol_version"] = 1;
         request["job_id"] = id;
+        var exchange = Path.Combine(Path.GetTempPath(), "punctora-worker-" + id);
+        var requestPath = Path.Combine(exchange, "request.json");
+        var resultPath = Path.Combine(exchange, "result.json");
         var start = new ProcessStartInfo(PythonExecutable())
         {
             UseShellExecute = false, CreateNoWindow = true,
@@ -46,6 +50,10 @@ public sealed class WorkerClient
         try
         {
             cancellation.ThrowIfCancellationRequested();
+            Directory.CreateDirectory(exchange);
+            await using (var stream = new FileStream(requestPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                64 * 1024, FileOptions.Asynchronous))
+                await JsonSerializer.SerializeAsync(stream, request, cancellationToken: cancellation);
             if (!process.Start()) throw new InvalidOperationException("Could not start the geometry worker");
             using var registration = cancellation.Register(() =>
             {
@@ -54,7 +62,11 @@ public sealed class WorkerClient
                 catch (System.ComponentModel.Win32Exception) { }
             });
             var diagnostics = process.StandardError.ReadToEndAsync();
-            await process.StandardInput.WriteLineAsync(request.ToJsonString());
+            await process.StandardInput.WriteLineAsync(new JsonObject
+            {
+                ["protocol_version"] = 1, ["job_id"] = id,
+                ["request_file"] = requestPath, ["result_file"] = resultPath
+            }.ToJsonString());
             process.StandardInput.Close();
             JsonObject? result = null;
             string? error = null;
@@ -68,6 +80,20 @@ public sealed class WorkerClient
                 {
                     case "progress": progress?.Invoke(message["percent"]!.GetValue<int>(), message["phase"]!.GetValue<string>()); break;
                     case "result": result = message["result"]!.DeepClone().AsObject(); break;
+                    case "result_file":
+                        if (message["path"]?.GetValue<string>() != resultPath)
+                            throw new InvalidDataException("Unexpected worker result path");
+                        await using (var stream = new FileStream(resultPath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                            64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
+                        {
+                            var payload = (await JsonNode.ParseAsync(stream))?.AsObject()
+                                ?? throw new InvalidDataException("Empty worker result file");
+                            if (payload["protocol_version"]?.GetValue<int>() != 1 || payload["job_id"]?.GetValue<string>() != id)
+                                throw new InvalidDataException("Unexpected worker result file identity");
+                            result = payload["result"]?.AsObject()
+                                ?? throw new InvalidDataException("Missing worker result");
+                        }
+                        break;
                     case "error": error = message["message"]!.GetValue<string>(); break;
                     default: throw new InvalidDataException("Unexpected worker message type");
                 }
@@ -89,6 +115,9 @@ public sealed class WorkerClient
             catch (InvalidOperationException) { }
             catch (System.ComponentModel.Win32Exception) { }
             ActiveProcess = null;
+            try { if (Directory.Exists(exchange)) Directory.Delete(exchange, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 }

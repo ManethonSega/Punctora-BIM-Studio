@@ -24,6 +24,10 @@ jobs:
       - run: python -m pip install -e ".[test]" -c requirements-core.txt
       - run: dotnet restore desktop/Punctora.Desktop/Punctora.Desktop.csproj --locked-mode
       - run: dotnet build desktop/Punctora.Desktop/Punctora.Desktop.csproj -c Release --no-restore
+      - name: Verify large desktop worker transfers
+        run: |
+          python scripts/generate_worker_transport_fixture.py outputs/worker-transfer/check.punctora
+          dotnet run --project scripts/WorkerProtocolCheck -c Release -- outputs/worker-transfer/check.punctora
       - name: Verify void-cut native slab preview
         run: |
           python scripts/generate_slab_preview_fixture.py outputs/slab-preview/elements.json
@@ -33,6 +37,7 @@ jobs:
         shell: bash
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
+          PUNCTORA_TEST_SOFTWARE_GL: '1'
         run: |
           xvfb-run -a dotnet desktop/Punctora.Desktop/bin/Release/net10.0/Punctora.Desktop.dll --verify-ui outputs/m3-gl
           xvfb-run -a dotnet desktop/Punctora.Desktop/bin/Release/net10.0/Punctora.Desktop.dll --software --verify-ui outputs/m3-software
@@ -55,6 +60,7 @@ jobs:
             outputs/m3-*/ui-verification.json
             outputs/m3-*/ui-error.txt
             outputs/m3-*/desktop.png
+            outputs/m3-*/height-legend.png
             outputs/m3-*/small-window.png
             outputs/m3-*/viewport-gl.png
           retention-days: 7

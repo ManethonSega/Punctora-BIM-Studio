@@ -4,6 +4,7 @@ The desktop cancels by terminating this process tree and waiting for its exit.
 Staged generations are never the saved project; OS locks release on termination.
 """
 import json
+from pathlib import Path
 import sys
 import traceback
 import uuid
@@ -79,13 +80,41 @@ def main():
         line = sys.stdin.readline(16 * 1024 * 1024 + 1)
         if not line.endswith("\n") or len(line) > 16 * 1024 * 1024:
             raise ValueError("Worker request is missing or exceeds the message budget")
-        request = json.loads(line, parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Nonfinite request")))
-        job_id = request["job_id"]
+        control = json.loads(line, parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Nonfinite request")))
+        job_id = control["job_id"]
         uuid.UUID(hex=job_id)
-        if request.get("protocol_version") != 1:
+        if control.get("protocol_version") != 1:
             raise ValueError("Unsupported worker protocol version")
+        result_file = None
+        if "request_file" in control:
+            request_file = Path(control["request_file"])
+            result_file = Path(control["result_file"])
+            if (not request_file.is_absolute() or not result_file.is_absolute()
+                    or request_file.name != "request.json" or result_file.name != "result.json"
+                    or request_file.parent != result_file.parent
+                    or request_file.parent.name != f"punctora-worker-{job_id}"):
+                raise ValueError("Invalid worker exchange paths")
+            with request_file.open(encoding="utf-8") as stream:
+                request = json.load(stream, parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Nonfinite request")))
+            if request.get("job_id") != job_id or request.get("protocol_version") != 1:
+                raise ValueError("Worker request file identity differs from its control message")
+        else:
+            request = control
         result = dispatch(request, lambda percent, phase: emit("progress", percent=percent, phase=phase))
-        emit("result", result=result)
+        if result_file is None:
+            emit("result", result=result)
+        else:
+            # Only small control/progress messages travel through stdout. Keep
+            # the full original result, including evidence and preview meshes.
+            temporary = result_file.with_suffix(".tmp")
+            try:
+                with temporary.open("w", encoding="utf-8") as stream:
+                    json.dump({"protocol_version": 1, "job_id": job_id, "result": result},
+                              stream, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+                temporary.replace(result_file)
+            finally:
+                temporary.unlink(missing_ok=True)
+            emit("result_file", path=str(result_file))
         return 0
     except Exception as exc:
         traceback.print_exc(file=sys.stderr)

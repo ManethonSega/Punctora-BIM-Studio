@@ -15,10 +15,10 @@ import numpy as np
 from .cloud_io import CloudData
 from .cropping import EMPTY_CROP, crop_active, materialize_crop, validate_crop
 from .e57_io import read_e57
-from .evidence import write_wall_evidence
+from .evidence import write_model_evidence
 from .fixtures import demo_cloud
 from .ifc_export import write_ifc
-from .model import BuildingModel, Landing, Opening, SlabOpening, Stair
+from .model import BuildingModel, Landing, Opening, SlabOpening, Stair, slab_opening_is_validated
 from .convergence import compare_budgets
 from .reconstruction import ReconstructionSettings, reconstruct
 from .wall_editing import merge_walls, split_wall
@@ -138,6 +138,13 @@ def mark_performance_cancelled(path, job_id):
                                               "scope": "recorded by desktop after worker termination"})
     atomic_json(matches[0], report)
     atomic_json(root / "last-performance.json", report)
+    # The terminated worker cannot run TemporaryDirectory's finalizer. Remove
+    # only its unpublished index workspaces, never source or published data.
+    temporary = safe_path(root,f"staging/{job_id}")
+    if temporary.is_dir():
+        for directory in temporary.glob("punctora-spatial-*"):
+            if directory.is_dir() and not directory.is_symlink():
+                shutil.rmtree(safe_path(root,str(directory.relative_to(root))))
     return {"updated": True, "diagnostic": str(matches[0])}
 
 
@@ -277,7 +284,7 @@ def load_cloud(path, state):
                      "coordinate_mapping": manifest["coordinate_mapping"]})
 
 
-def write_preview(cloud, directory, generation):
+def write_preview(cloud, directory, generation, working_bounds=None):
     count = min(PREVIEW_LIMIT, len(cloud.points))
     ids = spatial_preview_indices(cloud.points, count)
     preview = np.empty((count, 6), dtype="<f4")
@@ -290,7 +297,20 @@ def write_preview(cloud, directory, generation):
         valid = cloud.color_valid[ids] if cloud.color_valid is not None else np.ones(count, dtype=bool)
         preview[valid, 3:] = np.clip(color[valid] / scale, 0, 1)
     preview.tofile(directory / "preview.bin")
+    # E57 import already measured the complete cloud. Reuse those f64 bounds
+    # instead of inferring a height scale from the display sample or crop.
+    if working_bounds is not None:
+        minimum_z = float(working_bounds['minimum'][2])
+        maximum_z = float(working_bounds['maximum'][2])
+    else:
+        minimum_z, maximum_z = float('inf'), float('-inf')
+        for begin in range(0, len(cloud.points), 200_000):
+            z = cloud.points[begin:begin+200_000, 2]
+            minimum_z = min(minimum_z, float(z.min()))
+            maximum_z = max(maximum_z, float(z.max()))
     return {"format": "xyzrgb-f32-le", "path": f"generations/{generation}/preview.bin",
+            "height_scale": {"minimum_z_m": minimum_z, "maximum_z_m": maximum_z,
+                             "scope": "complete imported cloud in local metres"},
             "point_count": count, "source_point_count": len(cloud.points),
             "sampling": ("deterministic spatial-cell sample from up to "
                          f"{count * PREVIEW_CANDIDATE_MULTIPLIER:,} distributed source rows; display only"),
@@ -368,7 +388,7 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
                 cloud, manifest, kind = demo_cloud(two_storeys), None, "fixture"
                 np.save(stage / "points.npy", cloud.points, allow_pickle=False)
             progress(70, "Preparing preview")
-            preview = write_preview(cloud, stage, job_id)
+            preview = write_preview(cloud, stage, job_id, manifest['working_bounds_m'] if manifest else None)
             model = None
             if not source:
                 progress(80, "Reconstructing example")
@@ -428,12 +448,12 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                 progress(20, "Finding surfaces and fitting elements")
                 if request.get("compare_budgets"):
                     model, budget_report = compare_budgets(
-                        cloud, settings, progress=progress, diagnostics=save_performance)
+                        cloud,settings,progress=progress,diagnostics=save_performance,scratch_directory=stage)
                     atomic_json(assets_for(path) / "budget-comparison.json", budget_report)
                     model.metadata["budget_comparison"] = budget_report
                 else:
                     model = reconstruct(cloud, settings, name=state["name"],
-                                        progress=progress, diagnostics=save_performance,
+                                        progress=progress, diagnostics=save_performance,scratch_directory=stage,
                                         diagnostic_context={"job_id": token, "command": "reconstruct",
                                                             "project_name": state["name"],
                                                             "source_points": len(cloud.points),
@@ -455,8 +475,7 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                 progress(80, "Retaining source evidence")
                 evidence = stage / "evidence" / "records"
                 evidence.parent.mkdir()
-                write_wall_evidence(cloud, model.walls, evidence, settings.processing_chunk_points,
-                                    model.metadata.get("surface_proposals"))
+                write_model_evidence(cloud,model,evidence,settings.processing_chunk_points)
                 for wall in model.walls:
                     record = wall.evidence.get("records")
                     if record:
@@ -476,6 +495,8 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                 state["processing_backend"] = model.metadata.get("performance", {}).get(
                     "compute_backend", "CPU")
             finally:
+                if "model" in locals() and getattr(model,"_spatial_index",None) is not None:
+                    model._spatial_index.close()
                 if cloud is not source_cloud:
                     close_cloud(cloud)
                 close_cloud(source_cloud)
@@ -513,10 +534,12 @@ def edit_model(state, data, element_id, changes):
                else {"host_wall_id", "kind", "offset", "sill", "width", "height", "review_state"} if element in model.openings
                else {"start", "end", "base", "width", "rise", "going", "steps", "tread_thickness", "review_state"} if element in model.stairs
                else {"base", "thickness", "review_state"} if element in model.landings
-               else {"host_slab_id", "start", "end", "width", "review_state"} if element in model.slab_openings
+               else {"host_slab_id", "start", "end", "width", "review_state", "ifc_cut_approved"} if element in model.slab_openings
                else {"name", "elevation", "ceiling"})
     if not isinstance(changes, dict) or not changes or set(changes)-allowed:
         raise ValueError("Unsupported element correction")
+    if "ifc_cut_approved" in changes and not isinstance(changes["ifc_cut_approved"], bool):
+        raise ValueError("Slab cut approval must be a boolean")
     old = deepcopy(element.__dict__)
     for field, value in changes.items():
         if field == "name" and (not isinstance(value, str) or not value.strip()):
@@ -526,8 +549,20 @@ def edit_model(state, data, element_id, changes):
         if field in {"base", "height", "thickness", "elevation", "ceiling", "offset", "sill", "width", "rise", "going", "steps", "tread_thickness"} and (isinstance(value, bool) or not isinstance(value, (float, int))):
             raise ValueError("Dimensions must be numbers in metres")
         setattr(element, field, value)
-        if field not in {"name", "review_state"}:
+        if field not in {"name", "review_state", "ifc_cut_approved"}:
             element.provenance[field] = "user_supplied"
+    if element in model.openings and element.evidence.get('facade_system') and set(changes)-{"review_state"}:
+        element.evidence["facade_geometry_stale"] = True
+    if element in model.slab_openings:
+        if set(changes)-{"review_state", "ifc_cut_approved"}:
+            element.ifc_cut_approved = False
+            element.evidence["validation_state"] = "review_required"
+            # The edited frame replaces the previous observed polygon.
+            element.footprint = None
+        if changes.get("ifc_cut_approved") is True:
+            element.ifc_cut_approved = True
+            element.review_state = "reviewed"
+            element.evidence["user_cut_approval"] = "explicit_geometry_approval"
     if element in model.stairs:
         import numpy as np
         direction = np.asarray(old["end"], dtype=float)-np.asarray(old["start"], dtype=float)
@@ -539,8 +574,10 @@ def edit_model(state, data, element_id, changes):
             element.end = tuple(np.asarray(element.start)+direction*element.going*element.steps)
             element.provenance["end"] = "user_supplied"
         if set(changes)-{"review_state"}:
+            element.evidence["source_geometry_changed"] = True
             for opening in model.slab_openings:
                 if opening.source_stair_id == element.id or (element.system_id and opening.source_system_id == element.system_id):
+                    opening.ifc_cut_approved = False
                     opening.review_state = "flagged"
                     opening.evidence["source_geometry_changed"] = True
             for landing in model.landings:
@@ -548,6 +585,7 @@ def edit_model(state, data, element_id, changes):
                     landing.review_state = "flagged"
                     landing.evidence["source_geometry_changed"] = True
     if element in model.landings and set(changes)-{"review_state"}:
+        element.evidence["source_geometry_changed"] = True
         if element.evidence.get("floor_integrated"):
             element.evidence["floor_integrated"] = False
             element.evidence["floor_integration_stale"] = True
@@ -555,11 +593,13 @@ def edit_model(state, data, element_id, changes):
             element.review_state = "flagged"
         for opening in model.slab_openings:
             if element.system_id and opening.source_system_id == element.system_id:
+                opening.ifc_cut_approved = False
                 opening.review_state = "flagged"
                 opening.evidence["source_geometry_changed"] = True
     if element in model.slabs and set(changes)-{"review_state"}:
         for opening in model.slab_openings:
             if opening.host_slab_id == element.id:
+                opening.ifc_cut_approved = False
                 opening.review_state = "flagged"
                 opening.evidence["host_geometry_changed"] = True
     if element in model.storeys:
@@ -585,6 +625,11 @@ def edit_model(state, data, element_id, changes):
         levels = sorted(model.storeys, key=lambda obj: obj.elevation)
         if any(a.ceiling > b.elevation+1e-8 for a, b in zip(levels, levels[1:])):
             raise ValueError("Edited storey intervals overlap")
+    if element in model.storeys and set(changes)-{"name"}:
+        for opening in model.slab_openings:
+            opening.ifc_cut_approved = False
+            opening.review_state = "flagged"
+            opening.evidence["host_geometry_changed"] = True
     geometry = set(changes)-{"review_state", "classification", "name"}
     if geometry or changes.get("review_state") == "rejected":
         model.metadata["geometry_edited"] = True
@@ -693,6 +738,7 @@ def delete_candidate(state, data, element_id):
         model.slab_openings = [opening for opening in model.slab_openings if opening.source_stair_id != target.id]
         for opening in model.slab_openings:
             if target.system_id and opening.source_system_id == target.system_id:
+                opening.ifc_cut_approved = False
                 opening.review_state = "flagged"
                 opening.evidence["source_flight_deleted"] = target.id
         for landing in list(model.landings):
@@ -805,8 +851,10 @@ def export_project(path, request, progress=lambda *_: None):
             landing.connected_stair_ids = [stair_id for stair_id in landing.connected_stair_ids
                                            if stair_id not in rejected_stairs]
         initial_slab_openings = len(model.slab_openings)
+        review_only_slab_opening_ids = [o.id for o in model.slab_openings
+            if o.review_state != "rejected" and not slab_opening_is_validated(o, model.stairs, model.landings)]
         model.slab_openings = [o for o in model.slab_openings
-                               if o.review_state != "rejected"
+                               if slab_opening_is_validated(o, model.stairs, model.landings)
                                and o.host_slab_id not in rejected_slabs
                                and (o.source_stair_id is None or o.source_stair_id not in rejected_stairs)]
         unresolved = sum(obj.review_state in {"unreviewed", "flagged"}
@@ -829,6 +877,7 @@ def export_project(path, request, progress=lambda *_: None):
                 "excluded_rejected_walls": len(rejected),
                 "excluded_rejected_landings": len(rejected_landings),
                 "excluded_slab_openings": initial_slab_openings-len(model.slab_openings),
+                "review_only_slab_opening_ids": review_only_slab_opening_ids,
                 "spaces_omitted_after_edits": bool(model.metadata.get("geometry_edited"))}
 
 

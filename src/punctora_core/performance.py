@@ -160,6 +160,10 @@ class StageProfiler:
                 "stages": deepcopy(self.records), "events": deepcopy(self.events),
                 "point_cloud_passes_total": sum(r.get("point_cloud_passes") or 0 for r in self.records),
                 "points_processed_total": sum(r.get("points_processed") or 0 for r in self.records),
+                "logical_point_visits_total": sum(r.get("points_processed") or 0 for r in self.records),
+                "unique_points_visited_total": max((r.get("unique_points_visited",0) for r in self.records),default=0),
+                "unique_source_points_reference": max((r.get("unique_source_points", 0) or 0
+                                                        for r in self.records), default=0),
                 "compute": compute,
                 "gpu_backend_activated": compute["backend"] != "CPU" and compute["gpu_calls"] > 0,
                 "peak_process_rss_bytes": max((r.get("peak_process_rss_bytes", 0) for r in self.records), default=0),
@@ -190,6 +194,17 @@ class StageProfiler:
             if error:
                 event["error"] = str(error)
             self.events.append(event)
+        self._emit()
+
+    def resume_for_evidence(self):
+        """Continue the same job through evidence export, including heartbeats."""
+        with self._lock:
+            if self.status == "completed":
+                for event in reversed(self.events):
+                    if event["event"] == "job_completed":
+                        event["event"] = "reconstruction_completed"
+                        break
+                self.status = "running"
         self._emit()
 
     @contextmanager
@@ -269,6 +284,9 @@ class StageProfiler:
                           gpu_counter_status="Device counters unavailable on this host",
                           io_bytes=io_delta,
                           points_per_second=(None if processed is None else float(processed)/max(seconds, 1e-9)),
+                          logical_point_visits_per_second=(None if processed is None else float(processed)/max(seconds,1e-9)),
+                          unique_points_per_second=(None if "unique_points_visited" not in record else
+                                                    record["unique_points_visited"]/max(seconds,1e-9)),
                           completed_at_utc=_utc_now(),
                           sampling_interval_seconds=.25,
                           resource_scope="process-wide; overlapping stages are not additive")

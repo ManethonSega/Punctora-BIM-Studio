@@ -31,6 +31,28 @@ def test_zone_sequence_rejects_landings_and_pairs_faces():
     assert all(0 <= idx < len(points) for c in report["candidates"] for idx in c["source_point_evidence"]["lower_working_indices"])
 
 
+@pytest.mark.parametrize('patch_heights',[(.3,), (2.5,), (.3,2.5)])
+def test_small_horizontal_patches_do_not_shift_building_floor_or_ceiling(patch_heights):
+    sample=planes([0.,3.])
+    xy=np.array([(x,y) for x in np.arange(1,2.01,.04) for y in np.arange(1,3.01,.04)])
+    patches=np.concatenate([np.column_stack([xy,np.full(len(xy),z)]) for z in patch_heights])
+    points=np.vstack([sample.points,patches])
+    sample=DetectionSample(points,np.arange(len(points)),.04,len(points))
+    levels,zones,surfaces,report=detect_slab_zones(sample,ReconstructionSettings())
+    assert len(levels)==1
+    assert (levels[0].elevation,levels[0].ceiling)==pytest.approx((0.,3.))
+    assert all(not zone['paired'] for zone in zones)
+    rejected=[c for c in report['candidates']
+              if 'insufficient_independent_face_coverage' in c['rejection_reasons']]
+    assert rejected and all(not c['selected'] for c in rejected)
+    assert all(min(c['lower_face_overlap_fraction'],c['upper_face_overlap_fraction'])<.45 for c in rejected)
+    slabs,_=slab_zone_geometry(zones,surfaces,levels,ReconstructionSettings())
+    assert len(slabs)==2
+    assert slabs[0].base+slabs[0].thickness==pytest.approx(0.)
+    assert slabs[1].base==pytest.approx(3.)
+    assert all(s.provenance['thickness']=='inferred' for s in slabs)
+
+
 def test_occupancy_keeps_concavity_components_and_large_hole():
     shape = Polygon([(0,0),(6,0),(6,2),(4,2),(4,4),(0,4)],
                     holes=[[(1,1),(2,1),(2,2),(1,2)]])
@@ -88,7 +110,7 @@ def test_crop_zone_evidence_maps_back_to_immutable_source_rows(tmp_path):
     assert indices and set(indices).issubset(valid)
 
 
-def test_observed_polygon_holes_export_as_ifc_voids(tmp_path):
+def test_single_face_polygon_holes_remain_review_only(tmp_path):
     import ifcopenshell
     from punctora_core.ifc_export import write_ifc
     shape = Polygon([(0,0),(6,0),(6,4),(0,4)],holes=[[(2,1),(4,1),(4,3),(2,3)]])
@@ -98,16 +120,17 @@ def test_observed_polygon_holes_export_as_ifc_voids(tmp_path):
     model = BuildingModel("test",levels,slabs=slabs,slab_openings=holes)
     write_ifc(model,tmp_path/"model.ifc")
     file = ifcopenshell.open(str(tmp_path/"model.ifc"))
-    assert len(file.by_type("IfcRelVoidsElement")) == len(holes) == 2
+    assert len(holes) == 2
+    assert not file.by_type("IfcRelVoidsElement")
     for slab in file.by_type("IfcSlab"):
-        assert slab.HasOpenings
+        assert not slab.HasOpenings
 
 
 def test_preview_mesh_rebuilds_after_void_edit_and_rejection():
     from punctora_core.model import Slab, SlabOpening, Storey
     storey = Storey("s","s",0,3,[(0,0),(6,0),(6,4),(0,4)])
     slab = Slab("slab","s",storey.footprint,0,.2)
-    hole = SlabOpening("hole","slab",(2,2),(4,2),2)
+    hole = SlabOpening("hole","slab",(2,2),(4,2),2, ifc_cut_approved=True)
     model = BuildingModel("mesh",[storey],slabs=[slab],slab_openings=[hole])
     def area():
         mesh=model.to_dict()["slabs"][0]["preview_geometry"]

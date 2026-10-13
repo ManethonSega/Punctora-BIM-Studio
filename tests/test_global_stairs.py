@@ -11,6 +11,7 @@ from punctora_core.stair_voids import reconcile_stair_voids
 from punctora_core.model import BuildingModel, Landing, Slab, SlabOpening, Stair, Storey
 from punctora_core.reconstruction import ReconstructionSettings
 from punctora_core.ifc_export import write_ifc
+from punctora_core.sampling import DetectionSample
 
 
 def flight_points(start=(0, 0), angle=0, base=0, missing=(), risers=True):
@@ -77,7 +78,7 @@ def test_observed_partial_hole_is_preserved_and_headroom_is_cut_and_exported(tmp
     footprint = [(0,0),(10,0),(10,10),(0,10)]
     storeys = [Storey('lower','Lower',0,3,footprint),Storey('upper','Upper',3.2,6,footprint)]
     stair = Stair('flight','lower',(2,2),(6,2),0,1,.2,.25,16,system_id='system',flight_index=1,
-                  evidence={'inferred_missing_step_indices':[4]})
+                  evidence={'inferred_missing_step_indices':[4]}, review_state='reviewed')
     slab = Slab('slab','upper',footprint,3,.2)
     observed = SlabOpening('observed','slab',(5,2),(6,2),.7,
                            footprint=[(5,1.65),(6,1.65),(6,2.35),(5,2.35)])
@@ -99,13 +100,14 @@ def test_observed_partial_hole_is_preserved_and_headroom_is_cut_and_exported(tmp
     assert len(reopened.by_type('IfcStair')) == len(reopened.by_type('IfcStairFlight')) == 1
     flight = reopened.by_type('IfcStairFlight')[0]
     assert any(r.RelatingStructure.Name == 'Lower' for r in flight.ReferencedInStructures)
-    assert len(reopened.by_type('IfcRelVoidsElement')) == 2
+    assert len(reopened.by_type('IfcRelVoidsElement')) == 1
+    assert observed.evidence.get('validation_state') != 'validated'
     psets = ifcopenshell.util.element.get_psets(reopened.by_type('IfcStairFlight')[0])
     assert json.loads(psets['Punctora_Reconstruction']['GeometricEvidence'])['inferred_missing_step_indices'] == [4]
 
 
 def test_collision_check_reports_missing_void_instead_of_claiming_success():
-    stair = Stair('f','s',(0,0),(2,0),0,1,.2,.25,8)
+    stair = Stair('f','s',(0,0),(2,0),0,1,.2,.25,8, review_state='reviewed')
     slab = Slab('slab','s',[(-1,-1),(4,-1),(4,2),(-1,2)],1,.2)
     _, report = reconcile_stair_voids([slab],[],[],[stair],[])
     assert report[0]['status'] == 'review_required'
@@ -113,7 +115,7 @@ def test_collision_check_reports_missing_void_instead_of_claiming_success():
 
 
 def test_roof_headroom_is_checked_without_exact_flight_endpoint_match():
-    stair = Stair('f','s',(0,0),(2,0),0,1,.2,.25,8)
+    stair = Stair('f','s',(0,0),(2,0),0,1,.2,.25,8, review_state='reviewed')
     slab = Slab('roof','s',[(-1,-1),(4,-1),(4,2),(-1,2)],3,.2,'NOTDEFINED')
     candidates,_ = derive_stair_slab_openings([stair],[slab],headroom_m=2)
     assert candidates
@@ -165,7 +167,7 @@ def test_floor_integrated_landing_does_not_duplicate_or_cut_its_floor(tmp_path):
 
 
 def test_small_host_fragment_is_not_discarded_when_it_obstructs_headroom():
-    stair = Stair('f','s',(0,0),(4,0),0,1,.2,.25,16)
+    stair = Stair('f','s',(0,0),(4,0),0,1,.2,.25,16, review_state='reviewed')
     slab = Slab('fragment','s',[(2,-.51),(2.04,-.51),(2.04,-.49),(2,-.49)],3,.2)
     candidates,_ = derive_stair_slab_openings([stair],[slab])
     assert len(candidates) == 1
@@ -204,3 +206,29 @@ def test_sparse_horizontal_noise_between_treads_does_not_merge_all_height_bins()
     assert len(flights) == 1
     assert flights[0].steps == 8
     assert flights[0].rise == pytest.approx(.17,abs=.01)
+
+
+def test_focused_source_retry_recovers_flight_discarded_by_full_height_voxels(monkeypatch):
+    # The building-wide voxel phase can retain dominant floor records instead
+    # of narrow tread records. A focused retry must sample the original cloud,
+    # preserve its row indices and account for the extra source passes.
+    x,y = np.meshgrid(np.arange(-3,3,.08),np.arange(-3,3,.08))
+    floor = np.column_stack([x.ravel(),y.ravel(),np.full(x.size,.2)])
+    treads = flight_points(risers=False)
+    points = np.vstack([floor,treads])
+    samples = [
+        DetectionSample(floor,np.arange(len(floor)),.035,len(points),2),
+        DetectionSample(treads,np.arange(len(floor),len(points)),.035,len(points),2),
+    ]
+    calls = []
+    def controlled_sample(*args,**kwargs):
+        calls.append(kwargs.get('z_bounds',args[4] if len(args)>4 else None))
+        return samples[len(calls)-1]
+    monkeypatch.setattr('punctora_core.features.voxel_sample',controlled_sample)
+    stats = []
+    flights = detect_stairs(CloudData(points),levels(),ReconstructionSettings(),statistics=stats)
+    assert len(calls) == 2
+    assert len(flights) == 1 and flights[0].steps == 8
+    assert [item['full_cloud_passes'] for item in stats] == [2,2]
+    assert stats[1]['focused_retry'] is True
+    assert flights[0].evidence['source_working_row_examples_by_tread'][0][0] >= len(floor)

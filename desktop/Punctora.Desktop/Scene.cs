@@ -16,6 +16,9 @@ public sealed class SceneData
     public Vector3 Maximum { get; init; } = new(1);
     public Vector3 PointMinimum { get; init; } = new(-1);
     public Vector3 PointMaximum { get; init; } = new(1);
+    public double HeightMinimum { get; init; }
+    public double HeightMaximum { get; init; } = 1;
+    public string HeightScaleScope { get; init; } = "complete imported cloud in local metres";
     public static SceneData Load(string projectPath, JsonObject state)
     {
         var assets = Path.Combine(Path.GetDirectoryName(projectPath)!, state["assets_directory"]!.GetValue<string>());
@@ -42,6 +45,13 @@ public sealed class SceneData
             minimum = Vector3.Min(minimum, position); maximum = Vector3.Max(maximum, position);
         }
         var pointMinimum=minimum;var pointMaximum=maximum;
+        var heightScale=state["preview"]?["height_scale"];
+        var importBounds=state["import_manifest"]?["working_bounds_m"];
+        var heightMinimum=heightScale?["minimum_z_m"]?.GetValue<double>()??importBounds?["minimum"]?[2]?.GetValue<double>()??pointMinimum.Z;
+        var heightMaximum=heightScale?["maximum_z_m"]?.GetValue<double>()??importBounds?["maximum"]?[2]?.GetValue<double>()??pointMaximum.Z;
+        if(!double.IsFinite(heightMinimum)||!double.IsFinite(heightMaximum)||heightMaximum<heightMinimum)
+            throw new InvalidDataException("Invalid project height scale");
+        var heightScope=heightScale is not null||importBounds is not null?"complete imported cloud in local metres":"legacy preview bounds; complete cloud bounds unavailable";
         var elements = new List<SceneElement>();
         if (state["model"] is JsonObject model)
         {
@@ -86,9 +96,10 @@ public sealed class SceneData
                     footprint=[start-side,end-side,end+side,start+side];
                 }
                 JsonObject? outlineMesh=opening["preview_geometry"] as JsonObject;
-                if(opening["evidence"]?["method"]?.GetValue<string>()=="enclosed_horizontal_occupancy_gap")
-                    outlineMesh=new JsonObject{["surface_triangles_xy"]=new JsonArray(),["boundary_rings_xy"]=new JsonArray(new JsonArray(footprint.Select(p=>(JsonNode)new JsonArray((double)p.X,(double)p.Y)).ToArray()))};
-                Add(elements,opening,"SlabOpening",footprint,Number(slab,"base")-.01f,Number(slab,"thickness")+.02f,slab["storey_id"]!.GetValue<string>(),outlineMesh);
+                var reviewOnly=opening["preview_geometry"]?["ifc_cut_eligible"]?.GetValue<bool>()!=true;
+                if(reviewOnly)
+                    outlineMesh=new JsonObject{["surface_triangles_xy"]=opening["preview_geometry"]?["review_surface_triangles_xy"]?.DeepClone()??new JsonArray(),["boundary_rings_xy"]=opening["preview_geometry"]?["review_boundary_rings_xy"]?.DeepClone()??new JsonArray(new JsonArray(footprint.Select(p=>(JsonNode)new JsonArray((double)p.X,(double)p.Y)).ToArray()))};
+                Add(elements,opening,"SlabOpening",footprint,reviewOnly?Number(slab,"base")+Number(slab,"thickness")+.01f:Number(slab,"base")-.01f,reviewOnly?.025f:Number(slab,"thickness")+.02f,slab["storey_id"]!.GetValue<string>(),outlineMesh);
             }
             foreach(var node in model["openings"]?.AsArray()??[])
             {
@@ -121,6 +132,7 @@ public sealed class SceneData
             {var position=Camera.Position(element.Triangles,i);minimum=Vector3.Min(minimum,position);maximum=Vector3.Max(maximum,position);}
         return new SceneData { Points = points, Elements = elements, Minimum = minimum, Maximum = maximum,
             PointMinimum=pointMinimum,PointMaximum=pointMaximum,
+            HeightMinimum=heightMinimum,HeightMaximum=heightMaximum,HeightScaleScope=heightScope,
             TotalPoints = state["preview"]!["source_point_count"]!.GetValue<long>() };
     }
 
@@ -133,7 +145,7 @@ public sealed class SceneData
             "rejected"=>new Vector4(.9f,.25f,.35f,.16f), _=>kind switch {"Wall"=>new Vector4(.43f,.62f,1,.4f),"Stair"=>new Vector4(.9f,.45f,.72f,.7f),"Landing"=>new Vector4(.98f,.55f,.32f,.65f),"SlabOpening"=>new Vector4(.75f,.25f,.95f,.72f),"door"=>new Vector4(.95f,.65f,.25f,.5f),"window"=>new Vector4(.2f,.85f,.9f,.35f),"unknown"=>new Vector4(.95f,.85f,.25f,.45f),_=>new Vector4(.64f,.68f,.78f,.3f)} };
         var vertices = new List<float>();
         void Vertex(Vector2 p,float h) { vertices.AddRange([p.X,p.Y,h,color.X,color.Y,color.Z,color.W]); }
-        if(mesh?["surface_triangles_xy"] is JsonArray surfaceTriangles)
+        if((mesh?["render_surface_triangles_xy"]??mesh?["surface_triangles_xy"]) is JsonArray surfaceTriangles)
         {
             foreach(var tri in surfaceTriangles)
             {
@@ -147,7 +159,7 @@ public sealed class SceneData
             foreach (var index in tri) Vertex(polygon[index],z);
             foreach (var index in tri.Reverse()) Vertex(polygon[index],z+height);
         }
-        Vector2[][] rings=mesh?["boundary_rings_xy"] is JsonArray boundaries
+        Vector2[][] rings=(mesh?["render_boundary_rings_xy"]??mesh?["boundary_rings_xy"]) is JsonArray boundaries
             ?boundaries.Select(r=>r!.AsArray().Select(p=>XY(p!)).ToArray()).ToArray():[polygon];
         foreach(var ring in rings)for(var i=0;i<ring.Length;i++)
         {
@@ -217,8 +229,10 @@ public sealed class Camera
     }
     public static Vector3 Position(float[] data,int start)=>new(data[start],data[start+1],data[start+2]);
     public Vector3? Project(Vector3 point,Size size)
+        =>Project(point,size,Matrix(size));
+    public static Vector3? Project(Vector3 point,Size size,Matrix4x4 matrix)
     {
-        var p=Vector4.Transform(new Vector4(point,1),Matrix(size));
+        var p=Vector4.Transform(new Vector4(point,1),matrix);
         if(p.W<=0) return null;
         return new Vector3((p.X/p.W+1)*(float)size.Width/2,(1-p.Y/p.W)*(float)size.Height/2,p.Z/p.W);
     }

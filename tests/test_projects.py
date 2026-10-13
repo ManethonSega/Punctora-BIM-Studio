@@ -130,6 +130,11 @@ def test_cancelled_job_keeps_and_marks_latest_diagnostic(project):
     job_id = token()
     write, history = projects._performance_writer(path, job_id, "reconstruct")
     write(projects._initial_performance(job_id, "reconstruct", source_points=123))
+    stage = projects.assets_for(path)/"staging"/job_id
+    index_directory = stage/"punctora-spatial-cancelled"
+    index_directory.mkdir(parents=True)
+    (index_directory/"rows.bin").write_bytes(b"temporary")
+    (stage/"other.txt").write_text("keep",encoding="utf-8")
     result = projects.mark_performance_cancelled(path, job_id)
     report = projects.read_json(history)
     assert result["updated"] is True
@@ -137,6 +142,8 @@ def test_cancelled_job_keeps_and_marks_latest_diagnostic(project):
     assert report["source_points"] == 123
     assert report["events"][-1]["event"] == "job_cancelled"
     assert projects.read_json(projects.assets_for(path) / "last-performance.json")["job_id"] == job_id
+    assert not index_directory.exists()
+    assert (stage/"other.txt").read_text(encoding="utf-8")=="keep"
 
 
 @pytest.mark.parametrize("changes", [{"thickness": -1}, {"height": float("nan")}, {"start": [0, 0, 0]}, {"review_state": "approved"}, {"thickness": True}])

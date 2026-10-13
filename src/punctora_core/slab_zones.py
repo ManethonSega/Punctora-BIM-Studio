@@ -147,11 +147,18 @@ def detect_slab_zones(sample, settings):
             thickness = upper.elevation-lower.elevation
             if thickness > settings.slab_maximum_thickness_m:
                 break
-            overlap = lower.geometry.intersection(upper.geometry).area/min(lower.geometry.area, upper.geometry.area)
+            intersection = lower.geometry.intersection(upper.geometry).area
+            overlap = intersection/min(lower.geometry.area, upper.geometry.area)
+            both_face_overlap = intersection/max(lower.geometry.area, upper.geometry.area)
             angle = float(np.degrees(np.arccos(np.clip(np.dot(lower.normal,upper.normal),-1,1))))
             if (thickness >= settings.slab_minimum_thickness_m and overlap >= settings.slab_minimum_face_overlap
                     and angle <= 5.):
-                candidates.append({"lower": i, "upper": j, "paired": True})
+                # A small table, landing or ceiling patch may lie almost
+                # entirely inside a floor face. That cannot establish the
+                # thickness of the entire larger slab or move its storey.
+                candidates.append({"lower": i, "upper": j, "paired": True,
+                    "rejection_reasons": [] if both_face_overlap >= settings.slab_minimum_face_overlap
+                    else ["insufficient_independent_face_coverage"]})
             elif (j == i+1 and thickness >= settings.slab_minimum_thickness_m
                   and overlap < .01 and min(lower.geometry.area, upper.geometry.area) >= minimum_area):
                 # Separate partial floor plates can delimit a short vertical
@@ -162,12 +169,16 @@ def detect_slab_zones(sample, settings):
     for candidate in candidates:
         a, b = surfaces[candidate["lower"]], surfaces[candidate["upper"]]
         area = max(a.geometry.area, b.geometry.area)
+        intersection = a.geometry.intersection(b.geometry).area
         candidate.update(bottom_m=a.elevation, top_m=b.elevation,
                          horizontal_support_area_m2=area,
-                         upper_lower_overlap_fraction=(a.geometry.intersection(b.geometry).area/
-                             min(a.geometry.area, b.geometry.area)),
+                         upper_lower_overlap_fraction=intersection/area,
+                         lower_face_overlap_fraction=intersection/a.geometry.area,
+                         upper_face_overlap_fraction=intersection/b.geometry.area,
+                         face_overlap_scope="intersection coverage required on both independent faces",
                          confidence=min(.95, .45+.25*area/largest+(.2 if candidate["paired"] else 0)),
-                         rejection_reasons=[] if area >= minimum_area else ["insufficient_building_scale_horizontal_support"])
+                         rejection_reasons=candidate.get("rejection_reasons", []) +
+                             ([] if area >= minimum_area else ["insufficient_building_scale_horizontal_support"]))
         candidate["score"] = (1.+area/largest+(1.2 if candidate["paired"] else 0)
                               +(.6*min(a.geometry.area,b.geometry.area)/largest if candidate["paired"] else 0)
                               -(.8*abs(b.elevation-a.elevation-settings.assumed_slab_thickness_m)
@@ -228,12 +239,87 @@ def detect_slab_zones(sample, settings):
     return levels, zones, surfaces, report
 
 
+def consolidate_scan_fragments(geometry, maximum_gap):
+    """Bridge bounded coplanar scan seams, never replace contours by a hull."""
+    pieces = _polygons(geometry)
+    if len(pieces) < 2:
+        return geometry, 0.0
+    # Mitred closing keeps straight roof edges exact. Restrict added area to
+    # corridors supported on both sides, avoiding corner-only connections.
+    bridges = []
+    radius = maximum_gap / 2 + 1e-8
+    for i, a in enumerate(pieces):
+        for b in pieces[i+1:]:
+            if a.distance(b) > maximum_gap:
+                continue
+            nearby = a.boundary.intersection(b.buffer(maximum_gap + 1e-8)).length
+            if nearby < max(.5, 3 * maximum_gap):
+                continue
+            closed = a.union(b).buffer(radius, join_style=2).buffer(-radius, join_style=2)
+            addition = closed.difference(a.union(b))
+            if len(_polygons(closed)) == 1 and addition.area <= maximum_gap * nearby * 1.1:
+                bridges.append(addition)
+    bridge = unary_union(bridges).difference(geometry)
+    return geometry.union(bridge), float(bridge.area)
+
+
+def matching_storey_boundary(first, second):
+    """Confirm that two storey-height faces describe the same plate envelope.
+
+    This permits a well-supported floor face to complete ceiling/roof regions
+    hidden by scanning occlusion. It deliberately uses the nonconvex observed
+    faces for the result; convex hulls are used only to compare their envelopes.
+    """
+    if first.is_empty or second.is_empty:
+        return False, {}
+    intersection = first.intersection(second).area
+    observed_overlap = intersection / max(1e-12, min(first.area, second.area))
+    area_ratio = min(first.area, second.area) / max(first.area, second.area)
+    a, b = first.convex_hull, second.convex_hull
+    envelope_iou = a.intersection(b).area / max(1e-12, a.union(b).area)
+    report = {"observed_overlap_fraction": float(observed_overlap),
+              "observed_area_ratio": float(area_ratio),
+              "envelope_iou": float(envelope_iou)}
+    return (observed_overlap >= .80 and area_ratio >= .65 and envelope_iou >= .85), report
+
+
+def _face_holes(face):
+    return [Polygon(r) for p in _polygons(face.raw_geometry) for r in p.interiors]
+
+
+def _matching_hole(hole, candidates):
+    return max((hole.intersection(p).area / hole.union(p).area for p in candidates), default=0.0)
+
+
+def _fixture_pattern(hole, candidates):
+    # Repeated small, similarly shaped gaps are typical fixture occlusion.
+    # Keep them reviewable even if both scans contain the same pattern.
+    def dimensions(p):
+        c = list(p.minimum_rotated_rectangle.exterior.coords)
+        return sorted([LineString(c[:2]).length, LineString(c[1:3]).length])
+    size = dimensions(hole)
+    if max(size) > 1.2:
+        return False
+    similar = [p for p in candidates if all(abs(a-b) <= max(.08, a*.15)
+                for a,b in zip(size, dimensions(p)))]
+    return len(similar) >= 3
+
+
 def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
     slabs, openings = [], []
     for index, zone in enumerate(zones):
         lower, upper = surfaces[zone["lower"]], surfaces[zone["upper"]]
         geometry = lower.geometry.union(upper.geometry) if zone["paired"] else upper.geometry
         raw = lower.raw_geometry.union(upper.raw_geometry) if zone["paired"] else upper.raw_geometry
+        projected_area, projection_report = 0.0, {}
+        if index == len(zones)-1 and not zone["paired"] and index:
+            counterpart = surfaces[zones[index-1]["upper"]].geometry
+            matching, projection_report = matching_storey_boundary(geometry, counterpart)
+            if matching:
+                projected_area = counterpart.difference(geometry).area
+                geometry = geometry.union(counterpart)
+        geometry, seam_area = consolidate_scan_fragments(geometry, settings.slab_close_gap_m)
+        face_holes = [_face_holes(lower), _face_holes(upper)]
         owner = storeys[min(index, len(storeys)-1)]
         # A wall outline can resolve only a narrow occluded strip adjacent to
         # observed horizontal support. Protect all large interior gaps. Original
@@ -267,9 +353,12 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
             exterior = Polygon(piece.exterior).simplify(1e-9, preserve_topology=True)
             prefix = "top-slab" if index == len(zones)-1 else f"{owner.id}-floor"
             slab_id = prefix if len(components) == 1 else f"{prefix}-component-{number}"
-            retained_holes = [Polygon(ring) for ring in piece.interiors
-                              if Polygon(ring).area >= settings.slab_minimum_hole_area_m2]
-            exported = exterior.difference(unary_union(retained_holes))
+            # Preserve gaps seen on just one face as review candidates too.
+            gaps = unary_union([*face_holes[0], *face_holes[1],
+                                *[Polygon(r) for r in piece.interiors]]).intersection(exterior)
+            retained_holes = [p for p in _polygons(gaps)
+                              if p.area >= settings.slab_minimum_hole_area_m2]
+            exported = exterior
             support = exported.intersection(raw).area
             inferred = max(0., exported.area-support)
             evidence = {"method": "separate_face_occupancy_union", "zone_index": index,
@@ -277,6 +366,12 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
                         "paired_faces": zone["paired"], "raster_cell_m": settings.slab_raster_cell_m,
                         "maximum_closed_gap_m": settings.slab_close_gap_m,
                         "wall_outline_inferred_area_m2": piece.intersection(addition).area,
+                        "scan_seam_inferred_area_m2": seam_area,
+                        "counterpart_projection_inferred_area_m2": piece.intersection(
+                            counterpart.difference(upper.geometry)).area
+                            if projected_area and index == len(zones)-1 else 0.0,
+                        "counterpart_projection_basis": projection_report or None,
+                        "cut_policy": "occupancy_gaps_require_independent_validation",
                         "net_polygon_area_m2": exported.area, "supported_area_m2": support,
                         "inferred_area_m2": inferred, "supported_percent": 100*support/exported.area,
                         "inferred_percent": 100*inferred/exported.area,
@@ -289,22 +384,27 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
                               {"thickness": "measured" if zone["paired"] else "inferred",
                                "footprint": "inferred", "material": "unknown"},
                               confidence=zone["confidence"], evidence=evidence))
-            for hole_index, ring in enumerate(piece.interiors, 1):
-                hole = Polygon(ring)
-                if hole.area < settings.slab_minimum_hole_area_m2:
-                    continue
-                # Explicit polygon void already works in the viewer and IFC.
+            for hole_index, hole in enumerate(retained_holes, 1):
+                # Independent face holes, not perimeter support alone, validate a cut.
                 from .features import _opening_frame
                 start, end, width = _opening_frame(hole)
                 band = hole.boundary.buffer(settings.slab_raster_cell_m)
                 face_support = [face.geometry.intersection(band).area/band.area for face in (lower, upper)]
-                classification = ("observed_hole" if zone["paired"] and min(face_support) >= .25
-                                  else "partially_observed_hole")
+                matches = [_matching_hole(hole, candidates) for candidates in face_holes]
+                pattern = _fixture_pattern(hole, retained_holes)
+                matching = (zone["paired"] and zone["lower"] != zone["upper"]
+                            and min(matches) >= .8 and min(face_support) >= .25 and not pattern)
+                classification = ("light_fixture_pattern" if pattern else
+                                  "observed_hole" if matching else "partially_observed_hole")
                 openings.append(SlabOpening(f"{slab_id}-observed-hole-{hole_index}", slab_id,
                     start, end, width, provenance={"footprint": "inferred", "host_slab_id": "measured"},
                     confidence=zone["confidence"], footprint=list(hole.exterior.coords)[:-1],
                     evidence={"method": "enclosed_horizontal_occupancy_gap", "area_m2": hole.area,
                               "classification": classification, "face_boundary_support_fractions": face_support,
+                              "face_hole_overlap_fractions": matches,
+                              "validation_state": "validated" if matching else "review_required",
+                              "validation_basis": "matching_faces" if matching else None,
+                              "ifc_policy": "cut_only_after_independent_validation_or_explicit_user_approval",
                               "stairwell_state": "pending_stair_system_validation",
-                              "scope": "enclosed unsampled slab region; occlusion remains possible, not enlarged from stairs"}))
+                              "scope": "enclosed unsampled region; matching independent faces can validate a cut; single-face and fixture patterns remain filled"}))
     return slabs, openings

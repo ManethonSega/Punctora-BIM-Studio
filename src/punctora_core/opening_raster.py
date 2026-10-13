@@ -7,7 +7,7 @@ from .sampling import resolved_cpu_workers
 from .wall_slices import runs
 
 
-def _one_wall(cloud,wall,settings):
+def _one_wall(cloud,wall,settings,visit=lambda _: None):
     start=np.asarray(wall.start,float)
     direction=np.asarray(wall.end,float)-start
     length=float(np.linalg.norm(direction))
@@ -17,7 +17,9 @@ def _one_wall(cloud,wall,settings):
     normal=np.array([-direction[1],direction[0]])
     cell=max(.05,settings.grid_size_m)
     nx,nz=int(np.ceil(length/cell)),int(np.ceil(wall.height/cell))
-    if nx<10 or nz<20 or nx*nz>settings.maximum_grid_cells:
+    padding=max(1,int(np.ceil(.2/cell)))
+    raster_width=nx+2*padding
+    if nx<10 or nz<20 or raster_width*nz>settings.maximum_grid_cells:
         return []
     offsets=sorted(float((np.mean([f['start'],f['end']],axis=0)-start)@normal) for f in wall.observed_faces)
     planes=[]
@@ -28,39 +30,70 @@ def _one_wall(cloud,wall,settings):
         histogram=np.zeros(81,np.int64)
         for begin in range(0,len(cloud.points),settings.processing_chunk_points):
             p=cloud.points[begin:begin+settings.processing_chunk_points]
+            visit(len(p))
             along=(p[:,:2]-start)@direction
             d=(p[:,:2]-start)@normal
             keep=(along>=0)&(along<length)&(p[:,2]>=wall.base)&(p[:,2]<wall.base+wall.height)
             histogram+=np.histogram(d[keep],bins=np.linspace(-.405,.405,82))[0]
         planes=[float((np.argmax(histogram)-40)*.01)]
     candidates=[]
-    for reference in planes:
-        face=np.zeros((nz,nx),np.uint8)
+    # Also search secondary local depth planes for a repeated frame system.
+    # The dominant fitted plane can be glass rather than the sparse mullions.
+    # Accumulate this histogram during the first existing raster pass; no
+    # additional original-point scan or cloud-sized selection is required.
+    for plane_index,reference in enumerate(planes):
+        frame_histogram=np.zeros(81,np.int64) if plane_index==0 else None
+        face=np.zeros((nz,raster_width),np.uint8)
         returns=np.zeros_like(face)
-        depth=np.full((nz,nx),np.inf,np.float32)
-        signed=np.full((nz,nx),np.nan,np.float32)
-        counts=np.zeros((nz,nx),np.int64)
-        sums=np.zeros((nz,nx),float)
+        depth=np.full((nz,raster_width),np.inf,np.float32)
+        signed=np.full((nz,raster_width),np.nan,np.float32)
+        counts=np.zeros((nz,raster_width),np.int64)
+        sums=np.zeros((nz,raster_width),float)
+        floor_face_min=np.full(raster_width,np.inf)
+        floor_face_max=np.full(raster_width,-np.inf)
         support=0
         for begin in range(0,len(cloud.points),settings.processing_chunk_points):
             points=cloud.points[begin:begin+settings.processing_chunk_points]
+            visit(len(points))
             # Filter height before projecting unrelated storeys.
             points=points[(points[:,2]>=wall.base)&(points[:,2]<wall.base+wall.height)]
             relative=points[:,:2]-start
             along,across,z=relative@direction,relative@normal-reference,points[:,2]-wall.base
-            keep=(along>=0)&(along<length)&(np.abs(across)<=.35)
-            x,h,d=(along[keep]/cell).astype(int),(z[keep]/cell).astype(int),across[keep]
+            keep=(along>=-padding*cell)&(along<length+padding*cell)&(np.abs(across)<=.35)
+            if frame_histogram is not None:
+                frame_histogram+=np.histogram((across+reference)[(along>=0)&(along<length)],
+                                             bins=np.linspace(-.405,.405,82))[0]
+            x,h,d=((along[keep]+padding*cell)/cell).astype(int),(z[keep]/cell).astype(int),across[keep]
             returns[h,x]=1
             near=np.abs(d)<=max(.02,settings.grid_size_m)
             face[h[near],x[near]]=1
+            low=near&(h==0)
+            np.minimum.at(floor_face_min,x[low],z[keep][low])
+            np.maximum.at(floor_face_max,x[low],z[keep][low])
             np.add.at(counts,(h,x),1)
             np.add.at(sums,(h,x),d)
             np.minimum.at(depth,(h,x),np.abs(d).astype(np.float32))
             support+=int(near.sum())
+        if frame_histogram is not None:
+            for peak in np.argsort(-frame_histogram):
+                offset=float((peak-40)*.01)
+                if frame_histogram[peak]<max(100,frame_histogram.sum()*.015) or len(planes)>=3:
+                    break
+                if all(abs(offset-p)>.04 for p in planes):
+                    planes.append(offset)
         if support<100:
             continue
         np.divide(sums,counts,out=signed,where=counts>0)
         filled=cv2.morphologyEx(face,cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
+        from .glazed_facades import frame_bays
+        vertical_sill=(floor_face_max-floor_face_min)>=min(.015,cell*.3)
+        facade = frame_bays(wall, filled, returns, depth, signed, reference, cell, settings, padding, vertical_sill)
+        candidates.extend(facade)
+        # Ordinary bounded openings keep the original host raster and rules.
+        # Façade frame evidence may extend just beyond fitted host endpoints;
+        # its exported bay envelopes are clipped to the finite host span.
+        face,filled,returns,depth,signed=(a[:,padding:padding+nx] for a in (face,filled,returns,depth,signed))
+        vertical_sill=vertical_sill[padding:padding+nx]
         missing=1-filled
         count,labels,stats,_=cv2.connectedComponentsWithStats(missing,8)
         boxes=[]
@@ -82,10 +115,25 @@ def _one_wall(cloud,wall,settings):
             vacancy=float(missing[z:z+height,x:x+width].mean())
             if vacancy<.8:
                 continue
-            kind='door' if sill<=.18 and h>=1.65 else 'window' if .35<=sill<=1.8 else 'unknown'
+            # A low sill is not doorway evidence. Require a floor-connected
+            # portal without a measured sill, bounded jambs/head, and clear
+            # separation between the head and the storey ceiling.
+            sill_strip=filled[:max(1,z),x:x+width]
+            sill_support=float(sill_strip.mean()) if sill_strip.size else 0.
+            if z<=1:
+                # A horizontal floor can fill row zero. A sill requires
+                # original face returns spanning a vertical interval there.
+                sill_support=float(vertical_sill[x:x+width].mean())
+            # Use the accepted opening span for single and double portals.
+            # A separate 1.5 m cap discarded supported double doorways;
+            # classification still requires the observed floor/frame evidence.
+            portal=(z<=1 and sill_support<.15 and wall.height-sill-h>=.35
+                    and .65<=w<=3.2 and h>=1.65)
+            floor_glazing=sill<=.2 and wall.height-sill-h<=.25
+            kind='door' if portal else 'window' if floor_glazing or .05<=sill<=1.8 else 'unknown'
             strips={'left_jamb':filled[z:z+height,x-2:x],'right_jamb':filled[z:z+height,x+width:x+width+2],
                     'head':filled[z+height:z+height+2,x:x+width]}
-            if kind!='door':
+            if kind!='door' and z>0:
                 strips['sill']=filled[max(0,z-2):z,x:x+width]
             edge={k:float(v.mean()) if v.size else 0. for k,v in strips.items()}
             if min(edge.values())<settings.opening_minimum_edge_support:
@@ -104,6 +152,11 @@ def _one_wall(cloud,wall,settings):
             actual_sill=0. if kind=='door' else sill
             actual_height=min(h+sill if kind=='door' else h,wall.height-actual_sill)
             evidence=dict(method='recessed_filling_plane' if recessed else 'wall_occupancy_gap',raster_method='signed_observed_face',
+                          classification='floor_to_ceiling_glazing' if floor_glazing else kind,
+                          doorway_evidence={'supported':portal,'floor_connected':z<=1,
+                              'sill_support_fraction':sill_support,'head_clearance_m':wall.height-sill-h,
+                              'sill_basis':'original face vertical extent in floor cell' if z<=1 else 'supported above-floor frame',
+                              'bounded_jambs_and_head':True},
                           cell_size_m=cell,face_offset_from_axis_m=reference,edge_support=edge,edge_support_fractions=list(edge.values()),
                           jamb_positions_m=[x*cell,(x+width)*cell],sill_elevation_m=wall.base+actual_sill,
                           head_elevation_m=wall.base+actual_sill+actual_height,interior_occupancy=occupied,empty_space_continuity=vacancy,
@@ -124,20 +177,45 @@ def _one_wall(cloud,wall,settings):
             candidates.append(Opening('',wall.id,kind,x*cell,actual_sill,min(w,length-x*cell),actual_height,
                                       {'dimensions':'measured','kind':'inferred','filling':'unknown'},confidence=score,evidence=evidence))
     accepted=[]
-    for candidate in sorted(candidates,key=lambda c:-c.confidence):
+    for candidate in sorted(candidates,key=lambda c:(c.evidence.get('method')!='repeated_facade_frame_geometry',-c.confidence)):
         if any(min(c.offset+c.width,candidate.offset+candidate.width)-max(c.offset,candidate.offset)>.6*min(c.width,candidate.width)
                and min(c.sill+c.height,candidate.sill+candidate.height)-max(c.sill,candidate.sill)>.6*min(c.height,candidate.height) for c in accepted):
             continue
         accepted.append(candidate)
     accepted.sort(key=lambda c:(c.offset,c.sill))
+    from .glazed_facades import tag_repeated_window_groups
+    tag_repeated_window_groups(wall, accepted)
     for index,candidate in enumerate(accepted,1):
         candidate.id=f'{wall.id}-opening-{index}'
     return accepted
 
 
-def detect_signed_openings(cloud,walls,settings,workers=None):
+def detect_signed_openings(cloud,walls,settings,workers=None,spatial_index=None,stage="openings"):
     workers=resolved_cpu_workers(settings.cpu_workers) if workers is None else workers
+    def detect(wall):
+        local = cloud
+        visit = lambda _: None
+        if spatial_index is not None:
+            # Opening rasters inspect returns within 0.35 m of the observed
+            # face.  The exact per-pixel test in _one_wall remains unchanged.
+            # Openings span the whole host height, even with narrow fitting slices.
+            a,b = np.asarray(wall.start,float),np.asarray(wall.end,float)
+            direction = b-a
+            length = np.linalg.norm(direction)
+            if length<.5:
+                return []
+            direction /= length
+            normal = np.array([-direction[1],direction[0]])
+            offsets = [float((np.mean([f["start"],f["end"]],axis=0)-a)@normal)
+                       for f in wall.observed_faces] or [0.]
+            faces = [dict(start=(a+normal*o).tolist(),end=(b+normal*o).tolist(),
+                          z_min=wall.base,z_max=wall.base+wall.height) for o in offsets]
+            local, _ = spatial_index.local_cloud(faces,.405,.05,stage)
+            visit = lambda count: spatial_index.visit(stage,count)
+            if local is None:
+                return []
+        return _one_wall(local,wall,settings,visit)
     if workers>1 and len(walls)>1:
         with ThreadPoolExecutor(max_workers=min(workers,len(walls))) as pool:
-            return [o for group in pool.map(lambda w:_one_wall(cloud,w,settings),walls) for o in group]
-    return [o for w in walls for o in _one_wall(cloud,w,settings)]
+            return [o for group in pool.map(detect,walls) for o in group]
+    return [o for w in walls for o in detect(w)]

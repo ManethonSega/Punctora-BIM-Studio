@@ -145,13 +145,20 @@ def multi_slice_walls(points, storey, settings, workers=1):
         first,second=support_for(face),support_for(other)
         # Glazing or a leaf observed only inside a frame is not the far side
         # of a full-height wall. Require repeated broad support on both sides.
-        if min(first['vertical_continuity'],second['vertical_continuity'])<.6:
+        continuity = min(first['vertical_continuity'],second['vertical_continuity'])
+        if continuity < .35:
             return False
         a,b=np.asarray(face)
         axis=(b-a)/np.linalg.norm(b-a)
         values=sorted(float((p-a)@axis) for p in other)
         overlap=max(0.,min(np.linalg.norm(b-a),values[1])-max(0.,values[0]))
-        return overlap/max(np.linalg.norm(b-a),np.linalg.norm(np.asarray(other[1])-other[0]))>=.75
+        # Partial opposite faces are common around large glazed zones. A face
+        # observed through at least half the height bands may use a shorter
+        # common span. This rejects a window filling plane nested inside a
+        # longer host while retaining two repeated wall faces whose ends are
+        # occluded by the facade or adjoining rooms.
+        ratio = overlap/max(np.linalg.norm(b-a),np.linalg.norm(np.asarray(other[1])-other[0]))
+        return ratio >= .6 or (continuity >= .5 and ratio >= .35)
     walls = _walls_from_faces(faces,storey,settings,(float(edges[0]),float(edges[-1])),pair_validator=credible_pair)
     for wall in walls:
         matches = [min(evidence,key=lambda e:np.linalg.norm(np.asarray(e['face'])-[f['start'],f['end']])) for f in wall.observed_faces]
