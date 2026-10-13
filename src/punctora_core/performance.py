@@ -77,6 +77,15 @@ class ResourcePlan:
                   min(automatic, int(settings.maximum_working_memory_gb*1024**3)))
         memory = policy-baseline-source_reserve
         if memory < 64*1024**2:
+            from .sampling import release_completed_working_memory
+            release_completed_working_memory()
+            available = available_memory_bytes()
+            baseline = _process().memory_info().rss
+            automatic = int(available*.70)
+            policy = (automatic if settings.maximum_working_memory_gb == 0 else
+                      min(automatic, int(settings.maximum_working_memory_gb*1024**3)))
+            memory = policy-baseline-source_reserve
+        if memory < 64*1024**2:
             raise ValueError("Insufficient available RAM for reconstruction; close other applications")
         workers = resolved_cpu_workers(settings.cpu_workers)
         concurrent = min(max(1, int(storeys)), workers, max(1, memory//(256*1024**2)))

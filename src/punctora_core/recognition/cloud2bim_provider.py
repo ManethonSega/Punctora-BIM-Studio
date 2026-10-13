@@ -50,7 +50,7 @@ class Cloud2BIMProvider(RecognitionProvider):
         self.assets = assets
         self.warnings = ["Experimental PTv3 proposals only; real-scan domain gap remains unqualified",
                          "Published Cloud2BIM DL directory has no runnable inference/configuration; exact training parity is not claimed",
-                         "Canonical normal signs differ from upstream unoriented normals; evaluate after Run 9"]
+                         "Canonical normal signs differ from upstream unoriented normals; evaluate at the applicable specialist-provider checkpoint"]
         self.instances = []
         self.process = None
 

@@ -29,6 +29,8 @@ jobs:
         run: python scripts/verify_quality_evaluator.py --output-dir outputs/quality-generated
       - name: Generated classical recognition and immutable proposal replay
         run: python scripts/verify_recognition_provider.py --output-dir outputs/recognition-generated
+      - name: Both-face hybrid instances and evidence graph replay
+        run: python scripts/verify_hybrid_instances.py --output-dir outputs/hybrid-generated
       - name: Keep acceptance truth separate from reconstruction changes
         if: github.event_name == 'pull_request'
         shell: bash

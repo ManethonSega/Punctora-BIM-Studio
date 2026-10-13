@@ -148,10 +148,16 @@ def validate_proposal_set(manifest, directory, verify_arrays=True, cancelled=lam
         identifier(instance.get("native_score_kind"), "instance native score kind")
         if instance.get("native_score") is not None:
             number(instance["native_score"], "instance native score")
-        validate_geometry(instance["geometry"])
+        geometry = instance.get("geometry")
+        if geometry is None:
+            if (instance["class"] != "column" or instance.get("geometry_state") != "insufficient_for_parametric_geometry"
+                    or not instance.get("evidence_ids") or "hybrid_v1" not in manifest.get("extensions", {})):
+                raise ValueError("Only an evidence-backed hybrid column may retain unresolved geometry")
+        else:
+            validate_geometry(geometry)
         expected_type = {"floor": "surface", "slab": "surface", "ceiling": "surface", "roof": "surface",
                          "landing": "surface", "door": "opening", "window": "opening", "opening": "opening"}.get(instance["class"], instance["class"])
-        if instance["geometry"]["type"] != expected_type:
+        if geometry is not None and geometry["type"] != expected_type:
             raise ValueError("Proposal instance class and geometry disagree")
         bounds = np.asarray(instance.get("bounds_m"), dtype=np.float64)
         if bounds.shape != (2, 3) or not np.isfinite(bounds).all() or np.any(bounds[1] < bounds[0]):
@@ -170,6 +176,12 @@ def validate_proposal_set(manifest, directory, verify_arrays=True, cancelled=lam
         raise ValueError("Tile definitions require unique stable IDs")
     if not isinstance(manifest.get("warnings"), list) or any(not isinstance(w, str) for w in manifest["warnings"]):
         raise ValueError("Proposal warnings must be strings")
+    extensions = manifest.get("extensions", {})
+    if not isinstance(extensions, dict) or set(extensions) - {"hybrid_v1"}:
+        raise ValueError("Unknown ProposalSet extension")
+    if "hybrid_v1" in extensions:
+        from .element_graph import validate_hybrid_artifacts
+        validate_hybrid_artifacts(manifest, directory, verify_arrays, cancelled)
     return manifest
 
 

@@ -36,6 +36,14 @@ class RecognitionControl:
         self.baseline_rss = _process().memory_info().rss
         self.working_budget = self.memory_limit_bytes - self.baseline_rss
         if self.working_budget < 16 * 1024**2:
+            from ..sampling import release_completed_working_memory
+            release_completed_working_memory()
+            self.available_at_start = available_memory_bytes()
+            ceiling = int(self.available_at_start * .70)
+            self.memory_limit_bytes = min(ceiling, memory_limit_bytes) if memory_limit_bytes else ceiling
+            self.baseline_rss = _process().memory_info().rss
+            self.working_budget = self.memory_limit_bytes - self.baseline_rss
+        if self.working_budget < 16 * 1024**2:
             raise ValueError("Insufficient available RAM for recognition at the 70% ceiling")
         self.chunk_points = min(chunk_points, 65536, max(1, self.working_budget // 4096))
         self.cancelled, self.diagnostics = cancelled, diagnostics
@@ -201,14 +209,16 @@ def run_recognition(cloud, identity, provider, cache_directory, *, tile_settings
     settings = (tile_settings or TileSettings()).validate()
     release_mapped_source_pages(cloud)
     cache = ProposalCache(cache_directory)
-    requested = deepcopy(provider.descriptor())
     implementation = implementation_fingerprint()
     warnings = []
     with RecognitionControl(memory_limit_bytes, chunk_points, cancelled, diagnostics) as control:
-        if settings.maximum_context_points * 2048 > control.working_budget // 2:
+        if min(settings.maximum_context_points, len(cloud.points)) * 2048 > control.working_budget // 2:
             raise ValueError("Tile context limit exceeds the recognition working budget; lower the explicit limit")
         with cache.stage() as stage:
             inputs = _input_digests(cloud, stage, control)
+            control.input_digests = inputs
+            provider.bind_source(cloud, control)
+            requested = deepcopy(provider.descriptor())
             # A failed learned attempt publishes nothing. Its tiles and
             # partial labels are deleted before the classical fallback begins.
             for attempt in range(2):
@@ -226,6 +236,8 @@ def run_recognition(cloud, identity, provider, cache_directory, *, tile_settings
                     control.stage = "prepare"
                     provider.prepare(cloud, identity, work, control)
                     index = TileIndex(cloud, settings, control.working_budget // 2, control.chunk_points, work, control.check)
+                    control.stage = "prepare_instances"
+                    provider.prepare_instances(cloud, identity, work, control, index.index)
                     shards, tiles = [], []
                     for cell in index.tiles:
                         control.stage = "infer_chunk"
@@ -255,7 +267,10 @@ def run_recognition(cloud, identity, provider, cache_directory, *, tile_settings
                                 "overlap_rule": "majority_count_then_lowest_taxonomy_id; score=max_native_winner_score",
                                 "instances": deepcopy(list(provider.instances)),
                                 "warnings": [*warnings, *provider.warnings],
-                                "qualification": "Internal conformance only. External real-scan qualification after Run 9."}
+                                "qualification": "Internal conformance only until the applicable real-scan and designated-computer responsibility checkpoint passes."}
+                    extensions = provider.write_artifacts(stage, control)
+                    if extensions:
+                        manifest["extensions"] = extensions
                     index.close()
                     index = None
                     provider.close()
@@ -278,4 +293,5 @@ def run_recognition(cloud, identity, provider, cache_directory, *, tile_settings
                         import shutil
                         shutil.rmtree(work)
                 provider = replacement
+                provider.bind_source(cloud, control)
     raise RuntimeError("Recognition provider did not publish a complete generation")

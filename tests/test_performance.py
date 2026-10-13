@@ -57,6 +57,23 @@ def test_resource_plan_reserves_source_and_exposes_parallel_budget():
     assert plan.chunk_points <= settings.processing_chunk_points
 
 
+def test_insufficient_admission_reclaims_completed_memory_then_retains_ceiling(monkeypatch):
+    from punctora_core import performance, sampling
+    from types import SimpleNamespace
+    released = []
+    monkeypatch.setattr(sampling, "release_completed_working_memory", lambda: released.append(True))
+    monkeypatch.setattr(performance, "available_memory_bytes", lambda: (1024 if released else 256) * 1024**2)
+    monkeypatch.setattr(performance, "_process", lambda: SimpleNamespace(memory_info=lambda: SimpleNamespace(rss=(50 if released else 200) * 1024**2)))
+    settings = ReconstructionSettings(cpu_workers=1)
+    plan = ResourcePlan.create(settings, 10000)
+    assert released == [True]
+    assert plan.available_memory_fraction_limit == .70
+    assert plan.memory_bytes + plan.baseline_process_rss_bytes + plan.source_cloud_bytes_estimate <= int(plan.available_at_start * .70)
+    released.clear()
+    with __import__("pytest").raises(ValueError, match="Insufficient"):
+        ResourcePlan.create(ReconstructionSettings(maximum_working_memory_gb=.01), 10000)
+
+
 def test_mapped_source_reserve_is_bounded_without_editing_the_source(tmp_path,monkeypatch):
     from punctora_core.cloud_io import CloudData
     import punctora_core.performance as performance

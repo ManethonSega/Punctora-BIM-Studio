@@ -24,6 +24,12 @@ class CloudData:
     source_record_index: np.ndarray | None = None
     working_index: np.ndarray | None = None
 
+    def __repr__(self):
+        # Exception/reporting tools may render a caller's CloudData after its
+        # read-only context closed the source maps. Printing mapped values
+        # then can fault in native NumPy. Metadata remains safe to inspect.
+        return f"CloudData(points_shape={self.points.shape}, dtype={self.points.dtype}, original_ids={self.scan_index is not None and self.source_record_index is not None})"
+
     def __post_init__(self):
         self.points = np.asarray(self.points, dtype=np.float64)
         if self.points.ndim != 2 or self.points.shape[1] != 3 or len(self.points) == 0:

@@ -6,6 +6,27 @@ import os
 import numpy as np
 
 
+def release_completed_working_memory():
+    """Collect completed cycles and return free native heap pages if supported.
+
+    Live source arrays and mappings remain owned by their callers. This does
+    not evict their data, raise the memory policy or reclaim another process.
+    The optional allocator trim matters for repeated jobs in one worker after
+    large temporary NumPy allocations have already been freed.
+    """
+    import gc
+    import sys
+    gc.collect()
+    if sys.platform.startswith("linux"):
+        try:
+            import ctypes
+            trim = ctypes.CDLL(None).malloc_trim
+            trim.argtypes, trim.restype = [ctypes.c_size_t], ctypes.c_int
+            trim(0)
+        except (AttributeError, OSError):
+            pass
+
+
 @dataclass
 class DetectionSample:
     points: np.ndarray

@@ -82,8 +82,54 @@ def main(argv=None):
     semantic.add_argument("proposal_directory", type=Path)
     semantic.add_argument("sample_keys", type=Path)
     semantic.add_argument("--output", type=Path, required=True)
+    hybrid = commands.add_parser("recognition-fuse", help="Fuse review-only 3D labels, both-face projections and optional isolated 2D instances")
+    hybrid.add_argument("manifest", type=Path)
+    hybrid.add_argument("--proposal-dir", type=Path, required=True, help="Fingerprint-matched, unfused Run 2 generation")
+    hybrid.add_argument("--cache-dir", type=Path, required=True)
+    hybrid.add_argument("--vision-assets", type=Path, help="Explicit trusted local 2D worker/configuration, no downloads")
+    hybrid.add_argument("--settings", type=Path, help="HybridSettings JSON")
+    hybrid.add_argument("--tiles", type=Path, help="TileSettings JSON")
+    hybrid.add_argument("--ram-gb", type=float, default=0.)
+    hybrid.add_argument("--diagnostics", type=Path)
     args = parser.parse_args(argv)
     try:
+        if args.command == "recognition-fuse":
+            from .annotation_io import read_json
+            from .quality_benchmark import write_report
+            from .recognition.contracts import safe_artifact_path
+            from .recognition.hybrid import HybridProvider, HybridSettings
+            from .recognition.io import load_input
+            from .recognition.job import run_recognition
+            from .recognition.tiling import TileSettings
+            from .recognition.vision_provider import IsolatedVisionProvider, VisionAssets
+            if not __import__("math").isfinite(args.ram_gb) or args.ram_gb < 0:
+                raise ValueError("Hybrid RAM cap must be finite and nonnegative")
+            source = read_json(args.manifest)
+            protected = [args.manifest, *[p for p in (args.settings, args.tiles, args.vision_assets) if p]]
+            protected.extend(safe_artifact_path(args.manifest.parent, a["path"]) for a in source.get("arrays", {}).values())
+            vision = None
+            if args.vision_assets:
+                assets = read_json(args.vision_assets)
+                protected.extend(Path(assets[k]) for k in ("python", "worker", "configuration"))
+                configuration = Path(assets["configuration"])
+                if configuration.is_file():
+                    protected.extend(Path(a["path"]) for a in read_json(configuration).get("model_assets", []))
+                vision = IsolatedVisionProvider(VisionAssets(**assets))
+            if args.diagnostics and (args.diagnostics.resolve() in {p.resolve() for p in protected}
+                or args.diagnostics.resolve().is_relative_to(args.cache_dir.resolve())
+                or args.diagnostics.resolve().is_relative_to(args.proposal_dir.resolve())):
+                raise ValueError("Hybrid diagnostics must be outside inputs and both immutable caches")
+            settings = HybridSettings(**read_json(args.settings)) if args.settings else HybridSettings()
+            tiles = TileSettings(**read_json(args.tiles)) if args.tiles else TileSettings()
+            provider = HybridProvider(args.proposal_dir, vision, settings)
+            with load_input(args.manifest) as (cloud, identity):
+                directory, report, hit = run_recognition(cloud, identity, provider, args.cache_dir,
+                    tile_settings=tiles, memory_limit_bytes=int(args.ram_gb * 1024**3),
+                    diagnostics=(lambda r: write_report(args.diagnostics, r)) if args.diagnostics else None)
+            print(json.dumps({"status": report["status"], "directory": str(directory), "cache_hit": hit,
+                "geometry_authority": report["geometry_authority"], "instances": len(report["instances"]),
+                "hybrid": report["extensions"]["hybrid_v1"]["diagnostics"], "warnings": report["warnings"]}, indent=2))
+            return 0
         if args.command == "recognition-export-samples":
             from .annotation_io import read_json
             from .recognition.io import export_semantic_samples

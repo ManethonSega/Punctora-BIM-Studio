@@ -219,3 +219,48 @@ def detect_signed_openings(cloud,walls,settings,workers=None,spatial_index=None,
         with ThreadPoolExecutor(max_workers=min(workers,len(walls))) as pool:
             return [o for group in pool.map(detect,walls) for o in group]
     return [o for w in walls for o in detect(w)]
+
+
+def projected_void_regions(projection, minimum_width_m=.5, minimum_height_m=.55,
+                           minimum_edge_support=.65, maximum_regions=512, check=lambda: None):
+    """Run 3 review-only void candidates, never Opening/IFC objects.
+
+    Missing pixels alone are not an opening. Require both measured jambs and
+    a head; above-floor holes also need a sill. Class and filling stay unknown.
+    Use the shared observed-face raster principle without changing the legacy
+    production detector's class rules or geometry.
+    """
+    observed = (projection.face_counts > 0).astype(np.uint8)
+    if projection.frame.plane_basis == "inferred_envelope_plane":
+        return []
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(1 - observed, 8)
+    result = []
+    nz, nx = observed.shape
+    cell = projection.frame.cell_m
+    for index in range(1, count):
+        check()
+        x, z, width, height, area = map(int, stats[index])
+        if (width * cell < minimum_width_m or height * cell < minimum_height_m
+                or x < 1 or x + width >= nx or z + height >= nz or area / (width * height) < .8):
+            continue
+        strips = {"left_jamb": observed[z:z + height, max(0, x - 2):x],
+                  "right_jamb": observed[z:z + height, x + width:min(nx, x + width + 2)],
+                  "head": observed[z + height:min(nz, z + height + 2), x:x + width]}
+        if z > 0:
+            strips["sill"] = observed[max(0, z - 2):z, x:x + width]
+        edges = {name: float(values.mean()) if values.size else 0. for name, values in strips.items()}
+        if min(edges.values()) < minimum_edge_support:
+            continue
+        mask = labels == index
+        interior = projection.return_counts[mask] > 0
+        depth = projection.signed_depth_m[mask][interior]
+        result.append({"class": "opening", "box": [x, z, x + width, z + height], "mask": mask,
+                       "native_score": min(edges.values()), "score_kind": "minimum_frame_occupancy_fraction",
+                       "evidence": {"method": "projected_observed_face_void", "edge_support": edges,
+                                    "interior_occupied_fraction": float(interior.mean()),
+                                    "median_signed_return_depth_m": float(np.median(depth)) if len(depth) else None,
+                                    "floor_connected": z == 0, "filling": "unknown",
+                                    "classification": "unknown", "scope": "bounded void, not proof of a door/window filling"}})
+        if len(result) > maximum_regions:
+            raise ValueError("Projection exceeds the explicit opening-region limit")
+    return result
