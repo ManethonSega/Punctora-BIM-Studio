@@ -73,12 +73,35 @@
     }
   ],
   "current_decision": {
-    "paid_option": "ActiViz VTK control in Avalonia",
-    "option_without_sdk_licence_fees": "Dedicated PySide6/PyVistaQt/PyVista/VTK viewer process with IPC and immutable binary caches",
-    "initial_python_scope": "Separate viewer window; embedding not claimed",
+    "selected_option": "Dedicated PySide6/PyVistaQt/PyVista/VTK viewer process with IPC and immutable binary caches",
+    "paid_sdk_allowed": false,
+    "activiz_selected": false,
+    "historical_paid_option": "ActiViz VTK control in Avalonia, excluded from implementation",
+    "initial_python_scope": "Separate viewer window connected to the same project; embedding not claimed",
     "application_ui_migration_authorized": false,
-    "previous_unconditional_activiz_first_order_superseded": true,
+    "previous_conditional_activiz_order_superseded": true,
     "owner_run": 8,
+    "viewer_plan_version": "1.1",
+    "execution_sequence": [
+      "Viewer boot and packaging contract",
+      "Scene transport and identity",
+      "Geometry and point adapters",
+      "Navigation and pleasant visuals",
+      "Project and operation coordination",
+      "Internal verification and handoff"
+    ],
     "external_qualification": "After all nine runs"
+  },
+  "viewer_plan_version": "1.1",
+  "user_choice": {
+    "confirmed": "2026-10-13",
+    "paid_sdk_allowed": false,
+    "selected_stack": [
+      "PySide6",
+      "PyVistaQt",
+      "PyVista",
+      "VTK 9.x, tested and pinned"
+    ],
+    "scope": "Viewer plan update only"
   }
 }

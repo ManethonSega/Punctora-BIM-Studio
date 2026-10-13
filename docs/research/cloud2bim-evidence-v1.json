@@ -7434,9 +7434,16 @@
     },
     {
       "file": "cloud2bim-viewer-license-runtime-v1.json",
-      "sha256": "cada592634f2c4b1b65f068dfeb23fda4cde3e0a35c8209c73a506b3b82fb1c6",
+      "sha256": "efb774816074825067b9b93accd3c032d53c7fa31c64ccc5a5b1b9847741a20a",
       "findings": "CB-061",
-      "scope": "User-requested published SDK fee/licensing and Python runtime integration clarification; conditional Run 8 decision."
+      "scope": "Published licensing/runtime sources and user-selected no-paid-SDK Python viewer plan 1.1; ActiViz excluded from implementation.",
+      "prior_snapshot": {
+        "commit": "e828d854e7c45376adc0c3270faa90a8b52e1281",
+        "sha256": "cada592634f2c4b1b65f068dfeb23fda4cde3e0a35c8209c73a506b3b82fb1c6",
+        "scope": "Version 1.4 conditional decision before user selected no paid SDK"
+      },
+      "viewer_plan_version": "1.1"
     }
-  ]
+  ],
+  "viewer_plan_version": "1.1"
 }
