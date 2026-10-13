@@ -1,0 +1,7416 @@
+{
+  "schema_version": 1,
+  "reference_version": "1.0",
+  "updated": "2026-10-13",
+  "scope": "Derived signatures, graph observations and controlled generated probe results. Not complete Windows application parity or independent real-building accuracy. No supplied executable, weights or scans are included.",
+  "reference_document": "CLOUD2BIM_REFERENCE.md",
+  "source_pins": {
+    "public_cloud2bim_commit": "cfb10b09ee7a53ac348c65b7e8f0ce8728f9852e",
+    "pointcept_commit": "1342eda30e96cbb5fadf5374ff8eb18f6de15c71",
+    "punctora_inspected_commit": "0b11e84be8cd656d007c64f238bfdcc8bfa59b92",
+    "supplied_executable": {
+      "bytes": 231476776,
+      "sha256": "81040406a1ef6bb0ed4b38ddb044fd3fd5712503ed50adf579d234580527aacb",
+      "executed": false
+    }
+  },
+  "audit_issue_comments": [
+    6148793886,
+    6149622386,
+    6150181520,
+    6150621195,
+    6150920920
+  ],
+  "assets": [
+    {
+      "file": "model_A.onnx",
+      "bytes": 107758217,
+      "sha256": "6de5aadeee16c9967649296992742da2e34e667fb09bc5a1edac06501d7d440d"
+    },
+    {
+      "file": "model_B.onnx",
+      "bytes": 107760273,
+      "sha256": "b1672b3665374fa57be2d328806d08bf4404e554c8e46939d4880fda68aaf375"
+    },
+    {
+      "file": "model_C.onnx",
+      "bytes": 107758217,
+      "sha256": "deb2d2cec23de1a1ce3c365912c0d1970315302a56c70a39e4e3a6666b7e717d"
+    },
+    {
+      "file": "model_D.onnx",
+      "bytes": 49604,
+      "sha256": "c8fb784866896b91bf22d9ca7cb440651bb32add4f7ae254cd7d250ff67fad14"
+    },
+    {
+      "file": "model_E.onnx",
+      "bytes": 97720380,
+      "sha256": "5e24a06ba2450a2548561465585d99916e1225fd33d0f8c81c735bb862719fc5"
+    },
+    {
+      "file": "model_F.onnx",
+      "bytes": 343093,
+      "sha256": "9cfb5da2185c118dc247f88a3b3492d94be50e1c0267ed23384a497297d86dcb"
+    },
+    {
+      "file": "model_G.onnx",
+      "bytes": 343093,
+      "sha256": "4f4a7c2fee3b2b5d8b32fb72644f27c4dfe8f9a7c8e65b2289081596e31e158c"
+    },
+    {
+      "file": "model_H.onnx",
+      "bytes": 343093,
+      "sha256": "780623abd4b788e6fd141ed149f7670b35273ed3474d05b0ec782f54551d2a1f"
+    },
+    {
+      "file": "model_I.onnx",
+      "bytes": 185122504,
+      "sha256": "775ca536bfd691979c6a45fae388f161b3f80ba332c6bb308257b937fd08f680"
+    },
+    {
+      "file": "model_J.onnx",
+      "bytes": 121154252,
+      "sha256": "0bea57f4ecb412fbc46e96ca6fb57c4241bcfee5797ddf12897327cf081f5f1d"
+    },
+    {
+      "file": "model_D.onnx.data",
+      "bytes": 97675200,
+      "sha256": "4758d242e870f7f6196094a5d4bc2df4ed1a533da8d5a83988dc15d61f3a5746"
+    },
+    {
+      "file": "model_F.onnx.data",
+      "bytes": 97714176,
+      "sha256": "66b3be136f23da2b1625f2d1885865bc7218a987a24c560c8c8c73582f792399"
+    },
+    {
+      "file": "model_G.onnx.data",
+      "bytes": 97714176,
+      "sha256": "a813fa61316d56ef17f6867853c4e3cc2aff03d6ea5538fdc37371627af0bb25"
+    },
+    {
+      "file": "model_H.onnx.data",
+      "bytes": 97714176,
+      "sha256": "5bdd8e9cd6ce885a4540670a727b509b2ff63e8f8402150c0ada7651acff91ed"
+    }
+  ],
+  "verified_model_asset_total_bytes": 1119170454,
+  "graph_signatures": [
+    {
+      "file": "model_A.onnx",
+      "task": "physical_slab_section",
+      "inputs": [
+        {
+          "name": "input",
+          "dtype": 1,
+          "shape": [
+            1,
+            3,
+            560,
+            560
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dets",
+          "dtype": 1,
+          "shape": [
+            1,
+            300,
+            4
+          ]
+        },
+        {
+          "name": "labels",
+          "dtype": 1,
+          "shape": [
+            1,
+            300,
+            1
+          ]
+        }
+      ],
+      "opsets": [
+        {
+          "domain": "",
+          "version": 17
+        }
+      ],
+      "metadata": {},
+      "external_tensor_layout": []
+    },
+    {
+      "file": "model_B.onnx",
+      "task": "opening_height_section",
+      "inputs": [
+        {
+          "name": "input",
+          "dtype": 1,
+          "shape": [
+            1,
+            3,
+            560,
+            560
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dets",
+          "dtype": 1,
+          "shape": [
+            1,
+            300,
+            4
+          ]
+        },
+        {
+          "name": "labels",
+          "dtype": 1,
+          "shape": [
+            1,
+            300,
+            2
+          ]
+        }
+      ],
+      "opsets": [
+        {
+          "domain": "",
+          "version": 17
+        }
+      ],
+      "metadata": {},
+      "external_tensor_layout": []
+    },
+    {
+      "file": "model_C.onnx",
+      "task": "beam_height_section",
+      "inputs": [
+        {
+          "name": "input",
+          "dtype": 1,
+          "shape": [
+            1,
+            3,
+            560,
+            560
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dets",
+          "dtype": 1,
+          "shape": [
+            1,
+            300,
+            4
+          ]
+        },
+        {
+          "name": "labels",
+          "dtype": 1,
+          "shape": [
+            1,
+            300,
+            1
+          ]
+        }
+      ],
+      "opsets": [
+        {
+          "domain": "",
+          "version": 17
+        }
+      ],
+      "metadata": {},
+      "external_tensor_layout": []
+    },
+    {
+      "file": "model_D.onnx",
+      "task": "wall_plan",
+      "inputs": [
+        {
+          "name": "input",
+          "dtype": 1,
+          "shape": [
+            "batch",
+            1,
+            "height",
+            "width"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "logits",
+          "dtype": 1,
+          "shape": [
+            "batch",
+            3,
+            "height",
+            "width"
+          ]
+        }
+      ],
+      "opsets": [
+        {
+          "domain": "",
+          "version": 17
+        }
+      ],
+      "metadata": {},
+      "external_tensor_layout": [
+        {
+          "name": "segmentation_head.0.weight",
+          "dims": [
+            3,
+            16,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "0",
+            "length": "1728"
+          }
+        },
+        {
+          "name": "onnx::Conv_542",
+          "dims": [
+            64,
+            1,
+            7,
+            7
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "1728",
+            "length": "12544"
+          }
+        },
+        {
+          "name": "onnx::Conv_545",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "14272",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "onnx::Conv_548",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "161728",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "onnx::Conv_551",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "309184",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "onnx::Conv_554",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "456640",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "onnx::Conv_557",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "604096",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "onnx::Conv_560",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "751552",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "onnx::Conv_563",
+          "dims": [
+            128,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "899008",
+            "length": "294912"
+          }
+        },
+        {
+          "name": "onnx::Conv_566",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "1193920",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "onnx::Conv_569",
+          "dims": [
+            128,
+            64,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "1783744",
+            "length": "32768"
+          }
+        },
+        {
+          "name": "onnx::Conv_572",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "1816512",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "onnx::Conv_575",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "2406336",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "onnx::Conv_578",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "2996160",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "onnx::Conv_581",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "3585984",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "onnx::Conv_584",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "4175808",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "onnx::Conv_587",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "4765632",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "onnx::Conv_590",
+          "dims": [
+            256,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "5355456",
+            "length": "1179648"
+          }
+        },
+        {
+          "name": "onnx::Conv_591",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "6535104",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_593",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "6536128",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_594",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "8895424",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_596",
+          "dims": [
+            256,
+            128,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "8896448",
+            "length": "131072"
+          }
+        },
+        {
+          "name": "onnx::Conv_597",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "9027520",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_599",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "9028544",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_600",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "11387840",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_602",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "11388864",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_603",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "13748160",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_605",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "13749184",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_606",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "16108480",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_608",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "16109504",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_609",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "18468800",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_611",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "18469824",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_612",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "20829120",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_614",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "20830144",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_615",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "23189440",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_617",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "23190464",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_618",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "25549760",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_620",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "25550784",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_621",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "27910080",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_623",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "27911104",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_624",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "30270400",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_626",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "30271424",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_627",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "32630720",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_629",
+          "dims": [
+            512,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "32631744",
+            "length": "4718592"
+          }
+        },
+        {
+          "name": "onnx::Conv_630",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "37350336",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "onnx::Conv_632",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "37352384",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "onnx::Conv_633",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "46789568",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "onnx::Conv_635",
+          "dims": [
+            512,
+            256,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "46791616",
+            "length": "524288"
+          }
+        },
+        {
+          "name": "onnx::Conv_636",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "47315904",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "onnx::Conv_638",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "47317952",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "onnx::Conv_639",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "56755136",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "onnx::Conv_641",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "56757184",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "onnx::Conv_642",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "66194368",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "onnx::Conv_644",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "66196416",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "onnx::Conv_645",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "75633600",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "onnx::Conv_647",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "75635648",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "onnx::Conv_648",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "85072832",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "onnx::Conv_650",
+          "dims": [
+            256,
+            768,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "85074880",
+            "length": "7077888"
+          }
+        },
+        {
+          "name": "onnx::Conv_651",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "92152768",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_653",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "92153792",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "onnx::Conv_654",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "94513088",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "onnx::Conv_656",
+          "dims": [
+            128,
+            384,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "94514112",
+            "length": "1769472"
+          }
+        },
+        {
+          "name": "onnx::Conv_659",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "96283584",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "onnx::Conv_662",
+          "dims": [
+            64,
+            192,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "96873408",
+            "length": "442368"
+          }
+        },
+        {
+          "name": "onnx::Conv_665",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "97315776",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "onnx::Conv_668",
+          "dims": [
+            32,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "97463232",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "onnx::Conv_671",
+          "dims": [
+            32,
+            32,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "97610688",
+            "length": "36864"
+          }
+        },
+        {
+          "name": "onnx::Conv_674",
+          "dims": [
+            16,
+            32,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "97647552",
+            "length": "18432"
+          }
+        },
+        {
+          "name": "onnx::Conv_677",
+          "dims": [
+            16,
+            16,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_D.onnx.data",
+            "offset": "97665984",
+            "length": "9216"
+          }
+        }
+      ]
+    },
+    {
+      "file": "model_E.onnx",
+      "task": "opening_plan",
+      "inputs": [
+        {
+          "name": "input",
+          "dtype": 1,
+          "shape": [
+            "batch",
+            1,
+            "height",
+            "width"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "logits",
+          "dtype": 1,
+          "shape": [
+            "batch",
+            3,
+            "height",
+            "width"
+          ]
+        }
+      ],
+      "opsets": [
+        {
+          "domain": "",
+          "version": 17
+        }
+      ],
+      "metadata": {},
+      "external_tensor_layout": []
+    },
+    {
+      "file": "model_F.onnx",
+      "task": "beam_plan",
+      "inputs": [
+        {
+          "name": "input",
+          "dtype": 1,
+          "shape": [
+            "batch",
+            1,
+            "height",
+            "width"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "logits",
+          "dtype": 1,
+          "shape": [
+            "batch",
+            2,
+            "height",
+            "width"
+          ]
+        }
+      ],
+      "opsets": [
+        {
+          "domain": "",
+          "version": 18
+        }
+      ],
+      "metadata": {},
+      "external_tensor_layout": [
+        {
+          "name": "segmentation_head.0.weight",
+          "dims": [
+            2,
+            16,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "20992",
+            "length": "1152"
+          }
+        },
+        {
+          "name": "encoder.conv1.weight",
+          "dims": [
+            64,
+            1,
+            7,
+            7
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "45696",
+            "length": "12544"
+          }
+        },
+        {
+          "name": "encoder.layer1.0.conv1.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "277376",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.0.conv2.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "424832",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.1.conv1.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "572288",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.1.conv2.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "719744",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.2.conv1.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "867200",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.2.conv2.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "1014656",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv1.weight",
+          "dims": [
+            128,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "1457024",
+            "length": "294912"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "2718592",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.downsample.0.weight",
+          "dims": [
+            128,
+            64,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "76672",
+            "length": "32768"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv1.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "3308416",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "3898240",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv1.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "4488064",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "5077888",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv1.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "5667712",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "6257536",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv1.weight",
+          "dims": [
+            256,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "7471104",
+            "length": "1179648"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "10420224",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.downsample.0.weight",
+          "dims": [
+            256,
+            128,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "146304",
+            "length": "131072"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "12779520",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "15138816",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "17498112",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "19857408",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "22216704",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "24576000",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "26935296",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "29294592",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "31653888",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "34013184",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv1.weight",
+          "dims": [
+            512,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "38731776",
+            "length": "4718592"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv2.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "50528256",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.downsample.0.weight",
+          "dims": [
+            512,
+            256,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "2194304",
+            "length": "524288"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv1.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "59965440",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv2.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "69402624",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv1.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "78839808",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv2.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "88276992",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv1.0.weight",
+          "dims": [
+            256,
+            768,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "43450368",
+            "length": "7077888"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv2.0.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "36372480",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv1.0.weight",
+          "dims": [
+            128,
+            384,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "8650752",
+            "length": "1769472"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv2.0.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "6847360",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "decoder.blocks.2.conv1.0.weight",
+          "dims": [
+            64,
+            192,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "1751936",
+            "length": "442368"
+          }
+        },
+        {
+          "name": "decoder.blocks.2.conv2.0.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "1162112",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "decoder.blocks.3.conv1.0.weight",
+          "dims": [
+            32,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "1309568",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "decoder.blocks.3.conv2.0.weight",
+          "dims": [
+            32,
+            32,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "109440",
+            "length": "36864"
+          }
+        },
+        {
+          "name": "decoder.blocks.4.conv1.0.weight",
+          "dims": [
+            16,
+            32,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "58240",
+            "length": "18432"
+          }
+        },
+        {
+          "name": "decoder.blocks.4.conv2.0.weight",
+          "dims": [
+            16,
+            16,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "36480",
+            "length": "9216"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "0",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "512",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.downsample.0.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "1024",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "1536",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "2048",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "2560",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "3072",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "3584",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "4096",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "5632",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "6656",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.downsample.0.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "7680",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "8704",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "9728",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "10752",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "11776",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "12800",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "13824",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "14848",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "15872",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "16896",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "17920",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv1.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "22144",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv2.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "24192",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.downsample.0.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "26240",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv1.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "28288",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv2.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "30336",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv1.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "32384",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv2.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "34432",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv1.0.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "18944",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv2.0.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "19968",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv1.0.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "4608",
+            "length": "512"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv2.0.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_F.onnx.data",
+            "offset": "5120",
+            "length": "512"
+          }
+        }
+      ]
+    },
+    {
+      "file": "model_G.onnx",
+      "task": "column_plan",
+      "inputs": [
+        {
+          "name": "input",
+          "dtype": 1,
+          "shape": [
+            "batch",
+            1,
+            "height",
+            "width"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "logits",
+          "dtype": 1,
+          "shape": [
+            "batch",
+            2,
+            "height",
+            "width"
+          ]
+        }
+      ],
+      "opsets": [
+        {
+          "domain": "",
+          "version": 18
+        }
+      ],
+      "metadata": {},
+      "external_tensor_layout": [
+        {
+          "name": "segmentation_head.0.weight",
+          "dims": [
+            2,
+            16,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "20992",
+            "length": "1152"
+          }
+        },
+        {
+          "name": "encoder.conv1.weight",
+          "dims": [
+            64,
+            1,
+            7,
+            7
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "45696",
+            "length": "12544"
+          }
+        },
+        {
+          "name": "encoder.layer1.0.conv1.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "277376",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.0.conv2.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "424832",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.1.conv1.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "572288",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.1.conv2.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "719744",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.2.conv1.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "867200",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.2.conv2.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "1014656",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv1.weight",
+          "dims": [
+            128,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "1457024",
+            "length": "294912"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "2718592",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.downsample.0.weight",
+          "dims": [
+            128,
+            64,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "76672",
+            "length": "32768"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv1.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "3308416",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "3898240",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv1.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "4488064",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "5077888",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv1.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "5667712",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "6257536",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv1.weight",
+          "dims": [
+            256,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "7471104",
+            "length": "1179648"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "10420224",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.downsample.0.weight",
+          "dims": [
+            256,
+            128,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "146304",
+            "length": "131072"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "12779520",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "15138816",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "17498112",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "19857408",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "22216704",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "24576000",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "26935296",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "29294592",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "31653888",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "34013184",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv1.weight",
+          "dims": [
+            512,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "38731776",
+            "length": "4718592"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv2.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "50528256",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.downsample.0.weight",
+          "dims": [
+            512,
+            256,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "2194304",
+            "length": "524288"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv1.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "59965440",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv2.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "69402624",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv1.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "78839808",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv2.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "88276992",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv1.0.weight",
+          "dims": [
+            256,
+            768,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "43450368",
+            "length": "7077888"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv2.0.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "36372480",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv1.0.weight",
+          "dims": [
+            128,
+            384,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "8650752",
+            "length": "1769472"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv2.0.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "6847360",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "decoder.blocks.2.conv1.0.weight",
+          "dims": [
+            64,
+            192,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "1751936",
+            "length": "442368"
+          }
+        },
+        {
+          "name": "decoder.blocks.2.conv2.0.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "1162112",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "decoder.blocks.3.conv1.0.weight",
+          "dims": [
+            32,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "1309568",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "decoder.blocks.3.conv2.0.weight",
+          "dims": [
+            32,
+            32,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "109440",
+            "length": "36864"
+          }
+        },
+        {
+          "name": "decoder.blocks.4.conv1.0.weight",
+          "dims": [
+            16,
+            32,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "58240",
+            "length": "18432"
+          }
+        },
+        {
+          "name": "decoder.blocks.4.conv2.0.weight",
+          "dims": [
+            16,
+            16,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "36480",
+            "length": "9216"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "0",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "512",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.downsample.0.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "1024",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "1536",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "2048",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "2560",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "3072",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "3584",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "4096",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "5632",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "6656",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.downsample.0.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "7680",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "8704",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "9728",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "10752",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "11776",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "12800",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "13824",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "14848",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "15872",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "16896",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "17920",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv1.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "22144",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv2.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "24192",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.downsample.0.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "26240",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv1.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "28288",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv2.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "30336",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv1.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "32384",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv2.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "34432",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv1.0.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "18944",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv2.0.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "19968",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv1.0.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "4608",
+            "length": "512"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv2.0.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_G.onnx.data",
+            "offset": "5120",
+            "length": "512"
+          }
+        }
+      ]
+    },
+    {
+      "file": "model_H.onnx",
+      "task": "stair_plan",
+      "inputs": [
+        {
+          "name": "input",
+          "dtype": 1,
+          "shape": [
+            "batch",
+            1,
+            "height",
+            "width"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "logits",
+          "dtype": 1,
+          "shape": [
+            "batch",
+            2,
+            "height",
+            "width"
+          ]
+        }
+      ],
+      "opsets": [
+        {
+          "domain": "",
+          "version": 18
+        }
+      ],
+      "metadata": {},
+      "external_tensor_layout": [
+        {
+          "name": "segmentation_head.0.weight",
+          "dims": [
+            2,
+            16,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "20992",
+            "length": "1152"
+          }
+        },
+        {
+          "name": "encoder.conv1.weight",
+          "dims": [
+            64,
+            1,
+            7,
+            7
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "45696",
+            "length": "12544"
+          }
+        },
+        {
+          "name": "encoder.layer1.0.conv1.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "277376",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.0.conv2.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "424832",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.1.conv1.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "572288",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.1.conv2.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "719744",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.2.conv1.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "867200",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer1.2.conv2.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "1014656",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv1.weight",
+          "dims": [
+            128,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "1457024",
+            "length": "294912"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "2718592",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.downsample.0.weight",
+          "dims": [
+            128,
+            64,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "76672",
+            "length": "32768"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv1.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "3308416",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "3898240",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv1.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "4488064",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "5077888",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv1.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "5667712",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv2.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "6257536",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv1.weight",
+          "dims": [
+            256,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "7471104",
+            "length": "1179648"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "10420224",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.downsample.0.weight",
+          "dims": [
+            256,
+            128,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "146304",
+            "length": "131072"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "12779520",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "15138816",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "17498112",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "19857408",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "22216704",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "24576000",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "26935296",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "29294592",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv1.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "31653888",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv2.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "34013184",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv1.weight",
+          "dims": [
+            512,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "38731776",
+            "length": "4718592"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv2.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "50528256",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.downsample.0.weight",
+          "dims": [
+            512,
+            256,
+            1,
+            1
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "2194304",
+            "length": "524288"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv1.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "59965440",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv2.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "69402624",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv1.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "78839808",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv2.weight",
+          "dims": [
+            512,
+            512,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "88276992",
+            "length": "9437184"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv1.0.weight",
+          "dims": [
+            256,
+            768,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "43450368",
+            "length": "7077888"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv2.0.weight",
+          "dims": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "36372480",
+            "length": "2359296"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv1.0.weight",
+          "dims": [
+            128,
+            384,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "8650752",
+            "length": "1769472"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv2.0.weight",
+          "dims": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "6847360",
+            "length": "589824"
+          }
+        },
+        {
+          "name": "decoder.blocks.2.conv1.0.weight",
+          "dims": [
+            64,
+            192,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "1751936",
+            "length": "442368"
+          }
+        },
+        {
+          "name": "decoder.blocks.2.conv2.0.weight",
+          "dims": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "1162112",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "decoder.blocks.3.conv1.0.weight",
+          "dims": [
+            32,
+            128,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "1309568",
+            "length": "147456"
+          }
+        },
+        {
+          "name": "decoder.blocks.3.conv2.0.weight",
+          "dims": [
+            32,
+            32,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "109440",
+            "length": "36864"
+          }
+        },
+        {
+          "name": "decoder.blocks.4.conv1.0.weight",
+          "dims": [
+            16,
+            32,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "58240",
+            "length": "18432"
+          }
+        },
+        {
+          "name": "decoder.blocks.4.conv2.0.weight",
+          "dims": [
+            16,
+            16,
+            3,
+            3
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "36480",
+            "length": "9216"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "0",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "512",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.0.downsample.0.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "1024",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "1536",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.1.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "2048",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "2560",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.2.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "3072",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv1.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "3584",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer2.3.conv2.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "4096",
+            "length": "512"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "5632",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "6656",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.0.downsample.0.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "7680",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "8704",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.1.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "9728",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "10752",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.2.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "11776",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "12800",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.3.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "13824",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "14848",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.4.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "15872",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv1.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "16896",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer3.5.conv2.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "17920",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv1.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "22144",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.conv2.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "24192",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.0.downsample.0.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "26240",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv1.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "28288",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.1.conv2.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "30336",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv1.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "32384",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "encoder.layer4.2.conv2.weight_bias",
+          "dims": [
+            512
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "34432",
+            "length": "2048"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv1.0.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "18944",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "decoder.blocks.0.conv2.0.weight_bias",
+          "dims": [
+            256
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "19968",
+            "length": "1024"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv1.0.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "4608",
+            "length": "512"
+          }
+        },
+        {
+          "name": "decoder.blocks.1.conv2.0.weight_bias",
+          "dims": [
+            128
+          ],
+          "external": {
+            "location": "model_H.onnx.data",
+            "offset": "5120",
+            "length": "512"
+          }
+        }
+      ]
+    },
+    {
+      "file": "model_I.onnx",
+      "task": "ptv3_semantic_prior",
+      "inputs": [
+        {
+          "name": "feat",
+          "dtype": 1,
+          "shape": [
+            "feat_d0",
+            "feat_d1"
+          ]
+        },
+        {
+          "name": "s0_gc",
+          "dtype": 7,
+          "shape": [
+            "s0_gc_d0",
+            "s0_gc_d1"
+          ]
+        },
+        {
+          "name": "s0_k3",
+          "dtype": 7,
+          "shape": [
+            "s0_k3_d0",
+            "s0_k3_d1"
+          ]
+        },
+        {
+          "name": "s0_k5",
+          "dtype": 7,
+          "shape": [
+            "s0_k5_d0",
+            "s0_k5_d1"
+          ]
+        },
+        {
+          "name": "s0_o0_win",
+          "dtype": 7,
+          "shape": [
+            "s0_o0_win_d0",
+            "s0_o0_win_d1"
+          ]
+        },
+        {
+          "name": "s0_o0_inv",
+          "dtype": 7,
+          "shape": [
+            "s0_o0_inv_d0"
+          ]
+        },
+        {
+          "name": "s0_o1_win",
+          "dtype": 7,
+          "shape": [
+            "s0_o1_win_d0",
+            "s0_o1_win_d1"
+          ]
+        },
+        {
+          "name": "s0_o1_inv",
+          "dtype": 7,
+          "shape": [
+            "s0_o1_inv_d0"
+          ]
+        },
+        {
+          "name": "p0_cluster",
+          "dtype": 7,
+          "shape": [
+            "p0_cluster_d0"
+          ]
+        },
+        {
+          "name": "s1_gc",
+          "dtype": 7,
+          "shape": [
+            "s1_gc_d0",
+            "s1_gc_d1"
+          ]
+        },
+        {
+          "name": "s1_k3",
+          "dtype": 7,
+          "shape": [
+            "s1_k3_d0",
+            "s1_k3_d1"
+          ]
+        },
+        {
+          "name": "s1_o0_win",
+          "dtype": 7,
+          "shape": [
+            "s1_o0_win_d0",
+            "s1_o0_win_d1"
+          ]
+        },
+        {
+          "name": "s1_o0_inv",
+          "dtype": 7,
+          "shape": [
+            "s1_o0_inv_d0"
+          ]
+        },
+        {
+          "name": "s1_o1_win",
+          "dtype": 7,
+          "shape": [
+            "s1_o1_win_d0",
+            "s1_o1_win_d1"
+          ]
+        },
+        {
+          "name": "s1_o1_inv",
+          "dtype": 7,
+          "shape": [
+            "s1_o1_inv_d0"
+          ]
+        },
+        {
+          "name": "p1_cluster",
+          "dtype": 7,
+          "shape": [
+            "p1_cluster_d0"
+          ]
+        },
+        {
+          "name": "s2_gc",
+          "dtype": 7,
+          "shape": [
+            "s2_gc_d0",
+            "s2_gc_d1"
+          ]
+        },
+        {
+          "name": "s2_k3",
+          "dtype": 7,
+          "shape": [
+            "s2_k3_d0",
+            "s2_k3_d1"
+          ]
+        },
+        {
+          "name": "s2_o0_win",
+          "dtype": 7,
+          "shape": [
+            "s2_o0_win_d0",
+            "s2_o0_win_d1"
+          ]
+        },
+        {
+          "name": "s2_o0_inv",
+          "dtype": 7,
+          "shape": [
+            "s2_o0_inv_d0"
+          ]
+        },
+        {
+          "name": "s2_o1_win",
+          "dtype": 7,
+          "shape": [
+            "s2_o1_win_d0",
+            "s2_o1_win_d1"
+          ]
+        },
+        {
+          "name": "s2_o1_inv",
+          "dtype": 7,
+          "shape": [
+            "s2_o1_inv_d0"
+          ]
+        },
+        {
+          "name": "p2_cluster",
+          "dtype": 7,
+          "shape": [
+            "p2_cluster_d0"
+          ]
+        },
+        {
+          "name": "s3_gc",
+          "dtype": 7,
+          "shape": [
+            "s3_gc_d0",
+            "s3_gc_d1"
+          ]
+        },
+        {
+          "name": "s3_k3",
+          "dtype": 7,
+          "shape": [
+            "s3_k3_d0",
+            "s3_k3_d1"
+          ]
+        },
+        {
+          "name": "s3_o0_win",
+          "dtype": 7,
+          "shape": [
+            "s3_o0_win_d0",
+            "s3_o0_win_d1"
+          ]
+        },
+        {
+          "name": "s3_o0_inv",
+          "dtype": 7,
+          "shape": [
+            "s3_o0_inv_d0"
+          ]
+        },
+        {
+          "name": "s3_o1_win",
+          "dtype": 7,
+          "shape": [
+            "s3_o1_win_d0",
+            "s3_o1_win_d1"
+          ]
+        },
+        {
+          "name": "s3_o1_inv",
+          "dtype": 7,
+          "shape": [
+            "s3_o1_inv_d0"
+          ]
+        },
+        {
+          "name": "s3_o2_win",
+          "dtype": 7,
+          "shape": [
+            "s3_o2_win_d0",
+            "s3_o2_win_d1"
+          ]
+        },
+        {
+          "name": "s3_o2_inv",
+          "dtype": 7,
+          "shape": [
+            "s3_o2_inv_d0"
+          ]
+        },
+        {
+          "name": "s3_o3_win",
+          "dtype": 7,
+          "shape": [
+            "s3_o3_win_d0",
+            "s3_o3_win_d1"
+          ]
+        },
+        {
+          "name": "s3_o3_inv",
+          "dtype": 7,
+          "shape": [
+            "s3_o3_inv_d0"
+          ]
+        },
+        {
+          "name": "p3_cluster",
+          "dtype": 7,
+          "shape": [
+            "p3_cluster_d0"
+          ]
+        },
+        {
+          "name": "s4_gc",
+          "dtype": 7,
+          "shape": [
+            "s4_gc_d0",
+            "s4_gc_d1"
+          ]
+        },
+        {
+          "name": "s4_k3",
+          "dtype": 7,
+          "shape": [
+            "s4_k3_d0",
+            "s4_k3_d1"
+          ]
+        },
+        {
+          "name": "s4_o0_win",
+          "dtype": 7,
+          "shape": [
+            "s4_o0_win_d0",
+            "s4_o0_win_d1"
+          ]
+        },
+        {
+          "name": "s4_o0_inv",
+          "dtype": 7,
+          "shape": [
+            "s4_o0_inv_d0"
+          ]
+        },
+        {
+          "name": "s4_o1_win",
+          "dtype": 7,
+          "shape": [
+            "s4_o1_win_d0",
+            "s4_o1_win_d1"
+          ]
+        },
+        {
+          "name": "s4_o1_inv",
+          "dtype": 7,
+          "shape": [
+            "s4_o1_inv_d0"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "seg_logits",
+          "dtype": 1,
+          "shape": [
+            "n_voxels",
+            12
+          ]
+        }
+      ],
+      "opsets": [
+        {
+          "domain": "",
+          "version": 18
+        }
+      ],
+      "metadata": {},
+      "external_tensor_layout": []
+    },
+    {
+      "file": "model_J.onnx",
+      "task": "wall_plan_oriented_boxes",
+      "inputs": [
+        {
+          "name": "input",
+          "dtype": 1,
+          "shape": [
+            1,
+            3,
+            576,
+            576
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dets",
+          "dtype": 1,
+          "shape": [
+            1,
+            300,
+            4
+          ]
+        },
+        {
+          "name": "labels",
+          "dtype": 1,
+          "shape": [
+            1,
+            300,
+            3
+          ]
+        },
+        {
+          "name": "angles",
+          "dtype": 1,
+          "shape": [
+            1,
+            300,
+            1
+          ]
+        }
+      ],
+      "opsets": [
+        {
+          "domain": "",
+          "version": 17
+        }
+      ],
+      "metadata": {
+        "schema_version": "1.0",
+        "libreyolo_version": "1.2.0.dev0",
+        "model_family": "rfdetr",
+        "size": "m",
+        "model_size": "m",
+        "task": "obb",
+        "supported_tasks": "[\"obb\"]",
+        "default_task": "obb",
+        "nc": "2",
+        "nb_classes": "2",
+        "names": "{\"0\": \"wall\", \"1\": \"wall_single_surf\"}",
+        "imgsz": "576",
+        "imgsz_h": "576",
+        "imgsz_w": "576",
+        "dynamic": "False",
+        "precision": "fp32",
+        "half": "False",
+        "segmentation": "false",
+        "obb": "true"
+      },
+      "external_tensor_layout": []
+    }
+  ],
+  "native_to_punctora_taxonomy": [
+    0,
+    5,
+    2,
+    11,
+    7,
+    12,
+    8,
+    1,
+    13,
+    14,
+    15,
+    16
+  ],
+  "cpu_smoke": [
+    {
+      "original_summary": "smoke_model_A.onnx.json",
+      "original_sha256": "c3a8e78388312285602905658312a0d3c44e02f18789492a6362a726a688bc76",
+      "results": {
+        "model": "model_A.onnx",
+        "runtime": "1.23.2",
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "scope": "synthetic zero image at configured/static tensor shape; no rendering parity",
+        "checker": "passed",
+        "seconds": 2.173,
+        "inputs": {
+          "input": [
+            1,
+            3,
+            560,
+            560
+          ]
+        },
+        "outputs": [
+          {
+            "name": "dets",
+            "shape": [
+              1,
+              300,
+              4
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "8a4411a977ae6db885c3acf70b97c55689a4e89d0cc7076db261ead2e16c26af"
+          },
+          {
+            "name": "labels",
+            "shape": [
+              1,
+              300,
+              1
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "a654b2f389b9520959e649005a812c6a3a084707fa5f70655f23a0658c7ab2ef"
+          }
+        ],
+        "max_rss_kib": 444840
+      }
+    },
+    {
+      "original_summary": "smoke_model_B.onnx.json",
+      "original_sha256": "3fa5a5cdede3f44c0ce7309eb01bb6208c332d851162bb3bb5dfda9b942a9179",
+      "results": {
+        "model": "model_B.onnx",
+        "runtime": "1.23.2",
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "scope": "synthetic zero image at configured/static tensor shape; no rendering parity",
+        "checker": "passed",
+        "seconds": 2.267,
+        "inputs": {
+          "input": [
+            1,
+            3,
+            560,
+            560
+          ]
+        },
+        "outputs": [
+          {
+            "name": "dets",
+            "shape": [
+              1,
+              300,
+              4
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "a2c8330a325cda04acaf8bb77b4318de5a31878248f26596217b819e5b5e2205"
+          },
+          {
+            "name": "labels",
+            "shape": [
+              1,
+              300,
+              2
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "921eb396a318364b898d7e90be1d98db6e7c13b4ca8095e874ec47827420165f"
+          }
+        ],
+        "max_rss_kib": 447972
+      }
+    },
+    {
+      "original_summary": "smoke_model_C.onnx.json",
+      "original_sha256": "7086f603d8f7cfbf7f46ab94ee3315dd3e5ecbf23b8f57a7ca855cc4821ee3a5",
+      "results": {
+        "model": "model_C.onnx",
+        "runtime": "1.23.2",
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "scope": "synthetic zero image at configured/static tensor shape; no rendering parity",
+        "checker": "passed",
+        "seconds": 1.992,
+        "inputs": {
+          "input": [
+            1,
+            3,
+            560,
+            560
+          ]
+        },
+        "outputs": [
+          {
+            "name": "dets",
+            "shape": [
+              1,
+              300,
+              4
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "6b8ce9e4f861083de09934e7d5e3d0001f47fb97b61bc892aae5f0a322342854"
+          },
+          {
+            "name": "labels",
+            "shape": [
+              1,
+              300,
+              1
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "5e7229aaf2a80d422141ce76761defb2bb4c3534358b07cfcaabf73a2ae8ca93"
+          }
+        ],
+        "max_rss_kib": 443076
+      }
+    },
+    {
+      "original_summary": "smoke_model_D.onnx.json",
+      "original_sha256": "93c3b0e15ad2fe8478e8c32949b953f0c2f2078888c98fe22bf255fdf61a1369",
+      "results": {
+        "model": "model_D.onnx",
+        "runtime": "1.23.2",
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "scope": "synthetic zero image at configured/static tensor shape; no rendering parity",
+        "checker": "passed",
+        "seconds": 1.117,
+        "inputs": {
+          "input": [
+            1,
+            1,
+            512,
+            512
+          ]
+        },
+        "outputs": [
+          {
+            "name": "logits",
+            "shape": [
+              1,
+              3,
+              512,
+              512
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "5b69fdc9c61f9100f7a0d1a3e6ce503a36008596afbc27e99e2b8c408926d70f"
+          }
+        ],
+        "max_rss_kib": 381952
+      }
+    },
+    {
+      "original_summary": "smoke_model_E.onnx.json",
+      "original_sha256": "086111e739bcbc30df71e0ad75fdd610e0e2148b8c0ee5267da5992b4c199924",
+      "results": {
+        "model": "model_E.onnx",
+        "runtime": "1.23.2",
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "scope": "synthetic zero image at configured/static tensor shape; no rendering parity",
+        "checker": "passed",
+        "seconds": 0.971,
+        "inputs": {
+          "input": [
+            1,
+            1,
+            512,
+            512
+          ]
+        },
+        "outputs": [
+          {
+            "name": "logits",
+            "shape": [
+              1,
+              3,
+              512,
+              512
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "fa364f68035054b408bb4f59eaf1a0d8c92a17f761455d7d01e04d0cfdebf1bb"
+          }
+        ],
+        "max_rss_kib": 441392
+      }
+    },
+    {
+      "original_summary": "smoke_model_F.onnx.json",
+      "original_sha256": "069766457640d9fa2cb20712186a6a54a9b2ca4285922ab0c227663e86a6471a",
+      "results": {
+        "model": "model_F.onnx",
+        "runtime": "1.23.2",
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "scope": "synthetic zero image at configured/static tensor shape; no rendering parity",
+        "checker": "passed",
+        "seconds": 0.895,
+        "inputs": {
+          "input": [
+            1,
+            1,
+            512,
+            512
+          ]
+        },
+        "outputs": [
+          {
+            "name": "logits",
+            "shape": [
+              1,
+              2,
+              512,
+              512
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "78ec630c169a954fc6fc8862ecc6d3e4d63a1b7d6e9fa198de94c95b3583c1ad"
+          }
+        ],
+        "max_rss_kib": 334676
+      }
+    },
+    {
+      "original_summary": "smoke_model_G.onnx.json",
+      "original_sha256": "593d0637060182faae99fe4927b05021201aedf42a59b2e53ee97dd6aaf47c81",
+      "results": {
+        "model": "model_G.onnx",
+        "runtime": "1.23.2",
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "scope": "synthetic zero image at configured/static tensor shape; no rendering parity",
+        "checker": "passed",
+        "seconds": 1.042,
+        "inputs": {
+          "input": [
+            1,
+            1,
+            512,
+            512
+          ]
+        },
+        "outputs": [
+          {
+            "name": "logits",
+            "shape": [
+              1,
+              2,
+              512,
+              512
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "a562a47bcac956f843568f612394ac25b2fd0ecd8cd75562d47b415ef17c5353"
+          }
+        ],
+        "max_rss_kib": 332344
+      }
+    },
+    {
+      "original_summary": "smoke_model_H.onnx.json",
+      "original_sha256": "0d12f55683c4e86b2fa1725f34aa8be462603f55f27a88c272532eac5bde2c15",
+      "results": {
+        "model": "model_H.onnx",
+        "runtime": "1.23.2",
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "scope": "synthetic zero image at configured/static tensor shape; no rendering parity",
+        "checker": "passed",
+        "seconds": 0.973,
+        "inputs": {
+          "input": [
+            1,
+            1,
+            512,
+            512
+          ]
+        },
+        "outputs": [
+          {
+            "name": "logits",
+            "shape": [
+              1,
+              2,
+              512,
+              512
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "2e6e3869882d09451c94ccbb997ce81184cca307170cc622169ebe8deb8b9ce3"
+          }
+        ],
+        "max_rss_kib": 336928
+      }
+    },
+    {
+      "original_summary": "smoke_model_I.onnx.json",
+      "original_sha256": "ae5a069a8df4a5c8dd2d5b77c1e487984c06240e0fdc8050e564cfda4f42dcd2",
+      "results": {
+        "model": "model_I.onnx",
+        "runtime": "1.23.2",
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "scope": "one-voxel synthetic tensor contract; no inference preprocessing parity",
+        "checker": "passed",
+        "seconds": 0.312,
+        "inputs": {
+          "feat": [
+            1,
+            3
+          ],
+          "s0_gc": [
+            1,
+            3
+          ],
+          "s0_k3": [
+            1,
+            27
+          ],
+          "s0_k5": [
+            1,
+            125
+          ],
+          "s0_o0_win": [
+            1,
+            1
+          ],
+          "s0_o0_inv": [
+            1
+          ],
+          "s0_o1_win": [
+            1,
+            1
+          ],
+          "s0_o1_inv": [
+            1
+          ],
+          "p0_cluster": [
+            1
+          ],
+          "s1_gc": [
+            1,
+            3
+          ],
+          "s1_k3": [
+            1,
+            27
+          ],
+          "s1_o0_win": [
+            1,
+            1
+          ],
+          "s1_o0_inv": [
+            1
+          ],
+          "s1_o1_win": [
+            1,
+            1
+          ],
+          "s1_o1_inv": [
+            1
+          ],
+          "p1_cluster": [
+            1
+          ],
+          "s2_gc": [
+            1,
+            3
+          ],
+          "s2_k3": [
+            1,
+            27
+          ],
+          "s2_o0_win": [
+            1,
+            1
+          ],
+          "s2_o0_inv": [
+            1
+          ],
+          "s2_o1_win": [
+            1,
+            1
+          ],
+          "s2_o1_inv": [
+            1
+          ],
+          "p2_cluster": [
+            1
+          ],
+          "s3_gc": [
+            1,
+            3
+          ],
+          "s3_k3": [
+            1,
+            27
+          ],
+          "s3_o0_win": [
+            1,
+            1
+          ],
+          "s3_o0_inv": [
+            1
+          ],
+          "s3_o1_win": [
+            1,
+            1
+          ],
+          "s3_o1_inv": [
+            1
+          ],
+          "s3_o2_win": [
+            1,
+            1
+          ],
+          "s3_o2_inv": [
+            1
+          ],
+          "s3_o3_win": [
+            1,
+            1
+          ],
+          "s3_o3_inv": [
+            1
+          ],
+          "p3_cluster": [
+            1
+          ],
+          "s4_gc": [
+            1,
+            3
+          ],
+          "s4_k3": [
+            1,
+            27
+          ],
+          "s4_o0_win": [
+            1,
+            1
+          ],
+          "s4_o0_inv": [
+            1
+          ],
+          "s4_o1_win": [
+            1,
+            1
+          ],
+          "s4_o1_inv": [
+            1
+          ]
+        },
+        "outputs": [
+          {
+            "name": "seg_logits",
+            "shape": [
+              1,
+              12
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "8281ae0a861b5602801a94eee59a5905d8155d25d8bd93b1a215d950c8b4d23b"
+          }
+        ],
+        "max_rss_kib": 418096
+      }
+    },
+    {
+      "original_summary": "smoke_model_J.onnx.json",
+      "original_sha256": "609756b0c7c40360a9c207c9e58844311178b3ca9fdcdf3feb1cb3e50e7f2a72",
+      "results": {
+        "model": "model_J.onnx",
+        "runtime": "1.23.2",
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "scope": "synthetic zero image at configured/static tensor shape; no rendering parity",
+        "checker": "passed",
+        "seconds": 1.724,
+        "inputs": {
+          "input": [
+            1,
+            3,
+            576,
+            576
+          ]
+        },
+        "outputs": [
+          {
+            "name": "dets",
+            "shape": [
+              1,
+              300,
+              4
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "7590e167f5dee9107d3301aa07de53c262a6e9bff5532da041058e7a7039787d"
+          },
+          {
+            "name": "labels",
+            "shape": [
+              1,
+              300,
+              3
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "26b0a8f6242b7a0e0a9b14171d2186c55b7c6cd8ef3059a6e24c39e80ee5ba16"
+          },
+          {
+            "name": "angles",
+            "shape": [
+              1,
+              300,
+              1
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "sha256": "83ce5c9f5a0f80623e5c0e1d432a8b7f17048ade0b5467d9415b822738555804"
+          }
+        ],
+        "max_rss_kib": 406792
+      }
+    }
+  ],
+  "controlled_probes": [
+    {
+      "original_summary": "deep_index_results.json",
+      "original_sha256": "7d38fd1519b75e1f3fbf84241ec3c847a8d5b3f9e28533f6539b4c0d21af16fe",
+      "results": {
+        "scope": "independent canonical index probe, not compiled-helper/native training parity or building accuracy",
+        "runtime": "1.23.2",
+        "model_sha256": "775ca536bfd691979c6a45fae388f161b3f80ba332c6bb308257b937fd08f680",
+        "math": "scalar Hilbert equivalence, unique codes and Hamiltonian adjacency passed on depths 1/2/3",
+        "results": [
+          {
+            "voxels": 1,
+            "stage_sizes": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "permutation_max_logit_delta": 0.0,
+            "permutation_argmax_agreement": 1.0,
+            "translated_index_arrays_equal": true,
+            "index_bytes": 2424,
+            "seconds": 0.099
+          },
+          {
+            "voxels": 31,
+            "stage_sizes": [
+              31,
+              31,
+              31,
+              28,
+              14
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "permutation_max_logit_delta": 0.0,
+            "permutation_argmax_agreement": 1.0,
+            "translated_index_arrays_equal": true,
+            "index_bytes": 69584,
+            "seconds": 0.194
+          },
+          {
+            "voxels": 127,
+            "stage_sizes": [
+              127,
+              127,
+              119,
+              71,
+              18
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "permutation_max_logit_delta": 0.0,
+            "permutation_argmax_agreement": 1.0,
+            "translated_index_arrays_equal": true,
+            "index_bytes": 258488,
+            "seconds": 0.506
+          },
+          {
+            "voxels": 128,
+            "stage_sizes": [
+              128,
+              128,
+              120,
+              72,
+              18
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "permutation_max_logit_delta": 0.0,
+            "permutation_argmax_agreement": 1.0,
+            "translated_index_arrays_equal": true,
+            "index_bytes": 260640,
+            "seconds": 0.52
+          },
+          {
+            "voxels": 129,
+            "stage_sizes": [
+              129,
+              129,
+              121,
+              72,
+              18
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "permutation_max_logit_delta": 0.0,
+            "permutation_argmax_agreement": 1.0,
+            "translated_index_arrays_equal": true,
+            "index_bytes": 266544,
+            "wrong_tail_padding_max_delta": 0.018406391143798828,
+            "wrong_tail_padding_argmax_agreement": 1.0,
+            "normal_sign_flip_max_delta": 14.821529388427734,
+            "normal_sign_flip_argmax_agreement": 0.4728682170542636,
+            "kernel_axis_reversal_max_delta": 8.302591323852539,
+            "kernel_axis_reversal_argmax_agreement": 0.6356589147286822,
+            "seconds": 1.152
+          },
+          {
+            "voxels": 255,
+            "stage_sizes": [
+              255,
+              255,
+              219,
+              100,
+              18
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "permutation_max_logit_delta": 0.0,
+            "permutation_argmax_agreement": 1.0,
+            "translated_index_arrays_equal": true,
+            "index_bytes": 495840,
+            "seconds": 0.779
+          },
+          {
+            "voxels": 256,
+            "stage_sizes": [
+              256,
+              256,
+              219,
+              100,
+              18
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "permutation_max_logit_delta": 0.0,
+            "permutation_argmax_agreement": 1.0,
+            "translated_index_arrays_equal": true,
+            "index_bytes": 497368,
+            "seconds": 0.631
+          },
+          {
+            "voxels": 257,
+            "stage_sizes": [
+              257,
+              257,
+              220,
+              101,
+              18
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "permutation_max_logit_delta": 0.0,
+            "permutation_argmax_agreement": 1.0,
+            "translated_index_arrays_equal": true,
+            "index_bytes": 503568,
+            "seconds": 0.74
+          },
+          {
+            "voxels": 513,
+            "stage_sizes": [
+              513,
+              513,
+              396,
+              108,
+              18
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "permutation_max_logit_delta": 0.0,
+            "permutation_argmax_agreement": 1.0,
+            "translated_index_arrays_equal": true,
+            "index_bytes": 955672,
+            "wrong_tail_padding_max_delta": 1.841503620147705,
+            "wrong_tail_padding_argmax_agreement": 0.9922027290448343,
+            "normal_sign_flip_max_delta": 16.30204200744629,
+            "normal_sign_flip_argmax_agreement": 0.5886939571150097,
+            "kernel_axis_reversal_max_delta": 8.418203353881836,
+            "kernel_axis_reversal_argmax_agreement": 0.6842105263157895,
+            "seconds": 2.085
+          },
+          {
+            "voxels": 2048,
+            "stage_sizes": [
+              2048,
+              2048,
+              864,
+              108,
+              18
+            ],
+            "finite": true,
+            "repeat_equal": true,
+            "permutation_max_logit_delta": 0.0,
+            "permutation_argmax_agreement": 1.0,
+            "translated_index_arrays_equal": true,
+            "index_bytes": 3475904,
+            "seconds": 3.559
+          }
+        ],
+        "max_rss_kib": 399452
+      }
+    },
+    {
+      "original_summary": "deep_2d_results.json",
+      "original_sha256": "ac87150e2cbe7864c8c4c701569050a3b69f99d33a069a6c503c95001dfc0623",
+      "results": {
+        "scope": "generated room-like image and assumed overlay, no scan labels or faithful compiled renderer claim",
+        "runtime": "1.23.2",
+        "segmentation": [
+          {
+            "variant": "configured_normalization",
+            "finite": true,
+            "max_logit_delta": 0.0,
+            "pixel_label_agreement": 1.0,
+            "native_label_counts": [
+              256144,
+              0,
+              6000
+            ]
+          },
+          {
+            "variant": "normalization_omitted",
+            "finite": true,
+            "max_logit_delta": 16.987850189208984,
+            "pixel_label_agreement": 0.97711181640625,
+            "native_label_counts": [
+              262144,
+              0,
+              0
+            ]
+          },
+          {
+            "variant": "image_polarity_reversed",
+            "finite": true,
+            "max_logit_delta": 21.21924591064453,
+            "pixel_label_agreement": 0.9226226806640625,
+            "native_label_counts": [
+              242625,
+              19519,
+              0
+            ]
+          }
+        ],
+        "oriented_detector": [
+          {
+            "variant": "BGR_no_swap_bilinear",
+            "finite": true,
+            "max_classification_logit_delta": 0.0,
+            "candidates_over_025": 2,
+            "candidate_native_class_counts": [
+              2,
+              0,
+              0
+            ],
+            "angle_range": [
+              -1.5707966089248657,
+              1.5707966089248657
+            ]
+          },
+          {
+            "variant": "RGB_swap_bilinear",
+            "finite": true,
+            "max_classification_logit_delta": 3.477646827697754,
+            "candidates_over_025": 11,
+            "candidate_native_class_counts": [
+              11,
+              0,
+              0
+            ],
+            "angle_range": [
+              -1.5707963705062866,
+              1.5707963705062866
+            ]
+          },
+          {
+            "variant": "BGR_no_swap_nearest",
+            "finite": true,
+            "max_classification_logit_delta": 2.7100720405578613,
+            "candidates_over_025": 2,
+            "candidate_native_class_counts": [
+              2,
+              0,
+              0
+            ],
+            "angle_range": [
+              -1.5707963705062866,
+              1.5707963705062866
+            ]
+          }
+        ],
+        "angle_output_operation": {
+          "operation": "Mul",
+          "inputs": [
+            "/model/Tanh_output_0",
+            "/model/Constant_16_output_0"
+          ],
+          "constant_factors": {
+            "/model/Constant_16_output_0": 1.5707963705062866
+          }
+        }
+      }
+    },
+    {
+      "original_summary": "contract_probe_results.json",
+      "original_sha256": "9ac0e572d8ff628a6fae805307701e963d61a6a7560d775daaf12ee1cc9f407e",
+      "results": {
+        "scope": "Recovered decoder numerical contract and independent geometry fixtures, not execution parity with the Windows app.",
+        "runtime": "1.23.2",
+        "model_B": [
+          {
+            "image": "empty_white_section",
+            "finite": true,
+            "legacy_softmax_candidates_ge_04": 300,
+            "independent_sigmoid_queries_ge_04": 1,
+            "legacy_score_range": [
+              0.5068344473838806,
+              0.9962677359580994
+            ],
+            "independent_sigmoid_score_range": [
+              0.0017930381838262815,
+              0.6157744697155431
+            ],
+            "legacy_best_query": 0,
+            "independent_best_query": 0,
+            "native_class_counts": [
+              296,
+              4
+            ]
+          },
+          {
+            "image": "constructed_gap_section",
+            "finite": true,
+            "legacy_softmax_candidates_ge_04": 300,
+            "independent_sigmoid_queries_ge_04": 1,
+            "legacy_score_range": [
+              0.5149878263473511,
+              0.9964549541473389
+            ],
+            "independent_sigmoid_score_range": [
+              0.002067476147164188,
+              0.6005057263844539
+            ],
+            "legacy_best_query": 0,
+            "independent_best_query": 0,
+            "native_class_counts": [
+              300,
+              0
+            ]
+          }
+        ],
+        "mathematical_checks": {
+          "asymmetric_box_xyxy": [
+            [
+              320.0,
+              64.0,
+              480.0,
+              96.0
+            ],
+            [
+              0.0,
+              297.59999999999997,
+              56.00000000000001,
+              319.0
+            ]
+          ],
+          "single_channel_scores": [
+            0.04742587317756678,
+            0.5,
+            0.9525741268224333
+          ],
+          "low_two_channel_logits": [
+            -8.0,
+            -7.0
+          ],
+          "low_logit_softmax_confidence": 0.7310585975646973,
+          "low_logit_sigmoid_confidence": 0.0009110511944006451,
+          "plan_cell_center_error_m": 0.0009999999999763531,
+          "legacy_inverse_relative_to_cell_lower_edge_y_m": 0.009999999999990905,
+          "opening_local_bounds_m": [
+            0.0,
+            2.1
+          ],
+          "opening_world_bounds_m": [
+            123.4,
+            125.5
+          ],
+          "partition_overlap_m2": 0.0,
+          "partition_uncovered_or_added_m2": 0.0,
+          "preserved_hole_area_m2": 4.0,
+          "survey_direct_float32_max_error_m": 0.07000000029802322,
+          "survey_local_float32_max_error_m": 0.0
+        }
+      }
+    },
+    {
+      "original_summary": "onnx_deep_structure_results.json",
+      "original_sha256": "de6f05aabe8efb683ea92acf2be5f7a9c1b1ff34a9728c20b173d14194f3b7d2",
+      "results": {
+        "models": [
+          {
+            "model": "model_A",
+            "graph_structure_sha256": "f308faec938e62e519d1303357bac506b623a3a62f34f1196f022e0b80c4382a",
+            "top_level_nodes": 1582,
+            "recursive_nodes": 1582,
+            "recursive_ops": {
+              "ai.onnx:Constant": 491,
+              "ai.onnx:Cast": 34,
+              "ai.onnx:Conv": 9,
+              "ai.onnx:Shape": 26,
+              "ai.onnx:Slice": 63,
+              "ai.onnx:Concat": 36,
+              "ai.onnx:Reshape": 120,
+              "ai.onnx:Transpose": 109,
+              "ai.onnx:ConstantOfShape": 6,
+              "ai.onnx:Mul": 107,
+              "ai.onnx:Equal": 2,
+              "ai.onnx:Where": 4,
+              "ai.onnx:Expand": 8,
+              "ai.onnx:Add": 163,
+              "ai.onnx:Tile": 4,
+              "ai.onnx:LayerNormalization": 46,
+              "ai.onnx:MatMul": 132,
+              "ai.onnx:Sqrt": 42,
+              "ai.onnx:Div": 33,
+              "ai.onnx:Softmax": 17,
+              "ai.onnx:Erf": 11,
+              "ai.onnx:Sigmoid": 8,
+              "ai.onnx:Split": 13,
+              "ai.onnx:Unsqueeze": 31,
+              "ai.onnx:Greater": 2,
+              "ai.onnx:Less": 1,
+              "ai.onnx:And": 1,
+              "ai.onnx:Not": 3,
+              "ai.onnx:ReduceSum": 4,
+              "ai.onnx:Relu": 8,
+              "ai.onnx:Exp": 3,
+              "ai.onnx:ReduceMax": 1,
+              "ai.onnx:TopK": 1,
+              "ai.onnx:GatherElements": 1,
+              "ai.onnx:Gather": 7,
+              "ai.onnx:Sin": 4,
+              "ai.onnx:Cos": 4,
+              "ai.onnx:Gemm": 3,
+              "ai.onnx:Squeeze": 18,
+              "ai.onnx:Sub": 3,
+              "ai.onnx:GridSample": 3
+            },
+            "initializer_count": 336,
+            "initializer_bytes": 107350888,
+            "resizes": []
+          },
+          {
+            "model": "model_B",
+            "graph_structure_sha256": "1ead70e6edd32dfbc203b02e9f55e0e3154e76baae211ba20a9759b938055e5b",
+            "top_level_nodes": 1582,
+            "recursive_nodes": 1582,
+            "recursive_ops": {
+              "ai.onnx:Constant": 491,
+              "ai.onnx:Cast": 34,
+              "ai.onnx:Conv": 9,
+              "ai.onnx:Shape": 26,
+              "ai.onnx:Slice": 63,
+              "ai.onnx:Concat": 36,
+              "ai.onnx:Reshape": 120,
+              "ai.onnx:Transpose": 109,
+              "ai.onnx:ConstantOfShape": 6,
+              "ai.onnx:Mul": 107,
+              "ai.onnx:Equal": 2,
+              "ai.onnx:Where": 4,
+              "ai.onnx:Expand": 8,
+              "ai.onnx:Add": 163,
+              "ai.onnx:Tile": 4,
+              "ai.onnx:LayerNormalization": 46,
+              "ai.onnx:MatMul": 132,
+              "ai.onnx:Sqrt": 42,
+              "ai.onnx:Div": 33,
+              "ai.onnx:Softmax": 17,
+              "ai.onnx:Erf": 11,
+              "ai.onnx:Sigmoid": 8,
+              "ai.onnx:Split": 13,
+              "ai.onnx:Unsqueeze": 31,
+              "ai.onnx:Greater": 2,
+              "ai.onnx:Less": 1,
+              "ai.onnx:And": 1,
+              "ai.onnx:Not": 3,
+              "ai.onnx:ReduceSum": 4,
+              "ai.onnx:Relu": 8,
+              "ai.onnx:Exp": 3,
+              "ai.onnx:ReduceMax": 1,
+              "ai.onnx:TopK": 1,
+              "ai.onnx:GatherElements": 1,
+              "ai.onnx:Gather": 7,
+              "ai.onnx:Sin": 4,
+              "ai.onnx:Cos": 4,
+              "ai.onnx:Gemm": 3,
+              "ai.onnx:Squeeze": 18,
+              "ai.onnx:Sub": 3,
+              "ai.onnx:GridSample": 3
+            },
+            "initializer_count": 336,
+            "initializer_bytes": 107352944,
+            "resizes": []
+          },
+          {
+            "model": "model_C",
+            "graph_structure_sha256": "f308faec938e62e519d1303357bac506b623a3a62f34f1196f022e0b80c4382a",
+            "top_level_nodes": 1582,
+            "recursive_nodes": 1582,
+            "recursive_ops": {
+              "ai.onnx:Constant": 491,
+              "ai.onnx:Cast": 34,
+              "ai.onnx:Conv": 9,
+              "ai.onnx:Shape": 26,
+              "ai.onnx:Slice": 63,
+              "ai.onnx:Concat": 36,
+              "ai.onnx:Reshape": 120,
+              "ai.onnx:Transpose": 109,
+              "ai.onnx:ConstantOfShape": 6,
+              "ai.onnx:Mul": 107,
+              "ai.onnx:Equal": 2,
+              "ai.onnx:Where": 4,
+              "ai.onnx:Expand": 8,
+              "ai.onnx:Add": 163,
+              "ai.onnx:Tile": 4,
+              "ai.onnx:LayerNormalization": 46,
+              "ai.onnx:MatMul": 132,
+              "ai.onnx:Sqrt": 42,
+              "ai.onnx:Div": 33,
+              "ai.onnx:Softmax": 17,
+              "ai.onnx:Erf": 11,
+              "ai.onnx:Sigmoid": 8,
+              "ai.onnx:Split": 13,
+              "ai.onnx:Unsqueeze": 31,
+              "ai.onnx:Greater": 2,
+              "ai.onnx:Less": 1,
+              "ai.onnx:And": 1,
+              "ai.onnx:Not": 3,
+              "ai.onnx:ReduceSum": 4,
+              "ai.onnx:Relu": 8,
+              "ai.onnx:Exp": 3,
+              "ai.onnx:ReduceMax": 1,
+              "ai.onnx:TopK": 1,
+              "ai.onnx:GatherElements": 1,
+              "ai.onnx:Gather": 7,
+              "ai.onnx:Sin": 4,
+              "ai.onnx:Cos": 4,
+              "ai.onnx:Gemm": 3,
+              "ai.onnx:Squeeze": 18,
+              "ai.onnx:Sub": 3,
+              "ai.onnx:GridSample": 3
+            },
+            "initializer_count": 336,
+            "initializer_bytes": 107350888,
+            "resizes": []
+          },
+          {
+            "model": "model_D",
+            "graph_structure_sha256": "fe2a70892d3dc4fdb1fa1b1c348283256728cd39c9be39ac030f6fdf41f2a526",
+            "top_level_nodes": 206,
+            "recursive_nodes": 206,
+            "recursive_ops": {
+              "ai.onnx:Conv": 47,
+              "ai.onnx:Relu": 43,
+              "ai.onnx:MaxPool": 1,
+              "ai.onnx:Add": 16,
+              "ai.onnx:Shape": 15,
+              "ai.onnx:Constant": 35,
+              "ai.onnx:Gather": 10,
+              "ai.onnx:Unsqueeze": 10,
+              "ai.onnx:Concat": 14,
+              "ai.onnx:Slice": 5,
+              "ai.onnx:Cast": 5,
+              "ai.onnx:Resize": 5
+            },
+            "initializer_count": 94,
+            "initializer_bytes": 97683532,
+            "resizes": [
+              {
+                "node": "/decoder/blocks.0/Resize",
+                "inputs": [
+                  "/encoder/layer4/layer4.2/relu_1/Relu_output_0",
+                  "",
+                  "",
+                  "/decoder/blocks.0/Concat_1_output_0"
+                ],
+                "attributes": {
+                  "coordinate_transformation_mode": "asymmetric",
+                  "cubic_coeff_a": -0.75,
+                  "mode": "nearest",
+                  "nearest_mode": "floor"
+                }
+              },
+              {
+                "node": "/decoder/blocks.1/Resize",
+                "inputs": [
+                  "/decoder/blocks.0/conv2/conv2.2/Relu_output_0",
+                  "",
+                  "",
+                  "/decoder/blocks.1/Concat_1_output_0"
+                ],
+                "attributes": {
+                  "coordinate_transformation_mode": "asymmetric",
+                  "cubic_coeff_a": -0.75,
+                  "mode": "nearest",
+                  "nearest_mode": "floor"
+                }
+              },
+              {
+                "node": "/decoder/blocks.2/Resize",
+                "inputs": [
+                  "/decoder/blocks.1/conv2/conv2.2/Relu_output_0",
+                  "",
+                  "",
+                  "/decoder/blocks.2/Concat_1_output_0"
+                ],
+                "attributes": {
+                  "coordinate_transformation_mode": "asymmetric",
+                  "cubic_coeff_a": -0.75,
+                  "mode": "nearest",
+                  "nearest_mode": "floor"
+                }
+              },
+              {
+                "node": "/decoder/blocks.3/Resize",
+                "inputs": [
+                  "/decoder/blocks.2/conv2/conv2.2/Relu_output_0",
+                  "",
+                  "",
+                  "/decoder/blocks.3/Concat_1_output_0"
+                ],
+                "attributes": {
+                  "coordinate_transformation_mode": "asymmetric",
+                  "cubic_coeff_a": -0.75,
+                  "mode": "nearest",
+                  "nearest_mode": "floor"
+                }
+              },
+              {
+                "node": "/decoder/blocks.4/Resize",
+                "inputs": [
+                  "/decoder/blocks.3/conv2/conv2.2/Relu_output_0",
+                  "",
+                  "",
+                  "/decoder/blocks.4/Concat_1_output_0"
+                ],
+                "attributes": {
+                  "coordinate_transformation_mode": "asymmetric",
+                  "cubic_coeff_a": -0.75,
+                  "mode": "nearest",
+                  "nearest_mode": "floor"
+                }
+              }
+            ]
+          },
+          {
+            "model": "model_E",
+            "graph_structure_sha256": "fe2a70892d3dc4fdb1fa1b1c348283256728cd39c9be39ac030f6fdf41f2a526",
+            "top_level_nodes": 206,
+            "recursive_nodes": 206,
+            "recursive_ops": {
+              "ai.onnx:Conv": 47,
+              "ai.onnx:Relu": 43,
+              "ai.onnx:MaxPool": 1,
+              "ai.onnx:Add": 16,
+              "ai.onnx:Shape": 15,
+              "ai.onnx:Constant": 35,
+              "ai.onnx:Gather": 10,
+              "ai.onnx:Unsqueeze": 10,
+              "ai.onnx:Concat": 14,
+              "ai.onnx:Slice": 5,
+              "ai.onnx:Cast": 5,
+              "ai.onnx:Resize": 5
+            },
+            "initializer_count": 94,
+            "initializer_bytes": 97683532,
+            "resizes": [
+              {
+                "node": "/decoder/blocks.0/Resize",
+                "inputs": [
+                  "/encoder/layer4/layer4.2/relu_1/Relu_output_0",
+                  "",
+                  "",
+                  "/decoder/blocks.0/Concat_1_output_0"
+                ],
+                "attributes": {
+                  "coordinate_transformation_mode": "asymmetric",
+                  "cubic_coeff_a": -0.75,
+                  "mode": "nearest",
+                  "nearest_mode": "floor"
+                }
+              },
+              {
+                "node": "/decoder/blocks.1/Resize",
+                "inputs": [
+                  "/decoder/blocks.0/conv2/conv2.2/Relu_output_0",
+                  "",
+                  "",
+                  "/decoder/blocks.1/Concat_1_output_0"
+                ],
+                "attributes": {
+                  "coordinate_transformation_mode": "asymmetric",
+                  "cubic_coeff_a": -0.75,
+                  "mode": "nearest",
+                  "nearest_mode": "floor"
+                }
+              },
+              {
+                "node": "/decoder/blocks.2/Resize",
+                "inputs": [
+                  "/decoder/blocks.1/conv2/conv2.2/Relu_output_0",
+                  "",
+                  "",
+                  "/decoder/blocks.2/Concat_1_output_0"
+                ],
+                "attributes": {
+                  "coordinate_transformation_mode": "asymmetric",
+                  "cubic_coeff_a": -0.75,
+                  "mode": "nearest",
+                  "nearest_mode": "floor"
+                }
+              },
+              {
+                "node": "/decoder/blocks.3/Resize",
+                "inputs": [
+                  "/decoder/blocks.2/conv2/conv2.2/Relu_output_0",
+                  "",
+                  "",
+                  "/decoder/blocks.3/Concat_1_output_0"
+                ],
+                "attributes": {
+                  "coordinate_transformation_mode": "asymmetric",
+                  "cubic_coeff_a": -0.75,
+                  "mode": "nearest",
+                  "nearest_mode": "floor"
+                }
+              },
+              {
+                "node": "/decoder/blocks.4/Resize",
+                "inputs": [
+                  "/decoder/blocks.3/conv2/conv2.2/Relu_output_0",
+                  "",
+                  "",
+                  "/decoder/blocks.4/Concat_1_output_0"
+                ],
+                "attributes": {
+                  "coordinate_transformation_mode": "asymmetric",
+                  "cubic_coeff_a": -0.75,
+                  "mode": "nearest",
+                  "nearest_mode": "floor"
+                }
+              }
+            ]
+          },
+          {
+            "model": "model_F",
+            "graph_structure_sha256": "6ed86c4531109eb5f3ae769383f92275122fd16c1ceec5a20f459e3799bc8b93",
+            "top_level_nodes": 161,
+            "recursive_nodes": 161,
+            "recursive_ops": {
+              "ai.onnx:Shape": 7,
+              "ai.onnx:Squeeze": 2,
+              "ai.onnx:Add": 26,
+              "ai.onnx:Div": 8,
+              "ai.onnx:Conv": 47,
+              "ai.onnx:Relu": 43,
+              "ai.onnx:MaxPool": 1,
+              "ai.onnx:Reshape": 8,
+              "ai.onnx:Concat": 14,
+              "ai.onnx:Resize": 5
+            },
+            "initializer_count": 101,
+            "initializer_bytes": 97683008,
+            "resizes": [
+              {
+                "node": "node_upsample_nearest2d",
+                "inputs": [
+                  "relu_32",
+                  "",
+                  "",
+                  "val_414"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_1",
+                "inputs": [
+                  "relu_34",
+                  "",
+                  "",
+                  "val_445"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_2",
+                "inputs": [
+                  "relu_36",
+                  "",
+                  "",
+                  "val_476"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_3",
+                "inputs": [
+                  "relu_38",
+                  "",
+                  "",
+                  "val_506"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_4",
+                "inputs": [
+                  "relu_40",
+                  "",
+                  "",
+                  "val_536"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              }
+            ]
+          },
+          {
+            "model": "model_G",
+            "graph_structure_sha256": "6ed86c4531109eb5f3ae769383f92275122fd16c1ceec5a20f459e3799bc8b93",
+            "top_level_nodes": 161,
+            "recursive_nodes": 161,
+            "recursive_ops": {
+              "ai.onnx:Shape": 7,
+              "ai.onnx:Squeeze": 2,
+              "ai.onnx:Add": 26,
+              "ai.onnx:Div": 8,
+              "ai.onnx:Conv": 47,
+              "ai.onnx:Relu": 43,
+              "ai.onnx:MaxPool": 1,
+              "ai.onnx:Reshape": 8,
+              "ai.onnx:Concat": 14,
+              "ai.onnx:Resize": 5
+            },
+            "initializer_count": 101,
+            "initializer_bytes": 97683008,
+            "resizes": [
+              {
+                "node": "node_upsample_nearest2d",
+                "inputs": [
+                  "relu_32",
+                  "",
+                  "",
+                  "val_414"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_1",
+                "inputs": [
+                  "relu_34",
+                  "",
+                  "",
+                  "val_445"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_2",
+                "inputs": [
+                  "relu_36",
+                  "",
+                  "",
+                  "val_476"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_3",
+                "inputs": [
+                  "relu_38",
+                  "",
+                  "",
+                  "val_506"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_4",
+                "inputs": [
+                  "relu_40",
+                  "",
+                  "",
+                  "val_536"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              }
+            ]
+          },
+          {
+            "model": "model_H",
+            "graph_structure_sha256": "6ed86c4531109eb5f3ae769383f92275122fd16c1ceec5a20f459e3799bc8b93",
+            "top_level_nodes": 161,
+            "recursive_nodes": 161,
+            "recursive_ops": {
+              "ai.onnx:Shape": 7,
+              "ai.onnx:Squeeze": 2,
+              "ai.onnx:Add": 26,
+              "ai.onnx:Div": 8,
+              "ai.onnx:Conv": 47,
+              "ai.onnx:Relu": 43,
+              "ai.onnx:MaxPool": 1,
+              "ai.onnx:Reshape": 8,
+              "ai.onnx:Concat": 14,
+              "ai.onnx:Resize": 5
+            },
+            "initializer_count": 101,
+            "initializer_bytes": 97683008,
+            "resizes": [
+              {
+                "node": "node_upsample_nearest2d",
+                "inputs": [
+                  "relu_32",
+                  "",
+                  "",
+                  "val_414"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_1",
+                "inputs": [
+                  "relu_34",
+                  "",
+                  "",
+                  "val_445"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_2",
+                "inputs": [
+                  "relu_36",
+                  "",
+                  "",
+                  "val_476"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_3",
+                "inputs": [
+                  "relu_38",
+                  "",
+                  "",
+                  "val_506"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              },
+              {
+                "node": "node_upsample_nearest2d_4",
+                "inputs": [
+                  "relu_40",
+                  "",
+                  "",
+                  "val_536"
+                ],
+                "attributes": {
+                  "mode": "nearest",
+                  "cubic_coeff_a": -0.75,
+                  "coordinate_transformation_mode": "asymmetric",
+                  "exclude_outside": 0,
+                  "nearest_mode": "floor",
+                  "antialias": 0,
+                  "extrapolation_value": 0.0,
+                  "keep_aspect_ratio_policy": "stretch"
+                }
+              }
+            ]
+          },
+          {
+            "model": "model_I",
+            "graph_structure_sha256": "a7cedd3ef68f5cbb4f8ea2dd761dd095b847f1042264b1cc8b42171389007873",
+            "top_level_nodes": 2449,
+            "recursive_nodes": 2485,
+            "recursive_ops": {
+              "ai.onnx:Constant": 680,
+              "ai.onnx:Shape": 105,
+              "ai.onnx:Gather": 268,
+              "ai.onnx:Unsqueeze": 217,
+              "ai.onnx:Concat": 120,
+              "ai.onnx:ConstantOfShape": 31,
+              "ai.onnx:Einsum": 23,
+              "ai.onnx:BatchNormalization": 13,
+              "ai.onnx:Div": 57,
+              "ai.onnx:Erf": 35,
+              "ai.onnx:Add": 173,
+              "ai.onnx:Mul": 96,
+              "ai.onnx:Gemm": 123,
+              "ai.onnx:LayerNormalization": 66,
+              "ai.onnx:Cast": 132,
+              "ai.onnx:Reshape": 94,
+              "ai.onnx:Transpose": 88,
+              "ai.onnx:MatMul": 44,
+              "ai.onnx:Sub": 12,
+              "ai.onnx:Clip": 12,
+              "ai.onnx:ReduceSum": 22,
+              "ai.onnx:Softmax": 22,
+              "ai.onnx:Equal": 8,
+              "ai.onnx:Where": 4,
+              "ai.onnx:Expand": 4,
+              "ai.onnx:Size": 4,
+              "ai.onnx:If": 8,
+              "ai.onnx:Identity": 16,
+              "ai.onnx:ScatterElements": 4,
+              "ai.onnx:Squeeze": 4
+            },
+            "initializer_count": 497,
+            "initializer_bytes": 184730080,
+            "resizes": [],
+            "relative_position_clips": [
+              {
+                "node": "/enc_blocks.0.0/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              },
+              {
+                "node": "/enc_blocks.0.1/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              },
+              {
+                "node": "/enc_blocks.1.0/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              },
+              {
+                "node": "/enc_blocks.1.1/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              },
+              {
+                "node": "/enc_blocks.2.0/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              },
+              {
+                "node": "/enc_blocks.2.1/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              },
+              {
+                "node": "/enc_blocks.3.0/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              },
+              {
+                "node": "/enc_blocks.3.1/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              },
+              {
+                "node": "/enc_blocks.3.2/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              },
+              {
+                "node": "/enc_blocks.3.3/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              },
+              {
+                "node": "/enc_blocks.4.0/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              },
+              {
+                "node": "/enc_blocks.4.1/attn/Clip",
+                "bounds": [
+                  -15,
+                  15
+                ]
+              }
+            ],
+            "stage_position_encoding_half_span_m_at_grid_006": [
+              0.8999999999999999,
+              1.7999999999999998,
+              3.5999999999999996,
+              7.199999999999999,
+              14.399999999999999
+            ],
+            "stem_kernel_shape": [
+              125,
+              3,
+              32
+            ]
+          },
+          {
+            "model": "model_J",
+            "graph_structure_sha256": "7e047d0d951fc15da59bff0c1c7815cdae4be0e372ec9ac1d55beb548c29cc45",
+            "top_level_nodes": 1696,
+            "recursive_nodes": 1696,
+            "recursive_ops": {
+              "ai.onnx:Constant": 500,
+              "ai.onnx:Cast": 38,
+              "ai.onnx:Conv": 9,
+              "ai.onnx:Shape": 30,
+              "ai.onnx:Slice": 69,
+              "ai.onnx:Concat": 36,
+              "ai.onnx:Reshape": 140,
+              "ai.onnx:Transpose": 125,
+              "ai.onnx:ConstantOfShape": 5,
+              "ai.onnx:Mul": 120,
+              "ai.onnx:Equal": 3,
+              "ai.onnx:Where": 5,
+              "ai.onnx:Expand": 5,
+              "ai.onnx:Add": 187,
+              "ai.onnx:Tile": 2,
+              "ai.onnx:LayerNormalization": 51,
+              "ai.onnx:MatMul": 154,
+              "ai.onnx:Sqrt": 48,
+              "ai.onnx:Div": 39,
+              "ai.onnx:Softmax": 20,
+              "ai.onnx:Erf": 12,
+              "ai.onnx:Sigmoid": 8,
+              "ai.onnx:Split": 1,
+              "ai.onnx:CumSum": 3,
+              "ai.onnx:Sub": 7,
+              "ai.onnx:Unsqueeze": 23,
+              "ai.onnx:Greater": 2,
+              "ai.onnx:Less": 1,
+              "ai.onnx:And": 1,
+              "ai.onnx:Not": 3,
+              "ai.onnx:ReduceSum": 5,
+              "ai.onnx:Relu": 11,
+              "ai.onnx:Exp": 3,
+              "ai.onnx:ReduceMax": 1,
+              "ai.onnx:TopK": 1,
+              "ai.onnx:GatherElements": 1,
+              "ai.onnx:Floor": 1,
+              "ai.onnx:Pow": 1,
+              "ai.onnx:Gather": 8,
+              "ai.onnx:Sin": 4,
+              "ai.onnx:Cos": 4,
+              "ai.onnx:Gemm": 4,
+              "ai.onnx:GridSample": 4,
+              "ai.onnx:Tanh": 1
+            },
+            "initializer_count": 386,
+            "initializer_bytes": 120680188,
+            "resizes": []
+          }
+        ],
+        "tensor_comparisons": [
+          {
+            "a": "model_A",
+            "b": "model_B",
+            "common_named_tensors": 336,
+            "byte_identical_tensors": 0,
+            "byte_identical_values_bytes": 0,
+            "different_common_tensors": 336,
+            "different_name_examples": [
+              "backbone.0.encoder.encoder.embeddings.cls_token",
+              "backbone.0.encoder.encoder.embeddings.patch_embeddings.projection.bias",
+              "backbone.0.encoder.encoder.embeddings.patch_embeddings.projection.weight",
+              "backbone.0.encoder.encoder.embeddings.position_embeddings",
+              "backbone.0.encoder.encoder.encoder.layer.0.attention.attention.key.bias",
+              "backbone.0.encoder.encoder.encoder.layer.0.attention.attention.query.bias",
+              "backbone.0.encoder.encoder.encoder.layer.0.attention.attention.value.bias",
+              "backbone.0.encoder.encoder.encoder.layer.0.attention.output.dense.bias"
+            ]
+          },
+          {
+            "a": "model_A",
+            "b": "model_C",
+            "common_named_tensors": 336,
+            "byte_identical_tensors": 0,
+            "byte_identical_values_bytes": 0,
+            "different_common_tensors": 336,
+            "different_name_examples": [
+              "backbone.0.encoder.encoder.embeddings.cls_token",
+              "backbone.0.encoder.encoder.embeddings.patch_embeddings.projection.bias",
+              "backbone.0.encoder.encoder.embeddings.patch_embeddings.projection.weight",
+              "backbone.0.encoder.encoder.embeddings.position_embeddings",
+              "backbone.0.encoder.encoder.encoder.layer.0.attention.attention.key.bias",
+              "backbone.0.encoder.encoder.encoder.layer.0.attention.attention.query.bias",
+              "backbone.0.encoder.encoder.encoder.layer.0.attention.attention.value.bias",
+              "backbone.0.encoder.encoder.encoder.layer.0.attention.output.dense.bias"
+            ]
+          },
+          {
+            "a": "model_D",
+            "b": "model_E",
+            "common_named_tensors": 94,
+            "byte_identical_tensors": 0,
+            "byte_identical_values_bytes": 0,
+            "different_common_tensors": 94,
+            "different_name_examples": [
+              "onnx::Conv_542",
+              "onnx::Conv_543",
+              "onnx::Conv_545",
+              "onnx::Conv_546",
+              "onnx::Conv_548",
+              "onnx::Conv_549",
+              "onnx::Conv_551",
+              "onnx::Conv_552"
+            ]
+          },
+          {
+            "a": "model_F",
+            "b": "model_G",
+            "common_named_tensors": 101,
+            "byte_identical_tensors": 7,
+            "byte_identical_values_bytes": 56,
+            "different_common_tensors": 94,
+            "different_name_examples": [
+              "decoder.blocks.0.conv1.0.weight",
+              "decoder.blocks.0.conv1.0.weight_bias",
+              "decoder.blocks.0.conv2.0.weight",
+              "decoder.blocks.0.conv2.0.weight_bias",
+              "decoder.blocks.1.conv1.0.weight",
+              "decoder.blocks.1.conv1.0.weight_bias",
+              "decoder.blocks.1.conv2.0.weight",
+              "decoder.blocks.1.conv2.0.weight_bias"
+            ]
+          },
+          {
+            "a": "model_F",
+            "b": "model_H",
+            "common_named_tensors": 101,
+            "byte_identical_tensors": 7,
+            "byte_identical_values_bytes": 56,
+            "different_common_tensors": 94,
+            "different_name_examples": [
+              "decoder.blocks.0.conv1.0.weight",
+              "decoder.blocks.0.conv1.0.weight_bias",
+              "decoder.blocks.0.conv2.0.weight",
+              "decoder.blocks.0.conv2.0.weight_bias",
+              "decoder.blocks.1.conv1.0.weight",
+              "decoder.blocks.1.conv1.0.weight_bias",
+              "decoder.blocks.1.conv2.0.weight",
+              "decoder.blocks.1.conv2.0.weight_bias"
+            ]
+          },
+          {
+            "a": "model_G",
+            "b": "model_H",
+            "common_named_tensors": 101,
+            "byte_identical_tensors": 7,
+            "byte_identical_values_bytes": 56,
+            "different_common_tensors": 94,
+            "different_name_examples": [
+              "decoder.blocks.0.conv1.0.weight",
+              "decoder.blocks.0.conv1.0.weight_bias",
+              "decoder.blocks.0.conv2.0.weight",
+              "decoder.blocks.0.conv2.0.weight_bias",
+              "decoder.blocks.1.conv1.0.weight",
+              "decoder.blocks.1.conv1.0.weight_bias",
+              "decoder.blocks.1.conv2.0.weight",
+              "decoder.blocks.1.conv2.0.weight_bias"
+            ]
+          }
+        ],
+        "scope": "Tensor hashes and graph structure do not establish native class meanings or prediction accuracy."
+      }
+    },
+    {
+      "original_summary": "onnx_spatial_probe_results.json",
+      "original_sha256": "05978d229dbd62deca214df07b78a01a939cf450e030825ce5da821e9514fafd",
+      "results": {
+        "runtime": "1.23.2",
+        "scope": "Generated shape/batch and affine geometry probes; no real-scan accuracy measurement.",
+        "mask_models": [
+          {
+            "model": "D",
+            "shapes": [
+              {
+                "input_hw": [
+                  32,
+                  32
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  32,
+                  32
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  33,
+                  33
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  33,
+                  33
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  64,
+                  96
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  64,
+                  96
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  65,
+                  97
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  65,
+                  97
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  127,
+                  161
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  127,
+                  161
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  128,
+                  192
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  128,
+                  192
+                ],
+                "finite": true
+              }
+            ],
+            "batch_2_vs_independent": {
+              "output_shape": [
+                2,
+                3,
+                64,
+                96
+              ],
+              "max_abs_logit_delta": 0.0,
+              "argmax_pixel_agreement": 1.0
+            }
+          },
+          {
+            "model": "E",
+            "shapes": [
+              {
+                "input_hw": [
+                  32,
+                  32
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  32,
+                  32
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  33,
+                  33
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  33,
+                  33
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  64,
+                  96
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  64,
+                  96
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  65,
+                  97
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  65,
+                  97
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  127,
+                  161
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  127,
+                  161
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  128,
+                  192
+                ],
+                "output_shape": [
+                  1,
+                  3,
+                  128,
+                  192
+                ],
+                "finite": true
+              }
+            ],
+            "batch_2_vs_independent": {
+              "output_shape": [
+                2,
+                3,
+                64,
+                96
+              ],
+              "max_abs_logit_delta": 0.0,
+              "argmax_pixel_agreement": 1.0
+            }
+          },
+          {
+            "model": "F",
+            "shapes": [
+              {
+                "input_hw": [
+                  32,
+                  32
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  32,
+                  32
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  33,
+                  33
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  33,
+                  33
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  64,
+                  96
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  64,
+                  96
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  65,
+                  97
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  65,
+                  97
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  127,
+                  161
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  127,
+                  161
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  128,
+                  192
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  128,
+                  192
+                ],
+                "finite": true
+              }
+            ],
+            "batch_2_vs_independent": {
+              "output_shape": [
+                2,
+                2,
+                64,
+                96
+              ],
+              "max_abs_logit_delta": 0.0,
+              "argmax_pixel_agreement": 1.0
+            }
+          },
+          {
+            "model": "G",
+            "shapes": [
+              {
+                "input_hw": [
+                  32,
+                  32
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  32,
+                  32
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  33,
+                  33
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  33,
+                  33
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  64,
+                  96
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  64,
+                  96
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  65,
+                  97
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  65,
+                  97
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  127,
+                  161
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  127,
+                  161
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  128,
+                  192
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  128,
+                  192
+                ],
+                "finite": true
+              }
+            ],
+            "batch_2_vs_independent": {
+              "output_shape": [
+                2,
+                2,
+                64,
+                96
+              ],
+              "max_abs_logit_delta": 0.0,
+              "argmax_pixel_agreement": 1.0
+            }
+          },
+          {
+            "model": "H",
+            "shapes": [
+              {
+                "input_hw": [
+                  32,
+                  32
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  32,
+                  32
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  33,
+                  33
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  33,
+                  33
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  64,
+                  96
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  64,
+                  96
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  65,
+                  97
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  65,
+                  97
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  127,
+                  161
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  127,
+                  161
+                ],
+                "finite": true
+              },
+              {
+                "input_hw": [
+                  128,
+                  192
+                ],
+                "output_shape": [
+                  1,
+                  2,
+                  128,
+                  192
+                ],
+                "finite": true
+              }
+            ],
+            "batch_2_vs_independent": {
+              "output_shape": [
+                2,
+                2,
+                64,
+                96
+              ],
+              "max_abs_logit_delta": 0.0,
+              "argmax_pixel_agreement": 1.0
+            }
+          }
+        ],
+        "anisotropic_obb": {
+          "source_angle_deg": 35.0,
+          "target_wh": [
+            1024,
+            640
+          ],
+          "transformed_axis_angle_deg": 23.635615368475715,
+          "adjacent_edge_cosine": -0.41647951025556673,
+          "naive_same_angle_max_corner_error_px": 38.6662184873309
+        }
+      }
+    },
+    {
+      "original_summary": "onnx_binding_index_results.json",
+      "original_sha256": "de7c4ebb207717e89554ebf226086f9785cfe0b28239855bc5eb32aac357e738",
+      "results": {
+        "scope": "Controlled misbindings and malformed indices; no real-scan recognition claim.",
+        "runtime": "1.23.2",
+        "external_binding": {
+          "layout_equal": true,
+          "checker": "passed",
+          "swapped_output_finite": true,
+          "swapped_vs_original_F": {
+            "shape": [
+              1,
+              64,
+              96,
+              2
+            ],
+            "finite": true,
+            "max_abs_logit_delta": 19.954710006713867,
+            "argmax_agreement": 0.9912109375
+          },
+          "swapped_vs_original_G": {
+            "shape": [
+              1,
+              64,
+              96,
+              2
+            ],
+            "finite": true,
+            "max_abs_logit_delta": 17.80183982849121,
+            "argmax_agreement": 0.9912109375
+          },
+          "native_label_counts": {
+            "original_F": [
+              6144,
+              0
+            ],
+            "original_G": [
+              6144,
+              0
+            ],
+            "swapped_F": [
+              6090,
+              54
+            ]
+          },
+          "swapped_vs_F_nonzero_mask_iou": 0.0,
+          "external_tensor_count": 80
+        },
+        "index_cases": [
+          {
+            "variant": "negative_kernel_center",
+            "runtime": "accepted",
+            "shape": [
+              129,
+              12
+            ],
+            "finite": true,
+            "max_abs_logit_delta": 12.657838821411133,
+            "argmax_agreement": 0.031007751937984496
+          },
+          {
+            "variant": "in_range_but_wrong_inverse",
+            "runtime": "accepted",
+            "shape": [
+              129,
+              12
+            ],
+            "finite": true,
+            "max_abs_logit_delta": 12.945768356323242,
+            "argmax_agreement": 0.4806201550387597
+          },
+          {
+            "variant": "out_of_range_kernel_index",
+            "runtime": "rejected",
+            "error": "[ONNXRuntimeError] : 2 : INVALID_ARGUMENT : Non-zero status code returned while running Gather node. Name:'/stem_conv/Gather_1' Status Message: indices element out of data bounds, idx=130 must be within the inclusive range [-130,129]"
+          },
+          {
+            "variant": "wrong_feature_width",
+            "runtime": "rejected",
+            "error": "[ONNXRuntimeError] : 2 : INVALID_ARGUMENT : Non-zero status code returned while running Einsum node. Name:'/stem_conv/Einsum' Status Message: Einsum operands could not be broadcast together. Please check input shapes/equation provided.Input shape of operand 1 is incompatible in the dimension 1. The shape is: {125,3,32}Another operand has a dim valu"
+          }
+        ],
+        "stage_sizes": [
+          129,
+          129,
+          121,
+          72,
+          18
+        ]
+      }
+    },
+    {
+      "original_summary": "handoff_probe_results.json",
+      "original_sha256": "218be577673a2e7cb4249402f0f536d3def2ce57d079143af619e2c4844228a7",
+      "results": {
+        "scope": "Independent generated handoff fixtures, not execution of the Windows app or real-scan accuracy.",
+        "runtime": "1.23.2",
+        "representative_selection": {
+          "voxels": 129,
+          "original_samples": 258,
+          "same_voxel_and_index_arrays": true,
+          "changed_representatives": 129,
+          "changed_feature_rows": 129,
+          "output_finite": true,
+          "class_agreement_after_pair_reorder": 0.4186046511627907,
+          "max_logit_delta_after_pair_reorder": 8.147029876708984,
+          "stable_uint64_source_selection_same_features_and_indices": true,
+          "minimum_source_record_id": 9007199254748025
+        },
+        "hard_vote_cases": {
+          "single_weak_tile": {
+            "label": 0,
+            "agreement_q8": 255,
+            "votes": 1,
+            "winning_votes": 1,
+            "native_model_softmax_example": 0.5002499999791666
+          },
+          "two_disagreeing_tiles": {
+            "label": 0,
+            "agreement_q8": 127,
+            "votes": 2,
+            "winning_votes": 1
+          },
+          "two_of_three": {
+            "label": 0,
+            "agreement_q8": 170,
+            "votes": 3,
+            "winning_votes": 2
+          },
+          "three_of_five": {
+            "label": 0,
+            "agreement_q8": 153,
+            "votes": 5,
+            "winning_votes": 3
+          },
+          "uncovered": {
+            "label": -1,
+            "agreement_q8": 0,
+            "votes": 0,
+            "winning_votes": 0
+          }
+        },
+        "counter_check": {
+          "repeated_same_class_votes": 256,
+          "uint8_count": 0,
+          "uint32_count": 256
+        },
+        "narrow_surface": {
+          "measured_strip_area_m2": 10.0,
+          "width_m": 1.0,
+          "area_after_size_only_opening_m2": 0.0,
+          "retained_as_measured_area_m2": 10.0
+        },
+        "stair_gap_arithmetic": {
+          "rise_m": 0.18,
+          "target_gap_m": 0.11,
+          "proposed_extra_steps": 1,
+          "vertical_extension_m": 0.18,
+          "target_overshoot_m": 0.07,
+          "scope": "Recovered arithmetic illustrated on a generated example; endpoint acceptance still requires evidence."
+        }
+      }
+    }
+  ],
+  "native_defaults_summary": {
+    "original_summary": "native_defaults.json",
+    "original_sha256": "74768f897ef9456069d0feb83adf2e56a8a570f58862b272f7786eeea9539780",
+    "geometry_defaults": 88,
+    "geometry_types": 9,
+    "oriented_box_metadata_defaults": 4,
+    "publication": "Implementation-relevant settings are summarized in CB-020 of the reference; full recovered configuration is not included."
+  }
+}
