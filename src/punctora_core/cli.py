@@ -60,8 +60,43 @@ def main(argv=None):
     importer.add_argument("input", type=Path)
     importer.add_argument("--chunk-points", type=int, default=1_000_000)
     importer.add_argument("--output-dir", type=Path, required=True)
+    quality = commands.add_parser("quality-evaluate", help="Evaluate fingerprinted local truth; never reconstruct or tune")
+    quality.add_argument("manifest", type=Path)
+    quality.add_argument("--output", type=Path, required=True)
+    quality.add_argument("--freeze", action="store_true", help="Write-once baseline, refuse changed content")
+    quality.add_argument("--compare-baseline", type=Path, help="Compare against a frozen evaluator report")
+    freeze = commands.add_parser("quality-freeze-artifacts", help="Freeze a27 IFC/telemetry facts, not independent accuracy")
+    freeze.add_argument("--ifc", type=Path, required=True)
+    freeze.add_argument("--performance", type=Path, required=True)
+    freeze.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
+        if args.command == "quality-freeze-artifacts":
+            from .quality_benchmark import freeze_artifact_baseline
+            report = freeze_artifact_baseline(args.ifc, args.performance, args.output)
+            print(json.dumps({"status": report["status"], "output": str(args.output)}, indent=2))
+            return 0
+        if args.command == "quality-evaluate":
+            from .quality_benchmark import run_benchmark, write_report, compare_reports, load_manifest
+            from .annotation_io import read_json, content_digest
+            report = run_benchmark(args.manifest)
+            if args.compare_baseline:
+                report["baseline_comparison"] = compare_reports(read_json(args.compare_baseline), report)
+            protected = [args.manifest]
+            for case in load_manifest(args.manifest)["cases"]:
+                for key in ("truth", "prediction", "semantic_prediction", "repeat_prediction", "performance", "source_path"):
+                    if case.get(key):
+                        value = Path(case[key])
+                        protected.append(value if value.is_absolute() else args.manifest.parent / value)
+            if args.compare_baseline:
+                protected.append(args.compare_baseline)
+            if args.output.resolve() in {p.resolve() for p in protected}:
+                raise ValueError("Quality output cannot overwrite an input or frozen baseline")
+            report["report_sha256"] = content_digest({k: v for k, v in report.items() if k != "report_sha256"})
+            write_report(args.output, report, frozen=args.freeze)
+            print(json.dumps({"passed": report["passed"], "decision": report["decision"],
+                              "output": str(args.output)}, indent=2))
+            return 0 if report["passed"] else 1
         settings = ReconstructionSettings()
         source = {"kind": "generated_fixture"}
         import_manifest = None

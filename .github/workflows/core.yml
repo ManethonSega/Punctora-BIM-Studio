@@ -15,6 +15,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -23,6 +25,14 @@ jobs:
       - name: Runtime detection and immediate IFC export without test extras
         run: python scripts/verify_worker_runtime.py --output outputs/runtime
       - run: python -m pytest -q
+      - name: Generated quality evaluator and frozen-baseline replay
+        run: python scripts/verify_quality_evaluator.py --output-dir outputs/quality-generated
+      - name: Keep acceptance truth separate from reconstruction changes
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          QUALITY_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python scripts/check_quality_changes.py --base "$QUALITY_BASE_SHA"
       - run: python -m punctora_core demo --two-storeys --output-dir outputs/demo
       - run: python -m punctora_core demo --compare-budgets --output-dir outputs/budget-comparison
       - run: python -m punctora_core demo --settings docs/region-growing-settings.json --output-dir outputs/region-demo
