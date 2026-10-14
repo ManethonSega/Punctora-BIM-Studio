@@ -3,6 +3,7 @@ from copy import deepcopy
 from dataclasses import asdict
 import hashlib
 from pathlib import Path
+import os
 import threading
 import time
 import numpy as np
@@ -179,7 +180,27 @@ def _input_digests(cloud, directory, control):
 
 def _source_arrays(cloud, identity, directory, control):
     count, result, selected_count = len(cloud.points), {}, 0
-    for name in ("working_rows", "scan_ids", "record_ids", "selected"):
+    for name in ("scan_ids", "record_ids", "working_rows", "selected"):
+        same=next((other for other in result if name!='selected' and other!='selected'
+            and control.input_digests[name]==control.input_digests[other]),None)
+        if same is not None:
+            result[name]=deepcopy(result[same])
+            continue  # Same canonical integer values, not copied or renumbered.
+        original = {"working_rows": cloud.working_index, "scan_ids": cloud.scan_index,
+                    "record_ids": cloud.source_record_index}.get(name)
+        if (isinstance(original,np.memmap) and original.offset == 0
+                and Path(original.filename).stat().st_size == original.nbytes
+                and original.dtype.str in {'<u4','<u8','<i8'}):
+            relative = name + '.source.bin'
+            target = directory / relative
+            try:
+                os.link(original.filename, target)
+            except OSError:
+                pass  # Cross-device/non-NTFS storage uses the lossless NPY fallback.
+            else:
+                result[name] = {**array_descriptor(target,relative,original,control.cancelled),
+                                'storage':'original_raw_hardlink'}
+                continue
         relative = name + ".npy"
         value = mapped_array(directory / relative, ARRAY_TYPES[name], (count,))
         try:
@@ -269,6 +290,7 @@ def run_recognition(cloud, identity, provider, cache_directory, *, tile_settings
                                       "context_overlap_xyz": tile.context_overlap_xyz,
                                       "vote_overlap_xyz": tile.vote_overlap_xyz,
                                       "context_points": len(tile.points), "vote_points": int(tile.vote_mask.sum())})
+                        del tile,prediction
                     control.stage = "combine_tiles"
                     labels = provider.combine_tiles(shards, len(cloud.points), stage, control)
                     arrays, selected_count = _source_arrays(cloud, identity, stage, control)

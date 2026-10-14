@@ -22,7 +22,7 @@ def detect_openings(cloud, walls, settings, workers=None, spatial_index=None, st
 
 
 def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landing_output=None,
-                  floor_surfaces=None):
+                  floor_surfaces=None, walls=()):
     flights = []
     detected_landings = []
     workers = resolved_cpu_workers(settings.cpu_workers)
@@ -180,6 +180,8 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
         patches.sort(key=lambda p: (p["z"], *p["xy"]))
         for fitted in fit_tread_sequences(patches):
             selected = [patches[i] for i in fitted["indices"]]
+            from .stair_sequences import refine_lattice_direction
+            fitted, alignment = refine_lattice_direction(fitted,selected,riser_points,riser_normals,walls)
             rise, going, direction = fitted["rise"], fitted["going"], fitted["direction"]
             start = fitted["first_xy"]-direction*going/2
             end = start+direction*going*fitted["steps"]
@@ -210,6 +212,7 @@ def detect_stairs(cloud, storeys, settings, backend=None, statistics=None, landi
                             "run": "inferred", "tread_thickness": "inferred", "structure": "unknown"},
                 confidence=max(.5, .8-.03*len(missing)),
                 evidence={"method": "global_tread_riser_lattice",
+                    "direction_validation":alignment,
                     "tread_support_counts": [p["count"] for p in selected],
                     "observed_tread_elevations_m": [p["z"] for p in selected],
                     "source_working_row_examples_by_tread": [p["source_working_row_examples"] for p in selected],

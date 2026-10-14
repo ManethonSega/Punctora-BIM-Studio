@@ -111,11 +111,25 @@ def _performance_writer(path, job_id, command):
     root = assets_for(path)
     history = root / "diagnostics" / f"{command}-{job_id}.json"
     latest = root / "last-performance.json"
-    def write(report):
+    started = time.perf_counter()
+    started_utc = datetime.now(timezone.utc).isoformat()
+    def write(report, final=False):
         value = {**report, "job_id": job_id, "command": command,
                  "diagnostic_file": str(history.name)}
+        if command == 'reconstruct':
+            value['geometry_and_evidence_seconds'] = report.get('geometry_and_evidence_seconds',report.get('total_seconds',0.))
+            elapsed = time.perf_counter()-started
+            value.update(total_seconds=elapsed,elapsed_seconds=elapsed,
+                started_at_utc=started_utc,updated_at_utc=datetime.now(timezone.utc).isoformat(),
+                runtime_scope='complete desktop operation: crop, reconstruction, recognition, validation, evidence and publication')
+            value['point_counter_scope']='stage counters cover reconstruction/evidence; specialist model/normal/raster visits are reported separately'
+            if not final and value.get('status') not in {'failed','cancelled'}:
+                value['status']='running'
+            elif final:
+                value['status']='completed'
         atomic_json(history, value)
         atomic_json(latest, value)
+        return value
     return write, history
 
 
@@ -274,7 +288,7 @@ def load_project(path):
             z = np.asarray([proposal.get("z_min_m"), proposal.get("z_max_m")], dtype=np.float64)
             if (proposal.get("status") != "proposed"
                     or proposal.get("geometry_authority") != "review_only"
-                    or proposal.get("class") not in {"wall", "opening", "beam", "column", "stair", "slab"}
+                    or proposal.get("class") not in {"wall", "opening", "window", "door", "beam", "column", "stair", "slab", "ceiling", "roof"}
                     or polygon.ndim != 2 or polygon.shape[1:] != (2,) or len(polygon) < 3
                     or not np.isfinite(polygon).all() or not np.isfinite(z).all() or z[1] <= z[0]):
                 raise ValueError("Malformed review-only specialist overlay")
@@ -449,7 +463,7 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
 
 
 def _desktop_recognition(state, cloud, model, request, stage, save_performance, progress):
-    """Run review-only recognition beside, never into, accepted geometry."""
+    """Run immutable proposals, then validate original-point model candidates."""
     mode = request.get("recognition_mode", "classical")
     if mode not in {"classical", "specialist", "hybrid"}:
         raise ValueError("Recognition mode must be classical, specialist or hybrid")
@@ -504,23 +518,43 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
         PunctoraSpecialistAssets(specialist_python, str(model_root)),
         SpecialistSettings(level_bounds=levels))
     fallback = ClassicalProvider(model=model)
-    tiles = TileSettings(size_m=8., overlap_m=2., normal_radius_m=.3, index_cell_m=.25,
+    tiles = TileSettings(size_m=8., overlap_m=.06, normal_radius_m=.3, index_cell_m=.25,
                          maximum_context_points=1_500_000, maximum_tiles=4096,
-                         adaptive_partition=True, vertical_overlap_m=.3,
+                         adaptive_partition=True, vertical_overlap_m=.06, separate_normal_context=True,
                          minimum_core_m=.25, maximum_subdivision_depth=16)
     latest = {}
+    recognition_started=time.perf_counter()
     def diagnostic(value):
         latest.clear(); latest.update(deepcopy(value))
         performance = deepcopy(model.metadata.get("performance", {}))
-        performance["recognition"] = {"requested_mode": mode, **latest}
+        performance["recognition"] = {"requested_mode": mode, **latest,
+            'phase_elapsed_seconds':latest.get('elapsed_seconds',0.),
+            'elapsed_seconds':time.perf_counter()-recognition_started}
         performance.setdefault("schema_version", 2)
         performance.setdefault("status", "running")
+        if latest.get('status') in {'failed','cancelled'}:performance['status']=latest['status']
         save_performance(performance)
-    progress(62, f"Running {mode} review-only proposals")
+    progress(62, f"Running {mode} specialist evidence")
     proposal_directory, proposal, cache_hit = run_recognition(
         cloud, identity, provider, stage / "recognition", tile_settings=tiles,
         fallback=fallback, diagnostics=diagnostic)
     specialist = proposal.get("extensions", {}).get("specialist_v1")
+    fusion = None
+    if specialist:
+        from .recognition.geometry_fusion import fuse_geometry
+        from .recognition.job import RecognitionControl
+        from .spatial_index import SpatialPointIndex
+        settings = ReconstructionSettings(**request.get('settings',{}))
+        progress(76, 'Refitting specialist candidates against original points')
+        with RecognitionControl(int(latest.get('memory_limit_bytes',0)),65536,diagnostics=diagnostic) as control:
+            control.stage='original_point_geometry_fusion'
+            fusion_index=SpatialPointIndex.build(cloud,.2,control.working_budget//4,control.chunk_points,
+                scratch_directory=stage,progress=lambda *_:control.check())
+            try:
+                fusion=fuse_geometry(cloud,model,proposal,proposal_directory,fusion_index,control,settings)
+            except BaseException:
+                fusion_index.close();raise
+            model._spatial_index=fusion_index
     overlays = []
     if specialist:
         overlay_report = annotation_read_json(safe_artifact_path(proposal_directory, specialist["proposals_path"]))
@@ -560,7 +594,8 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
     result = {"schema_version": 1, "requested_mode": mode,
               "requested_provider": "PunctoraSpecialistProvider",
               "actual_provider": final_proposal["provider"]["id"], "provider_chain": provider_chain,
-              "geometry_authority": "review_only proposals; deterministic reconstruction unchanged",
+              "geometry_authority": "original-point validated unreviewed candidates; provider proposals remain review-only",
+              "geometry_fusion": fusion,
               "active_branches": active, "missing_branches": missing,
               "model_pack_manifest_sha256": (specialist or {}).get("model_pack_manifest_sha256"),
               "loaded_hashes": {name: value.get("graph_sha256") for name, value in
@@ -571,7 +606,9 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
               "model_view_population": (specialist or {}).get("point_model_view_population", 0),
               "original_population": len(cloud.points)}
     model.metadata["recognition"] = {key: deepcopy(value) for key, value in result.items() if key != "overlay_proposals"}
-    model.metadata.setdefault("performance", {})["recognition"] = deepcopy(model.metadata["recognition"])
+    model.metadata.setdefault("performance", {})["recognition"] = {
+        **deepcopy(model.metadata["recognition"]),'elapsed_seconds':time.perf_counter()-recognition_started,
+        'status':'complete','runtime_diagnostics':deepcopy(latest)}
     return result
 
 
@@ -638,10 +675,19 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                     model.metadata["e57"] = {"coordinate_metadata": manifest["coordinate_metadata"],
                                               "coordinate_metadata_status": manifest["coordinate_metadata_status"]}
                     model.warnings.extend(manifest["warnings"])
-                progress(58, "Retaining source evidence before recognition")
+                geometry_seconds=model.metadata.get('performance',{}).get('total_seconds',0.)
+                if request.get('recognition_mode','classical') != 'classical':
+                    completed_index=getattr(model,'_spatial_index',None)
+                    if completed_index is not None:completed_index.close()
+                    model._spatial_index=None
+                release_completed_working_memory()
+                recognition = _desktop_recognition(state, cloud, model, request, stage, save_performance, progress)
+                progress(79, "Retaining final source evidence")
+                evidence_started=time.perf_counter()
                 evidence = stage / "evidence" / "records"
                 evidence.parent.mkdir()
                 write_model_evidence(cloud,model,evidence,settings.processing_chunk_points)
+                model.metadata['performance']['geometry_and_evidence_seconds']=geometry_seconds+time.perf_counter()-evidence_started
                 for wall in model.walls:
                     record = wall.evidence.get("records")
                     if record:
@@ -650,14 +696,12 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                     record = proposal.get("representative_cloud_records")
                     if record:
                         record["path"] = f"generations/{token}/{record['path']}"
-                release_completed_working_memory()
-                recognition = _desktop_recognition(state, cloud, model, request, stage, save_performance, progress)
                 model.metadata["recognition"] = {key: deepcopy(value) for key, value in recognition.items()
                                                  if key != "overlay_proposals"}
                 if recognition.get("fallback_reason"):
                     model.warnings.append("Recognition fallback: " + recognition["fallback_reason"])
                 state["recognition"] = recognition
-                progress(80, "Finalizing reviewed candidates")
+                progress(80, "Validating model candidates")
                 model.warnings = [w for w in model.warnings if "No desktop review" not in w]
                 model.warnings.append("Whole-cloud deviation reporting remains pending; review observed and inferred geometry separately.")
                 if previous_model is not None:
@@ -679,6 +723,19 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                 state["revision"] = uuid.uuid4().hex
                 state["processing_backend"] = model.metadata.get("performance", {}).get(
                     "compute_backend", "CPU")
+                from .reproducibility import geometry_signature
+                model.metadata['reproducibility']=geometry_signature(model)
+                model.metadata['performance']=save_performance(model.metadata.get('performance',{}))
+                state['model']=model.to_dict()
+                # This snapshot becomes visible only after publication below.
+                # last-performance.json is the authoritative end-to-end clock.
+                state['model']['metadata']['performance']['status']='completed'
+                state['model']['metadata']['performance']['end_to_end_report']='last-performance.json'
+            except BaseException as exc:
+                failure=deepcopy(model.metadata.get('performance',{})) if 'model' in locals() else {}
+                failure.update(status='cancelled' if isinstance(exc,InterruptedError) else 'failed',error=str(exc))
+                save_performance(failure)
+                raise
             finally:
                 if "model" in locals() and getattr(model,"_spatial_index",None) is not None:
                     model._spatial_index.close()
@@ -686,8 +743,15 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                     close_cloud(cloud)
                 close_cloud(source_cloud)
                 shutil.rmtree(crop_directory, ignore_errors=True)
-            publish_generation(path, token, stage)
-            atomic_json(path, state)
+            try:
+                publish_generation(path, token, stage)
+                atomic_json(path, state)
+            except BaseException as exc:
+                save_performance({**model.metadata.get('performance',{}),'status':'failed','error':str(exc)})
+                raise
+            from .project_storage import storage_report
+            final_performance={**model.metadata.get('performance',{}),'storage':storage_report(assets_for(path))}
+            save_performance(final_performance,final=True)
             progress(100, "Candidates ready for review")
             return state
 
@@ -765,12 +829,12 @@ def model_input_stale(state):
 
 def edit_model(state, data, element_id, changes):
     model = draft_model(state, data)
-    element = next((obj for obj in (model.walls + model.slabs + model.storeys
+    element = next((obj for obj in (model.walls + model.facade_panels + model.slabs + model.storeys
                                     + model.openings + model.stairs + model.landings + model.slab_openings)
                     if obj.id == element_id), None)
     if element is None:
         raise ValueError("Select a supported element")
-    allowed = ({"start", "end", "base", "height", "thickness", "classification", "review_state"} if element in model.walls
+    allowed = ({"start", "end", "base", "height", "thickness", "classification", "review_state"} if element in model.walls+model.facade_panels
                else {"base", "thickness", "review_state"} if element in model.slabs
                else {"host_wall_id", "kind", "offset", "sill", "width", "height", "review_state"} if element in model.openings
                else {"start", "end", "base", "width", "rise", "going", "steps", "tread_thickness", "review_state"} if element in model.stairs
@@ -884,7 +948,7 @@ def edit_model(state, data, element_id, changes):
 
 def _new_id(model, stem):
     existing = {obj.id for obj in (model.storeys + model.walls + model.slabs + model.spaces
-                                    + model.openings + model.stairs + model.landings + model.slab_openings)}
+                                    + model.openings + model.stairs + model.landings + model.slab_openings + model.facade_panels)}
     index = 1
     while f"{stem}-{index}" in existing:
         index += 1
@@ -972,7 +1036,7 @@ def add_candidate(state, data, kind, host_id):
 
 def delete_candidate(state, data, element_id):
     model = draft_model(state, data)
-    collections = [model.openings, model.stairs, model.landings, model.slab_openings]
+    collections = [model.openings, model.stairs, model.landings, model.slab_openings, model.facade_panels]
     target = next((obj for values in collections for obj in values if obj.id == element_id), None)
     if target is None:
         raise ValueError("Only opening, stair, landing and slab-opening candidates can be deleted")
@@ -1087,6 +1151,7 @@ def export_project(path, request, progress=lambda *_: None):
         rejected_stairs = {s.id for s in model.stairs if s.review_state == "rejected"}
         rejected_landings = {landing.id for landing in model.landings if landing.review_state == "rejected"}
         model.walls = [w for w in model.walls if w.id not in rejected]
+        model.facade_panels = [p for p in model.facade_panels if p.review_state != 'rejected']
         model.slabs = [s for s in model.slabs if s.id not in rejected_slabs]
         model.openings = [o for o in model.openings if o.host_wall_id not in rejected and o.review_state != "rejected"]
         model.stairs = [s for s in model.stairs if s.id not in rejected_stairs]
@@ -1104,7 +1169,7 @@ def export_project(path, request, progress=lambda *_: None):
                                and (o.source_stair_id is None or o.source_stair_id not in rejected_stairs)]
         unresolved = sum(obj.review_state in {"unreviewed", "flagged"}
                          for obj in model.walls + model.slabs + model.openings
-                         + model.stairs + model.landings + model.slab_openings)
+                         + model.stairs + model.landings + model.slab_openings + model.facade_panels)
         if unresolved:
             model.warnings.append(f"Export includes {unresolved} unreviewed or flagged elements; review state does not establish acceptance.")
         if model.metadata.get("geometry_edited"):

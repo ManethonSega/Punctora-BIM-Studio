@@ -70,16 +70,24 @@ def padded_rows(count, patch=PATCH):
     return width, rows
 
 
-def kernel_map(grid, side):
+def kernel_map(grid, side, check=lambda: None):
     """Native column order: grid column 0 slowest, column 2 fastest."""
     grid = np.asarray(grid, dtype=np.int64)
     count, radius = len(grid), side // 2
     offsets = np.asarray(list(itertools.product(range(-radius, radius + 1), repeat=3)), dtype=np.int64)
-    lookup = {tuple(map(int, value)): row for row, value in enumerate(grid)}
+    # Sorted structured coordinates preserve exact integer equality without
+    # Python's N x 125 tuple/hash loop. No float or packed-key overflow.
+    dtype = np.dtype([('x','<i8'),('y','<i8'),('z','<i8')])
+    keys = np.ascontiguousarray(grid).view(dtype).ravel()
+    order = np.argsort(keys, kind='stable'); sorted_keys = keys[order]
     result = np.full((count, side ** 3), count, dtype=np.int64)
-    for row, coordinate in enumerate(grid):
-        for column, offset in enumerate(offsets):
-            result[row, column] = lookup.get(tuple(map(int, coordinate + offset)), count)
+    for column, offset in enumerate(offsets):
+        check()
+        wanted = np.ascontiguousarray(grid+offset).view(dtype).ravel()
+        positions = np.searchsorted(sorted_keys, wanted)
+        valid = positions < count
+        valid &= sorted_keys[np.minimum(positions,count-1)] == wanted
+        result[valid,column] = order[positions[valid]]
     if not np.array_equal(result[:, side ** 3 // 2], np.arange(count, dtype=np.int64)):
         raise ValueError("PTv3 kernel centre does not map every voxel to itself")
     return result
@@ -119,9 +127,9 @@ def build_index_inputs(grid, features, *, memory_budget_bytes=None, check=lambda
         count = len(grid)
         stage_sizes.append(count)
         feed[f"s{stage}_gc"] = np.ascontiguousarray(grid, dtype=np.int64)
-        feed[f"s{stage}_k3"] = kernel_map(grid, 3)
+        feed[f"s{stage}_k3"] = kernel_map(grid, 3,check)
         if stage == 0:
-            feed["s0_k5"] = kernel_map(grid, 5)
+            feed["s0_k5"] = kernel_map(grid, 5,check)
         order = np.argsort(codes, axis=1, kind="stable")
         width, padding = padded_rows(count)
         order_count = min(4, BLOCK_COUNTS[stage])
@@ -204,26 +212,31 @@ def prepare_point_model_view(tile, control):
     if len(order) > 1 and np.any((scan[1:] == scan[:-1]) & (record[1:] == record[:-1])):
         raise ValueError("Duplicate source identity before specialist centring")
     points = np.asarray(tile.points[order], dtype=np.float64)
-    normals, valid = original_normals(points, np.arange(count), radius=.30, max_nn=30, check=control.check)
-    selected = np.flatnonzero(valid)
-    if not len(selected):
-        return None
-    selected_points = points[selected]
-    # Separate, stable scalar reductions match the reviewed centring order.
-    origin = np.array([selected_points[:, 0].mean(), selected_points[:, 1].mean(),
-                       selected_points[:, 2].min()], dtype=np.float64)
-    shifted = selected_points - origin
+    # Adapter v2 computes exactly the feature normals consumed by the graph,
+    # once per source-key-stable voxel representative, not once per dense row.
+    origin = np.array([points[:,0].mean(),points[:,1].mean(),points[:,2].min()],dtype=np.float64)
+    shifted = points - origin
     grid = np.floor(shifted / GRID_M).astype(np.int64)
     grid -= grid.min(axis=0)
     _, representative, inverse = np.unique(grid, axis=0, return_index=True, return_inverse=True)
-    voxel_grid = grid[representative]
-    voxel_features = normals[selected][representative].astype(np.float32)
+    context = getattr(tile,'normal_points',None)
+    context = points if context is None else context
+    normals, valid = original_normals(context, np.empty(0,dtype=int), query_points=points[representative],
+                                      radius=.30,max_nn=30,check=control.check)
+    if not valid.any():
+        return None
+    selected = np.flatnonzero(valid[inverse])
+    voxel_grid = grid[representative][valid]
+    remap = np.full(len(representative),-1,dtype=np.int64); remap[valid]=np.arange(valid.sum())
+    inverse = remap[inverse[selected]]
+    voxel_features = normals[valid].astype(np.float32)
     feed, stages = build_index_inputs(voxel_grid, voxel_features,
                                       memory_budget_bytes=control.working_budget, check=control.check)
     tile_rows = order[selected].astype(np.int64)
     return PointModelView(feed, tile_rows, inverse.astype(np.int64), origin,
                           {"model_view_points": int(len(selected)), "model_voxels": int(len(voxel_grid)),
-                           "original_context_points": int(count), "degenerate_normals": int(count - len(selected)),
+                           "original_context_points": int(count), "normal_context_points": int(len(context)),
+                           "normal_queries": int(len(representative)), "degenerate_normals": int(count - len(selected)),
                            "stage_populations": stages, "grid_m": GRID_M,
-                           "normal_recipe": "original-neighbour PCA, largest-absolute-component positive adaptation",
+                           "normal_recipe": "v2 source-key voxel representative, original-neighbour PCA, largest-absolute-component positive",
                            "source_order": "scan_id, record_id, working_row before centring and representatives"})

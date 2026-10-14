@@ -89,6 +89,10 @@ def model_snapshot(model, case_identity):
                {"type": "opening", "start": start.tolist(), "end": (start + direction * o.width).tolist(),
                 "base": w.base + o.sill, "height": o.height}, host_id=w.id,
                containment_valid=bool(shape.buffer(1e-8).covers(box(o.offset, o.sill, o.offset + o.width, o.sill + o.height))))
+    for panel in model.facade_panels:
+        if panel.review_state!='rejected':
+            append(panel,'window',{'type':'opening','start':list(panel.start),'end':list(panel.end),
+                'base':panel.base,'height':panel.height},host_state='standalone',containment_valid=True)
     for s in [*model.slabs, *model.landings]:
         if s.review_state == "rejected":
             continue

@@ -67,7 +67,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a29 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
+        Title="Punctora BIM Studio | 0.3.0a30 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -77,7 +77,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a29",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a30",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new WrapPanel{Orientation=Orientation.Horizontal,ItemSpacing=8,LineSpacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -287,7 +287,7 @@ public sealed class MainWindow : Window
             var levels=model?["storeys"]?.AsArray()??[];
             storeys.ItemsSource=new[]{"All storeys"}.Concat(levels.Select(s=>s!["name"]!.GetValue<string>())).ToArray();
             storeys.SelectedIndex=priorStorey==null?0:Math.Max(0,levels.ToList().FindIndex(s=>s!["id"]!.GetValue<string>()==priorStorey)+1);
-            var nodes=model==null?new List<(string Kind,JsonObject Node)>():new[]{"storeys","walls","slabs","slab_openings","openings","stairs","landings"}.SelectMany(kind=>(model[kind]?.AsArray()??[]).Select(n=>(Kind:kind,Node:n!.AsObject()))).ToList();
+            var nodes=model==null?new List<(string Kind,JsonObject Node)>():new[]{"storeys","walls","slabs","slab_openings","openings","stairs","landings","facade_panels"}.SelectMany(kind=>(model[kind]?.AsArray()??[]).Select(n=>(Kind:kind,Node:n!.AsObject()))).ToList();
             elementIds=nodes.Select(n=>n.Node["id"]!.GetValue<string>()).ToArray();
             elements.ItemsSource=nodes.Select(n=>$"{(n.Kind=="slab_openings"?(n.Node["preview_geometry"]?["ifc_cut_eligible"]?.GetValue<bool>()==true?"slab cut":"slab gap review"):n.Kind)} · {n.Node["id"]}\n{n.Node["review_state"]?.GetValue<string>()??"levels / inferred outline"}").ToArray();
             elements.SelectedIndex=Array.IndexOf(elementIds,selectedId);
@@ -329,7 +329,7 @@ public sealed class MainWindow : Window
     (string Kind,JsonObject Node)? Selected()
     {
         if(state?["model"] is not JsonObject model||selectedId==null)return null;
-        foreach(var kind in new[]{"storeys","walls","slabs","slab_openings","openings","stairs","landings"})
+        foreach(var kind in new[]{"storeys","walls","slabs","slab_openings","openings","stairs","landings","facade_panels"})
             foreach(var node in model[kind]?.AsArray()??[])if(node!["id"]!.GetValue<string>()==selectedId)return(kind,node.AsObject());
         return null;
     }
@@ -350,7 +350,7 @@ public sealed class MainWindow : Window
             fieldsPanel.Children.Add(Text(label,11));var box=new TextBox{Text=value,Name="Edit_"+key};fields[key]=box;initialFields[key]=value;fieldsPanel.Children.Add(box);
         }
         void Number(string key,string label)=>Field(key,label,obj[key]!.GetValue<double>().ToString("G10",CultureInfo.InvariantCulture));
-        if(kind=="walls")
+        if(kind=="walls"||kind=="facade_panels")
         {
             for(var j=0;j<2;j++)foreach(var key in new[]{"start","end"})Field(key+j,key+" "+(j==0?"X":"Y")+" (m)",obj[key]![j]!.GetValue<double>().ToString("G10",CultureInfo.InvariantCulture));
             Number("base","Base (m)");Number("height","Height (m)");Number("thickness","Thickness (m)");
@@ -430,7 +430,7 @@ public sealed class MainWindow : Window
             JsonNode value=key=="name"||key=="kind"||key=="host_wall_id"||key=="host_slab_id"||key=="system_id"?JsonValue.Create(box.Text?.Trim()??"")!:key=="steps"?JsonValue.Create(int.Parse(box.Text??"",CultureInfo.InvariantCulture))!:JsonValue.Create(Parse(box.Text??""))!;
             if(value.ToJsonString()!=obj[key]!.ToJsonString())changes[key]=value;
         }
-        if(kind=="walls"||kind=="stairs"||kind=="slab_openings")foreach(var key in new[]{"start","end"})
+        if(kind=="walls"||kind=="facade_panels"||kind=="stairs"||kind=="slab_openings")foreach(var key in new[]{"start","end"})
         {
             if(fields[key+0].Text==initialFields[key+0]&&fields[key+1].Text==initialFields[key+1])continue;
             var array=new JsonArray(Enumerable.Range(0,2).Select(j=>fields[key+j].Text==initialFields[key+j]?obj[key]![j]!.DeepClone():JsonValue.Create(Parse(fields[key+j].Text??""))).ToArray());

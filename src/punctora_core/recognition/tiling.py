@@ -19,6 +19,7 @@ class TileSettings:
     vertical_overlap_m: float = .3
     minimum_core_m: float = .25
     maximum_subdivision_depth: int = 16
+    separate_normal_context: bool = False
 
     def validate(self):
         values = (self.size_m, self.overlap_m, self.normal_radius_m, self.index_cell_m,
@@ -30,7 +31,7 @@ class TileSettings:
             raise ValueError("Invalid overlap or normal radius")
         if abs(self.size_m / self.index_cell_m - round(self.size_m / self.index_cell_m)) > 1e-8:
             raise ValueError("Tile size must be an integral number of index cells")
-        if (not isinstance(self.adaptive_partition, bool)
+        if (not isinstance(self.adaptive_partition, bool) or not isinstance(self.separate_normal_context, bool)
                 or any(isinstance(v, bool) or not isinstance(v, int) or v < 1
                        for v in (self.maximum_context_points, self.maximum_tiles,
                                  self.maximum_subdivision_depth))):
@@ -55,6 +56,7 @@ class Tile:
     partition_depth: int
     context_overlap_xyz: list
     vote_overlap_xyz: list
+    normal_points: np.ndarray | None = None
 
 
 @dataclass(frozen=True)
@@ -78,6 +80,7 @@ class TileIndex:
     def __init__(self, cloud, settings, budget, chunk_points, directory, check=lambda: None):
         self.cloud, self.settings, self.check = cloud, settings.validate(), check
         self.chunk_points = chunk_points
+        self.budget = budget
         self.index = SpatialPointIndex.build(cloud, settings.index_cell_m, budget, chunk_points,
                                              progress=lambda *_: check(), scratch_directory=directory)
         cells_per_tile = int(round(settings.size_m / settings.index_cell_m))
@@ -150,7 +153,7 @@ class TileIndex:
         # context for normals/model receptive fields but do not multiply votes
         # across every internal split boundary.
         vote_overlap = np.zeros(3) if region.depth else configured_overlap
-        halo = context_overlap + settings.normal_radius_m
+        halo = context_overlap if settings.separate_normal_context else context_overlap + settings.normal_radius_m
         minimum, maximum = np.floor((low - halo) / cell), np.floor((high + halo) / cell)
         pieces, count = [], 0
         for cells, starts, rows in self.index.runs:
@@ -192,15 +195,32 @@ class TileIndex:
         rows, p, scan, records, working = rows[order], p[order], scan[order], records[order], working[order]
         if len(rows) > 1 and np.any((scan[1:] == scan[:-1]) & (records[1:] == records[:-1])):
             raise ValueError("Duplicate original scan/record identity inside a tile")
-        vote = np.all((p >= low - vote_overlap) & (p <= high + vote_overlap), axis=1)
+        vote = np.all((p >= low - vote_overlap) & (p < high + vote_overlap), axis=1)
         vote &= crop_mask(p, crop)
         if not vote.any():
             return None
         for array in (p, working, scan, records):
             array.flags.writeable = False
+        normal_points = None
+        if settings.separate_normal_context:
+            # Normals query original neighbours, but these neighbours never
+            # become PTv3 voxels or duplicate votes. Budgeted independently.
+            from .streaming_views import SourceBox
+            class Control:
+                chunk_points = self.chunk_points
+                check = staticmethod(self.check)
+            source = SourceBox(self.cloud, self.index, low-halo-settings.normal_radius_m,
+                               high+halo+settings.normal_radius_m, Control(), self.chunk_points)
+            parts, total = [], 0
+            for _, block in source.blocks():
+                total += len(block)
+                if total*128 > self.budget:
+                    raise ProviderUnavailable('Original-neighbour normal context exceeds its RAM budget')
+                parts.append(block)
+            normal_points = np.concatenate(parts) if parts else p
         return Tile(region.id, region.root_cell_xy, rows.astype("<u8"), vote, p, working, scan, records,
                     low[:2].tolist(), high[:2].tolist(), float(low[2]), float(high[2]), region.depth,
-                    context_overlap.tolist(), vote_overlap.tolist())
+                    context_overlap.tolist(), vote_overlap.tolist(), normal_points)
 
     def close(self):
         self.index.close()

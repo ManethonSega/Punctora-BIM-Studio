@@ -1,5 +1,11 @@
 # Run 4: PunctoraSpecialistProvider runtime and desktop orchestration
 
+**Current repair: 0.3.0a30.** The user extended Run 4 after the two returned a29
+results. See [the eight-path repair and bounded checkpoint](RUN_4_REPAIR_A30.md).
+Provider artifacts remain review-only; a separate original-point validator now
+adds unreviewed model candidates. The historical a28/a29 scope and tests below
+are retained as an audit trail, not the current retest instructions.
+
 Run 4 connects the supplied A-through-J ONNX model pack to **Detect elements** as a review-only proposal source. It does not accept, replace or resize building elements, create cuts, or write IFC objects. The deterministic reconstruction remains geometry authority until Runs 5 through 8 validate each physical element family against original points.
 
 ## Implemented boundary

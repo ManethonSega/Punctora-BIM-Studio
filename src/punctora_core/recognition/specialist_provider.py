@@ -2,6 +2,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, asdict
 import json
+import math
 import os
 from pathlib import Path
 import queue
@@ -20,8 +21,7 @@ from ..storage import mapped_array
 from .contracts import ProviderUnavailable, array_descriptor
 from .provider import RecognitionProvider, TilePrediction, combine_tiles
 from .specialist_decoders import decode_masks, decode_obb, decode_section
-from .specialist_frames import (plan_frame, plan_pixels, rasterize_plan, rasterize_section,
-                                section_frame, slab_section_windows)
+from .specialist_frames import plan_frame, plan_pixels, slab_section_windows
 from .specialist_indices import prepare_point_model_view
 from .specialist_pack import (MODEL_PACK_MANIFEST, SPECIALIST_PROVIDER_ID,
                               SPECIALIST_PROVIDER_VERSION, resolve_model_pack)
@@ -188,6 +188,9 @@ class PunctoraSpecialistProvider(RecognitionProvider):
     def descriptor(self):
         runtime = self.preflight.get("runtime") if isinstance(self.preflight, dict) else None
         value = {"id": SPECIALIST_PROVIDER_ID, "version": SPECIALIST_PROVIDER_VERSION,
+                 "adapter_version": "a30-streaming-core-voxel-normal-v2",
+                 "point_preprocessing": "source-key centring; one original-neighbour normal per fixed-0.06m voxel representative",
+                 "view_point_limit_scope": "maximum_materialized_original_points_per_block; complete_physical_raster",
                  "backend": (runtime or {}).get("actual_provider", "CPUExecutionProvider pending"),
                  "score_kind": "branch_native_logits_scores_votes_not_calibrated_probability",
                  "model_pack_id": self.manifest["pack_id"],
@@ -375,6 +378,7 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             self.model_view_population += int(view.diagnostics["model_view_points"])
         finally:
             logits._mmap.close()
+            shutil.rmtree(output.parent)
         return TilePrediction(labels, scores)
 
     def combine_tiles(self, shards, count, directory, control):
@@ -447,20 +451,6 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                 end = starts[position + 1] if position + 1 < len(starts) else len(rows)
                 yield rows[starts[position]:end]
 
-    def _rows_in_box(self, index, minimum, maximum, control):
-        parts, count = [], 0
-        for part in self._iter_box_rows(index, minimum, maximum):
-            control.check()
-            count += len(part)
-            if count > self.settings.maximum_view_points:
-                raise ProviderUnavailable("Specialist raster view exceeds its explicit original-point cap; crop or subdivide")
-            parts.append(np.asarray(part, dtype=np.int64))
-        if not parts:
-            return np.empty(0, dtype=np.int64)
-        rows = np.unique(np.concatenate(parts))
-        points = self.cloud.points[rows]
-        keep = np.all((points >= minimum) & (points <= maximum), axis=1)
-        return rows[keep]
 
     def _infer_image(self, branch, image, identifier, control):
         directory = self.work / ("image-" + identifier)
@@ -470,57 +460,23 @@ class PunctoraSpecialistProvider(RecognitionProvider):
         np.save(tensor_path, tensor, allow_pickle=False)
         request = self._base_request(directory, "image")
         request.update(branch=branch, tensor=str(tensor_path.resolve()), output=str(output.resolve()))
-        response = self._execute(request, directory, control)
-        archive = np.load(output, allow_pickle=False)
         try:
-            outputs = {name: archive[name].copy() for name in archive.files}
+            response = self._execute(request, directory, control)
+            with np.load(output, allow_pickle=False) as archive:
+                outputs = {name: archive[name].copy() for name in archive.files}
+            return outputs, response
         finally:
-            archive.close()
-        return outputs, response
+            # Inputs and dense logits are transient, not evidence artifacts.
+            shutil.rmtree(directory)
 
-    @staticmethod
-    def _component_proposals(branch, points, level, tile_id, minimum_points=6, source_rows=None):
-        if len(points) < minimum_points:
-            return []
-        origin = points[:, :2].min(axis=0)
-        pixel = .05
-        # Local subtraction near survey-scale coordinates can leave an exact
-        # cell boundary a few float64 ULPs below its integer.  The tolerance is
-        # below 5 nm at this grid and only stabilizes mathematical boundaries.
-        grid = np.floor((points[:, :2] - origin) / pixel + 1e-7).astype(np.int64)
-        width, height = grid.max(axis=0) + 1
-        if width * height > 4_000_000:
-            return []
-        image = np.zeros((height, width), dtype=np.uint8)
-        image[grid[:, 1], grid[:, 0]] = 1
-        count, labels = cv2.connectedComponents(image, connectivity=8)
-        point_components = labels[grid[:, 1], grid[:, 0]]
-        result = []
-        for component in range(1, count):
-            rows, columns = np.nonzero(labels == component)
-            if len(rows) < minimum_points:
-                continue
-            local_xy = np.column_stack((columns + .5, rows + .5)) * pixel
-            # OpenCV geometry is float32: fit only the local metre-scale view,
-            # then restore the f64 survey/local origin after the model call.
-            centre, size, angle = cv2.minAreaRect(local_xy.astype(np.float32))
-            size = (max(float(size[0]), pixel), max(float(size[1]), pixel))
-            local_rectangle = cv2.boxPoints((centre, size, angle)).astype(np.float64)
-            rectangle = local_rectangle + origin
-            if branch == "I" and abs(float(cv2.contourArea(local_rectangle.astype(np.float32)))) < .15:
-                continue
-            support = (np.asarray(source_rows, dtype=np.uint64)[point_components == component]
-                       if source_rows is not None else np.empty(0, dtype=np.uint64))
-            result.append({"id": f"{branch}:{tile_id}:{component}", "branch": branch,
-                           "class": {"D": "wall", "E": "opening", "F": "beam", "G": "column",
-                                     "H": "stair", "I": "wall"}[branch],
-                           "status": "proposed", "polygon_xy_m": rectangle.tolist(),
-                           "z_min_m": level["bottom_m"], "z_max_m": level["top_m"],
-                           "support_points": int(len(support) if source_rows is not None else len(rows)),
-                           "support_state": "point_gated_model_view_candidate",
-                           "display_scope": "minimum one-cell envelope; not accepted physical width",
-                           "geometry_authority": "review_only", "_source_rows": support})
-        return result
+    def _try_image(self, branch, image, identifier, control):
+        if branch in self.branch_failures:return None
+        try:return self._infer_image(branch,image,identifier,control)
+        except ProviderUnavailable as exc:
+            self.branch_failures[branch]=str(exc)
+            self.warnings.append(f'Specialist branch {branch} unavailable: {exc}')
+            return None
+
 
     def _add_proposals(self, items):
         for item in items:
@@ -530,157 +486,183 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             self.proposals.append(item)
 
     def _semantic_rescue(self, labels_path, control):
-        """Keep uncovered I-wall residuals as separate, point-gated proposals."""
+        """Build bounded per-core components for every supported physical class."""
         if "I" not in self.active_branches:
             return
+        from .streaming_views import SourceBox, components
+        from .contracts import TAXONOMY
         labels = np.load(labels_path, mmap_mode="r", allow_pickle=False)
         try:
             low, high = self._cloud_bounds(control)
-            levels = self._levels(low, high)
-            masks = []
-            from shapely.geometry import Polygon
-            from shapely.ops import unary_union
-            for proposal in self.proposals:
-                if proposal.get("branch") == "D" and proposal.get("polygon_xy_m"):
-                    shape = Polygon(proposal["polygon_xy_m"])
-                    if shape.is_valid and not shape.is_empty:
-                        masks.append(shape.buffer(.30))
-            covered = unary_union(masks) if masks else None
-            for level_index, level in enumerate(levels):
-                parts, row_parts, count = [], [], 0
-                for begin in range(0, len(labels), control.chunk_points):
-                    control.check()
-                    end = min(len(labels), begin + control.chunk_points)
-                    points = np.asarray(self.cloud.points[begin:end], dtype=np.float64)
-                    keep = ((labels[begin:end] == 0) & (points[:, 2] >= level["bottom_m"])
-                            & (points[:, 2] <= level["top_m"]))
-                    selected = points[keep]
-                    count += len(selected)
-                    if count > self.settings.maximum_view_points:
-                        self.warnings.append(
-                            f"Branch I semantic rescue for {level['name']} exceeds the explicit point cap; "
-                            "point labels remain available without a component overlay")
-                        parts = []
-                        break
-                    if len(selected):
-                        parts.append(selected)
-                        row_parts.append(np.flatnonzero(keep).astype(np.uint64) + begin)
-                if not parts:
-                    continue
-                points = np.concatenate(parts)
-                source_rows = np.concatenate(row_parts)
-                if covered is not None:
-                    from shapely import contains_xy
-                    residual = ~contains_xy(covered, points[:, 0], points[:, 1])
-                    points, source_rows = points[residual], source_rows[residual]
-                items = self._component_proposals("I", points, level, f"residual-{level_index}",
-                                                  source_rows=source_rows)
-                for item in items:
-                    item["rescue_rule"] = {"existing_wall_distance_m": .30,
-                                           "minimum_residual_area_m2": .15,
-                                           "classification": "I wall label; original-point extent"}
-                self._add_proposals(items)
+            side = self.settings.plan_tile_m
+            for li, level in enumerate(self._levels(low, high)):
+                for x in range(math.floor(low[0]/side), math.floor(high[0]/side)+1):
+                    for y in range(math.floor(low[1]/side), math.floor(high[1]/side)+1):
+                        minimum, maximum = np.array([x, y])*side, (np.array([x, y])+1)*side
+                        source = SourceBox(self.cloud, self.spatial_index,
+                            [*minimum, level['bottom_m']], [*maximum, level['top_m']],
+                            control, self.settings.maximum_view_points)
+                        present = set()
+                        for rows, _ in source.blocks():
+                            present.update(labels[rows].tolist())
+                        for name in ('wall', 'window', 'door', 'slab', 'ceiling', 'roof', 'stair', 'column', 'beam'):
+                            label = TAXONOMY.index(name)
+                            if label not in present:
+                                continue
+                            items = components(source, lambda rows, p, value=label: labels[rows] == value,
+                                minimum, maximum, level, 'I', f'{li}-{x}-{y}-{name}', name)
+                            self._add_proposals(items)
         finally:
             labels._mmap.close()
 
-    def _plan_tile(self, centre, level, tile_number, index, control):
+    def _stream_plan_tile(self, centre, level, tile_number, index, control):
+        from .streaming_views import SourceBox, components, owned, plan_image, section_image
         settings = self.settings
         half = settings.stair_tile_m * np.sqrt(2) / 2
-        minimum = [centre[0] - half, centre[1] - half, level["bottom_m"]]
-        maximum = [centre[0] + half, centre[1] + half, level["top_m"]]
-        rows = self._rows_in_box(index, minimum, maximum, control)
-        if not len(rows):
-            return
-        points = np.asarray(self.cloud.points[rows], dtype=np.float64)
-        upper_low = min(level["top_m"], level["bottom_m"] + settings.upper_slice_offset_m)
-        upper_high = min(level["top_m"], upper_low + settings.slice_thickness_m)
-        if upper_high <= upper_low:
-            upper_low, upper_high = level["bottom_m"], level["top_m"]
-        middle = (level["bottom_m"] + level["top_m"]) / 2
-        middle_low, middle_high = middle - settings.slice_thickness_m / 2, middle + settings.slice_thickness_m / 2
-        upper_rows = (points[:, 2] >= upper_low) & (points[:, 2] <= upper_high)
-        middle_rows = (points[:, 2] >= middle_low) & (points[:, 2] <= middle_high)
-        votes = {branch: np.zeros((len(points), 3 if branch in {"D", "E"} else 2), dtype=np.uint8)
-                 for branch in _branches_for_role(self.active_branches, "DEFGH")}
-        j_candidates = []
-        for angle in (0., 30., 60.):
-            for mirrored in (False, True):
-                for branch in _branches_for_role(self.active_branches, "DEFG"):
-                    if branch in self.branch_failures:
+        source = SourceBox(self.cloud, index, [centre[0]-half, centre[1]-half, level['bottom_m']],
+            [centre[0]+half, centre[1]+half, level['top_m']], control, settings.maximum_view_points)
+        core_min = np.asarray(centre)-settings.plan_tile_m/2
+        core_max = np.asarray(centre)+settings.plan_tile_m/2
+        upper = min(level['top_m'], level['bottom_m']+settings.upper_slice_offset_m)
+        if upper >= level['top_m']:
+            upper = level['bottom_m']
+        middle = (level['bottom_m']+level['top_m'])/2
+        predictions, walls, rasters = {}, [], {}
+        for branch in _branches_for_role(self.active_branches, 'DEFGH'):
+            predictions[branch] = []
+            zlow, zhigh = ((middle-settings.slice_thickness_m/2, middle+settings.slice_thickness_m/2)
+                          if branch == 'H' else (upper, min(level['top_m'], upper+settings.slice_thickness_m)))
+            for angle in (0., 30., 60.):
+                for mirror in (False, True):
+                    identifier = f'plan:{tile_number}:{branch}:{int(angle)}:{int(mirror)}'
+                    frame = plan_frame(identifier, centre,
+                        settings.stair_tile_m if branch == 'H' else settings.plan_tile_m,
+                        settings.stair_native_pixels if branch == 'H' else settings.plan_native_pixels,
+                        angle, mirror, zlow, zhigh, settings.plan_model_pixels)
+                    raster_key=(angle,mirror,frame.side_m,frame.native_pixels,zlow,zhigh)
+                    if raster_key not in rasters:
+                        rasters[raster_key]=plan_image(source,frame)
+                    image,raster=rasters[raster_key]
+                    if not raster['rasterized_points']:
                         continue
-                    frame_id = f"plan:{tile_number}:{branch}:{int(angle)}:{int(mirrored)}"
-                    frame = plan_frame(frame_id, centre, settings.plan_tile_m, settings.plan_native_pixels,
-                                       angle, mirrored, upper_low, upper_high, settings.plan_model_pixels)
-                    image, raster = rasterize_plan(frame, points[upper_rows])
-                    try:
-                        outputs, worker = self._infer_image(branch, image, frame_id.replace(":", "_"), control)
-                    except ProviderUnavailable as exc:
-                        self.branch_failures.setdefault(branch, str(exc))
-                        self.warnings.append(f"Specialist branch {branch} unavailable: {exc}")
-                        if branch == "D" and "J" in self.active_branches:
-                            self.branch_failures.setdefault("J", "Branch J requires the branch D plan overlay")
-                        continue
-                    labels, winning, margin = decode_masks(branch, outputs)
-                    pixel_rows, pixel_columns, inside = plan_pixels(frame, points, pixels=settings.plan_model_pixels)
-                    inside &= upper_rows
-                    sampled = labels[pixel_rows[inside], pixel_columns[inside]]
-                    np.add.at(votes[branch], (np.flatnonzero(inside), sampled), 1)
-                    self.views.append({"branch": branch, "frame": frame.to_dict(), "raster": raster,
-                                       "worker": self._worker_summary(worker), "native_label_counts": np.bincount(labels.ravel(), minlength=votes[branch].shape[1]).tolist(),
-                                       "winning_logit_range": [float(winning.min()), float(winning.max())],
-                                       "margin_range": [float(margin.min()), float(margin.max())]})
-                    if branch == "D" and "J" in self.active_branches and "J" not in self.branch_failures:
-                        base = cv2.resize(image, (settings.plan_model_pixels, settings.plan_model_pixels), interpolation=cv2.INTER_LINEAR)
-                        overlay = np.repeat(base[:, :, None], 3, axis=2)
+                    inferred=self._try_image(branch,image,identifier.replace(':','_'),control)
+                    if inferred is None:continue
+                    outputs,worker=inferred
+                    labels, _, _ = decode_masks(branch, outputs)
+                    predictions[branch].append((frame, labels))
+                    self.views.append({'branch': branch, 'frame': frame.to_dict(), 'raster': raster,
+                        'worker': self._worker_summary(worker), 'core_min_xy_m': core_min.tolist(),
+                        'native_label_counts':np.bincount(labels.ravel(),minlength=3 if branch in 'DE' else 2).tolist(),
+                        'core_max_xy_m': core_max.tolist(), 'ownership': 'half_open_core; full_physical_halo_context'})
+                    if branch == 'D' and 'J' in self.active_branches:
+                        base = cv2.resize(image, (settings.plan_model_pixels, settings.plan_model_pixels))
                         palette = np.asarray([[0, 0, 0], [0, 0, 255], [0, 255, 0]], dtype=np.uint8)
-                        overlay = (.5 * overlay + .5 * palette[labels]).astype(np.uint8)
-                        try:
-                            j_outputs, j_worker = self._infer_image("J", overlay, frame_id.replace(":", "_") + "_J", control)
-                        except ProviderUnavailable as exc:
-                            self.branch_failures.setdefault("J", str(exc))
-                            self.warnings.append(f"Specialist branch J unavailable: {exc}")
-                            continue
-                        decoded = decode_obb(j_outputs, frame, settings.obb_score_threshold)
-                        j_candidates.extend(decoded)
-                        self.views.append({"branch": "J", "frame": frame.to_dict(), "worker": self._worker_summary(j_worker),
-                                           "candidates": len(decoded), "overlay_recipe": "BGR alpha 0.5, no JPEG"})
-                if "H" in self.active_branches and "H" not in self.branch_failures:
-                    frame_id = f"plan:{tile_number}:H:{int(angle)}:{int(mirrored)}"
-                    frame = plan_frame(frame_id, centre, settings.stair_tile_m, settings.stair_native_pixels,
-                                       angle, mirrored, middle_low, middle_high, settings.plan_model_pixels)
-                    image, raster = rasterize_plan(frame, points[middle_rows])
-                    try:
-                        outputs, worker = self._infer_image("H", image, frame_id.replace(":", "_"), control)
-                    except ProviderUnavailable as exc:
-                        self.branch_failures.setdefault("H", str(exc))
-                        self.warnings.append(f"Specialist branch H unavailable: {exc}")
-                        continue
-                    labels, winning, margin = decode_masks("H", outputs)
-                    pixel_rows, pixel_columns, inside = plan_pixels(frame, points, pixels=settings.plan_model_pixels)
-                    inside &= middle_rows
-                    sampled = labels[pixel_rows[inside], pixel_columns[inside]]
-                    np.add.at(votes["H"], (np.flatnonzero(inside), sampled), 1)
-                    self.views.append({"branch": "H", "frame": frame.to_dict(), "raster": raster,
-                                       "worker": self._worker_summary(worker), "native_label_counts": np.bincount(labels.ravel(), minlength=2).tolist(),
-                                       "winning_logit_range": [float(winning.min()), float(winning.max())],
-                                       "margin_range": [float(margin.min()), float(margin.max())]})
-        for branch, branch_votes in votes.items():
-            selected, native_subclass, foreground_votes = foreground_consensus(
-                branch_votes, settings.tta_minimum_votes)
-            self.tta_diagnostics.append({
-                "branch": branch,
-                "tile": str(tile_number),
-                "candidate_points": int(len(points)),
-                "selected_foreground_points": int(selected.sum()),
-                "foreground_vote_histogram": np.bincount(
-                    foreground_votes, minlength=7).astype(np.uint64).tolist(),
-                "selected_native_subclass_counts": np.bincount(
-                    native_subclass[selected], minlength=branch_votes.shape[1]).astype(np.uint64).tolist(),
-            })
-            self._add_proposals(self._component_proposals(
-                branch, points[selected], level, str(tile_number), source_rows=rows[selected]))
-        self._wall_instances(j_candidates, level, tile_number, points, rows)
-        self._section_views(points, rows, level, tile_number, j_candidates, control)
+                        overlay = (.5*np.repeat(base[:, :, None], 3, axis=2)+.5*palette[labels]).astype(np.uint8)
+                        inferred=self._try_image('J',overlay,identifier.replace(':','_')+'_J',control)
+                        if inferred is None:continue
+                        outputs,worker=inferred
+                        values = decode_obb(outputs, frame, settings.obb_score_threshold)
+                        walls.extend(values)
+                        self.views.append({'branch': 'J', 'frame': frame.to_dict(), 'candidates': len(values),
+                            'worker': self._worker_summary(worker), 'overlay_recipe': 'BGR alpha 0.5, no JPEG'})
+        for branch, views in predictions.items():
+            if not views:
+                continue
+            def selector(rows, points):
+                votes = np.zeros(len(points), dtype=np.uint8)
+                for frame, labels in views:
+                    r, c, inside = plan_pixels(frame, points, pixels=settings.plan_model_pixels)
+                    votes[inside] += labels[r[inside], c[inside]] > 0
+                return votes >= settings.tta_minimum_votes
+            self._add_proposals(components(source, selector, core_min, core_max, level, branch,
+                str(tile_number), {'D':'wall', 'E':'opening', 'F':'beam', 'G':'column', 'H':'stair'}[branch]))
+            histogram=np.zeros(7,dtype=np.int64);subclasses=np.zeros(3 if branch in 'DE' else 2,dtype=np.int64)
+            population=selected_population=0
+            for _,points in source.blocks():
+                points=points[owned(points,core_min,core_max)]
+                votes=np.zeros((len(points),len(subclasses)),dtype=np.uint8)
+                for frame,labels in views:
+                    r,c,inside=plan_pixels(frame,points,pixels=settings.plan_model_pixels)
+                    np.add.at(votes,(np.flatnonzero(inside),labels[r[inside],c[inside]]),1)
+                foreground=votes[:,1:].sum(axis=1)
+                keep=foreground>=settings.tta_minimum_votes
+                population+=len(points);selected_population+=int(keep.sum())
+                histogram+=np.bincount(foreground,minlength=7)
+                subclasses+=np.bincount(votes[keep,1:].argmax(axis=1)+1,minlength=len(subclasses))
+            self.tta_diagnostics.append({'branch':branch,'tile':str(tile_number),'candidate_points':population,
+                'selected_foreground_points':selected_population,'foreground_vote_histogram':histogram.tolist(),
+                'selected_native_subclass_counts':subclasses.tolist()})
+        # Query geometry is retained only when it owns original core support.
+        from shapely.geometry import Polygon
+        kept=[]
+        for wall in sorted(walls,key=lambda w:(-w['native_score'],w['frame_id'],w['query_id'])):
+            shape=Polygon(wall['corners_xy_m'])
+            if not shape.is_valid or shape.area<=1e-6:continue
+            if any(shape.intersection(other).area/max(1e-9,shape.union(other).area)>.65 for _,other in kept):continue
+            kept.append((wall,shape))
+        walls=[w for w,_ in kept]
+        for wi, wall in enumerate(walls):
+            from shapely.geometry import Polygon
+            from shapely import contains_xy
+            shape = Polygon(wall['corners_xy_m']).buffer(1e-9)
+            bounds=shape.bounds
+            wall_source=SourceBox(self.cloud,index,[bounds[0],bounds[1],level['bottom_m']],
+                [bounds[2],bounds[3],level['top_m']],control,settings.maximum_view_points,shape)
+            support, points_sample = [], []
+            for rows, points in wall_source.blocks():
+                keep = owned(points, core_min, core_max) & contains_xy(shape, points[:, 0], points[:, 1])
+                if keep.any():
+                    support.extend(rows[keep][:max(0,4096-len(support))].tolist())
+                    points_sample.extend(points[keep][:max(0,4096-len(points_sample))].tolist())
+            if support:
+                self._wall_instances([wall], level, f'{tile_number}-{wi}', np.asarray(points_sample), np.asarray(support))
+        jobs = [('A', np.array([1., 0.]), 'overview',source)] if 'A' in self.active_branches else []
+        # B/C still execute on orthogonal sections when J emits no wall query.
+        for wall in walls[:max(1,(settings.maximum_section_views-len(jobs))//2)]:
+            corners=np.asarray(wall['corners_xy_m']);edges=np.roll(corners,-1,axis=0)-corners
+            axis=edges[np.linalg.norm(edges,axis=1).argmax()]
+            shape=Polygon(corners).buffer(.20);bounds=shape.bounds
+            section_source=SourceBox(self.cloud,index,[bounds[0],bounds[1],level['bottom_m']],
+                [bounds[2],bounds[3],level['top_m']],control,settings.maximum_view_points,shape)
+            jobs.extend((b,axis,'wall',section_source) for b in _branches_for_role(self.active_branches,'BC'))
+        if not walls:
+            for axis in (np.array([1.,0.]),np.array([0.,1.])):
+                jobs.extend((b,axis,'orthogonal_fallback',source) for b in _branches_for_role(self.active_branches,'BC'))
+        for sequence, (branch, axis, scope, section_source) in enumerate(jobs[:settings.maximum_section_views]):
+            identifier = f'section:{tile_number}:{branch}:{sequence}'
+            frame, image = section_image(section_source, identifier, axis, centre, level['bottom_m'], .15 if branch=='B' else 0.)
+            if frame is None:
+                continue
+            windows = slab_section_windows(frame, image) if branch=='A' else [(image, frame, {})]
+            decoded = []
+            for wi, (image, mapped, transform) in enumerate(windows):
+                inferred=self._try_image(branch,image,identifier.replace(':','_')+f'_{wi}',control)
+                if inferred is None:decoded=[];break
+                outputs,worker=inferred
+                decoded.extend(decode_section(branch, outputs, mapped, settings.section_score_threshold))
+                self.views.append({'branch':branch, 'frame':mapped.to_dict(), 'source_frame':frame.to_dict(),
+                    'input_transform':transform,'section_scope':scope,'worker':self._worker_summary(worker)})
+            for item in self._section_nms(decoded,.3):
+                world = item['world']; a,b = np.asarray(world['start']),np.asarray(world['end'])
+                vector=b-a; length=np.linalg.norm(vector)
+                if length<=1e-8 or world['z_max_m']-world['z_min_m']<=1e-6:
+                    continue
+                side=np.array([-vector[1],vector[0]])/length*max(.015,frame.pixel_m*1.5)
+                support=[]
+                for rows,points in section_source.blocks():
+                    u=(points[:,:2]-a)@(vector/length)
+                    keep=owned(points,core_min,core_max)&(u>=0)&(u<=length)&(points[:,2]>=world['z_min_m'])&(points[:,2]<=world['z_max_m'])
+                    support.extend(rows[keep][:max(0,4096-len(support))].tolist())
+                if not support:
+                    continue
+                item.update({'id':identifier+':'+content_digest(world)[:16], 'branch':branch,
+                    'class':{'A':'slab','B':'opening','C':'beam'}[branch], 'status':'proposed',
+                    'geometry_authority':'review_only','polygon_xy_m':[(a-side).tolist(),(b-side).tolist(),(b+side).tolist(),(a+side).tolist()],
+                    'z_min_m':world['z_min_m'],'z_max_m':world['z_max_m'],
+                    'display_scope':'thin section ribbon; width is visual only, not physical geometry',
+                    '_source_rows':support})
+                self._add_proposals([item])
+
 
     def _wall_instances(self, candidates, level, tile_number, points, source_rows):
         for candidate in candidates:
@@ -716,6 +698,10 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             centre = corners.mean(axis=0)
             duplicate = None
             for previous in self.instances:
+                if (abs(previous['geometry']['base']-geometry['base'])>.08
+                        or abs(previous['geometry']['height']-geometry['height'])>.08):continue
+                previous_direction=np.asarray(previous['geometry']['end'])-previous['geometry']['start']
+                if abs(previous_direction@(end-start))/(np.linalg.norm(previous_direction)*np.linalg.norm(end-start))<np.cos(np.deg2rad(3)):continue
                 previous_centre = (np.asarray(previous["geometry"]["start"]) + np.asarray(previous["geometry"]["end"])) / 2
                 if np.linalg.norm(previous_centre - centre) <= max(.10, thickness):
                     duplicate = previous
@@ -727,71 +713,6 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                 self.instances[self.instances.index(duplicate)] = item
                 self.proposal_support[identifier] = np.unique(support)
 
-    def _section_views(self, points, source_rows, level, tile_number, walls, control):
-        jobs = []
-        if "A" in self.active_branches:
-            jobs.append(("A", np.array([1., 0.]), "overview"))
-        for index, wall in enumerate(walls[:max(0, self.settings.maximum_section_views - len(jobs))]):
-            corners = np.asarray(wall["corners_xy_m"])
-            edge = corners[1] - corners[0]
-            if np.linalg.norm(edge) <= 1e-12:
-                continue
-            for branch in _branches_for_role(self.active_branches, "BC"):
-                jobs.append((branch, edge, f"wall-{index}"))
-                if len(jobs) >= self.settings.maximum_section_views:
-                    break
-        for sequence, (branch, axis, scope) in enumerate(jobs):
-            if branch in self.branch_failures:
-                continue
-            frame_id = f"section:{tile_number}:{branch}:{sequence}"
-            try:
-                frame = section_frame(frame_id, points, axis, base_m=level["bottom_m"],
-                                      extension_m=.15 if branch == "B" else 0.)
-            except ValueError:
-                continue
-            image = rasterize_section(frame, points)
-            rendered = slab_section_windows(frame, image) if branch == "A" else [
-                (image, frame, {"lossless_inference_buffer": True, "generic_section": True})]
-            decoded = []
-            for window_index, (window, mapped_frame, transform) in enumerate(rendered):
-                try:
-                    outputs, worker = self._infer_image(
-                        branch, window, frame_id.replace(":", "_") + f"_{window_index}", control)
-                except ProviderUnavailable as exc:
-                    self.branch_failures.setdefault(branch, str(exc))
-                    self.warnings.append(f"Specialist branch {branch} unavailable: {exc}")
-                    decoded = []
-                    break
-                values = decode_section(branch, outputs, mapped_frame, self.settings.section_score_threshold)
-                decoded.extend(values)
-                self.views.append({"branch": branch, "frame": mapped_frame.to_dict(), "source_frame": frame.to_dict(),
-                                   "input_transform": transform, "worker": self._worker_summary(worker),
-                                   "candidates_before_cross_window_nms": len(values), "section_scope": scope})
-            if branch == "A" and len(rendered) > 1:
-                decoded = self._section_nms(decoded, .3)
-            for item in decoded:
-                world = item["world"]
-                start, end = np.asarray(world["start"], dtype=np.float64), np.asarray(world["end"], dtype=np.float64)
-                direction = end - start
-                length = np.linalg.norm(direction)
-                if length <= 1e-12 or world["z_max_m"] - world["z_min_m"] <= 1e-6:
-                    continue
-                side = np.array([-direction[1], direction[0]]) / length * max(.015, frame.pixel_m * 1.5)
-                item.update({"id": f"{branch}:{tile_number}:{sequence}:" + content_digest(
-                                 {"frame": item["frame_id"], "query": item["query_id"], "world": world})[:16],
-                             "class": {"A": "slab", "B": "opening", "C": "beam"}[branch],
-                             "section_scope": scope, "geometry_authority": "review_only",
-                             "polygon_xy_m": [(start - side).tolist(), (end - side).tolist(),
-                                                (end + side).tolist(), (start + side).tolist()],
-                             "z_min_m": world["z_min_m"], "z_max_m": world["z_max_m"],
-                             "display_scope": "thin section ribbon; width is visual only, not physical geometry"})
-                axis = direction / length
-                along = points[:, :2] @ axis
-                low, high = sorted((float(start @ axis), float(end @ axis)))
-                supported = ((along >= low) & (along <= high) & (points[:, 2] >= world["z_min_m"])
-                             & (points[:, 2] <= world["z_max_m"]))
-                item["_source_rows"] = np.asarray(source_rows, dtype=np.uint64)[supported]
-                self._add_proposals([item])
 
     @staticmethod
     def _section_nms(items, threshold):
@@ -826,6 +747,7 @@ class PunctoraSpecialistProvider(RecognitionProvider):
         return kept
 
     def prepare_instances(self, cloud, identity, directory, control, spatial_index):
+        self.spatial_index = spatial_index
         image_branches = _branches_for_role(self.active_branches, "ABCDEFGHJ")
         if not image_branches:
             return
@@ -848,7 +770,7 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                 centre = [(x + .5) * side, (y + .5) * side]
                 identifier = f"{level_index}-{tile_index}-{x}-{y}"
                 try:
-                    self._plan_tile(centre, level, identifier, spatial_index, control)
+                    self._stream_plan_tile(centre, level, identifier, spatial_index, control)
                 except ProviderUnavailable as exc:
                     reason = str(exc)
                     for branch in image_branches:
@@ -856,6 +778,9 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                     self.warnings.append(f"Specialist image tile {identifier} unavailable: {reason}")
 
     def write_artifacts(self, directory, control):
+        from .streaming_views import stitch_proposals
+        self.proposals, stitched_support = stitch_proposals(self.proposals, self.proposal_support, control.check)
+        self.proposal_support.update(stitched_support)
         destination = Path(directory) / "specialist"
         destination.mkdir(exist_ok=True)
         for source in self.artifact_root.iterdir():
@@ -894,18 +819,25 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                                               "specialist/proposal-source-rows.npy", support_rows,
                                               control.cancelled)
         branches = {}
+        executed = {name:sum(v.get('branch')==name for v in self.views) for name in 'ABCDEFGHJ'}
+        executed['I']=sum(v.get('status')=='complete' for v in self.point_diagnostics)
         for name in "ABCDEFGHIJ":
+            if name not in self.missing_branches and not executed[name]:
+                self.branch_failures.setdefault(name,'No eligible populated view executed; branch is not qualified by asset loading')
             status = "missing" if name in self.missing_branches else "failed" if name in self.branch_failures else "active"
             branches[name] = {"status": status, "task": self.manifest["branches"][name]["task"],
                               "graph_sha256": self.asset_status[name].get("graph_sha256"),
                               "companion_sha256": self.asset_status[name].get("companion_sha256"),
-                              "failure": self.branch_failures.get(name)}
+                              "failure": self.branch_failures.get(name), "executed_views":executed[name]}
         return {"specialist_v1": {"schema_version": 1, "provider_id": SPECIALIST_PROVIDER_ID,
                  "provider_version": SPECIALIST_PROVIDER_VERSION, "geometry_authority": "review_only",
                  "model_pack_manifest_sha256": self.manifest["manifest_sha256"],
                  "runtime": self.preflight["runtime"], "branches": branches,
                  "original_source_population": self.original_population,
                  "point_model_view_population": self.model_view_population,
+                 "model_context_overlap_factor": sum(v.get('original_context_points',0) for v in self.point_diagnostics)/max(1,self.original_population),
+                 "normal_neighbourhood_points":sum(v.get('normal_context_points',0) for v in self.point_diagnostics),
+                 "normal_queries":sum(v.get('normal_queries',0) for v in self.point_diagnostics),
                  "point_tiles": self.point_diagnostics,
                  "tta_diagnostics": self.tta_diagnostics,
                  "tta_rule": "six views: 0/30/60 degrees and mirrored; foreground and native-class votes separate; minimum four",

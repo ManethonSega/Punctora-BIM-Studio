@@ -85,6 +85,9 @@ def geometry_signature(model,tolerance_m=1e-6):
     shapes['stairs']=sorted([point(s.start),point(s.end),scalar(s.base),scalar(s.width),
                             scalar(s.rise),scalar(s.going),s.steps] for s in model.stairs)
     shapes['landings']=sorted([ring(s.footprint),scalar(s.base),scalar(s.thickness)] for s in model.landings)
+    if model.facade_panels:
+        shapes['facade_panels']=sorted([sorted([point(p.start),point(p.end)]),scalar(p.base),
+            scalar(p.height),scalar(p.thickness)] for p in model.facade_panels)
     encoded=json.dumps(shapes,sort_keys=True,separators=(',',':')).encode()
     return {'geometry_sha256':hashlib.sha256(encoded).hexdigest(),
             'comparison_tolerance_m':tolerance_m,

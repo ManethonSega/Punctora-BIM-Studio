@@ -343,6 +343,15 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
         geometry, seam_area = consolidate_scan_fragments(geometry, settings.slab_close_gap_m)
         face_holes = [_face_holes(lower), _face_holes(upper)]
         owner = storeys[min(index, len(storeys)-1)]
+        room_addition, room_report = Polygon(), []
+        if index == len(zones)-1 and index:
+            from .ceiling_completion import complete_ceiling_rooms
+            real_voids = [a for a in face_holes[0] if zone['paired'] and zone['lower'] != zone['upper']
+                          and _matching_hole(a,face_holes[1]) >= .8
+                          and not _fixture_pattern(a,face_holes[0])]
+            floor = surfaces[zones[index-1]['upper']].geometry
+            geometry, room_addition, room_report = complete_ceiling_rooms(
+                geometry,raw,floor,walls,owner,upper.elevation,unary_union(real_voids))
         from .slab_corners import complete_wall_corners
         geometry,corner_addition,corner_report=complete_wall_corners(
             geometry,walls,upper.elevation,settings,owner.id)
@@ -390,11 +399,13 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
             support = exported.intersection(raw).area
             inferred = max(0., exported.area-support)
             justified=(geometry.intersection(raw.buffer(settings.slab_close_gap_m/2))
-                       .difference(raw).union(addition).union(corner_addition))
+                       .difference(raw).union(addition).union(corner_addition).union(room_addition))
             coverage=coverage_evidence(exported,raw,justified)
             evidence = {"method": "separate_face_occupancy_union", "zone_index": index,
                         "profile_repair": profile_repair, **coverage,
                         "wall_corner_completion":corner_report,
+                        "room_completion":room_report,
+                        "room_completion_area_m2":float(exterior.intersection(room_addition).area),
                         "wall_corner_inferred_area_m2":float(exterior.intersection(corner_addition).area),
                         "lower_surface_m": lower.elevation, "upper_surface_m": upper.elevation,
                         "paired_faces": zone["paired"], "raster_cell_m": settings.slab_raster_cell_m,

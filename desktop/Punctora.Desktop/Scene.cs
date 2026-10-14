@@ -134,6 +134,12 @@ public sealed class SceneData
                     Add(elements,stair,"Stair",[a-side,b-side,b+side,a+side],Number(stair,"base")+(i+1)*Number(stair,"rise")-Number(stair,"tread_thickness"),Number(stair,"tread_thickness"));
                 }
             }
+            foreach(var node in model["facade_panels"]?.AsArray()??[])
+            {
+                var panel=node!.AsObject();var a=XY(panel["start"]!);var b=XY(panel["end"]!);
+                var direction=Vector2.Normalize(b-a);var side=new Vector2(-direction.Y,direction.X)*Number(panel,"thickness")/2;
+                Add(elements,panel,"window",[a-side,b-side,b+side,a+side],Number(panel,"base"),Number(panel,"height"));
+            }
             foreach(var node in model["landings"]?.AsArray()??[])
             {
                 var landing=node!.AsObject();

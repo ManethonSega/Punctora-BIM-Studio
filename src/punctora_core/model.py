@@ -219,6 +219,9 @@ class BuildingModel:
     stairs: list[Stair] = field(default_factory=list)
     landings: list[Landing] = field(default_factory=list)
     slab_openings: list[SlabOpening] = field(default_factory=list)
+    # A directly observed window/frame plane need not be an opening in masonry.
+    # Wall's parametric plane fields are reused, not its opaque-wall semantics.
+    facade_panels: list[Wall] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> "BuildingModel":
@@ -232,7 +235,7 @@ class BuildingModel:
         for key, kind in [("storeys", Storey), ("walls", Wall), ("slabs", Slab),
                           ("spaces", Space), ("openings", Opening), ("stairs", Stair),
                           ("landings", Landing),
-                          ("slab_openings", SlabOpening)]:
+                          ("slab_openings", SlabOpening), ("facade_panels", Wall)]:
             values = data.get(key, [])
             if not isinstance(values, list):
                 raise ValueError(f"{key} must be a list")
@@ -257,7 +260,7 @@ class BuildingModel:
         if not isinstance(self.warnings, list) or any(not isinstance(w, str) for w in self.warnings):
             raise ValueError("Warnings must be a list of strings")
         objects = (self.storeys + self.walls + self.slabs + self.spaces + self.openings
-                   + self.stairs + self.landings + self.slab_openings)
+                   + self.stairs + self.landings + self.slab_openings + self.facade_panels)
         ids = [obj.id for obj in objects]
         if any(not isinstance(value, str) or not value for value in ids) or len(set(ids)) != len(ids):
             raise ValueError("Element IDs must be nonempty and unique")
@@ -272,7 +275,7 @@ class BuildingModel:
                 raise ValueError("Storey levels must be finite")
             positive(s.ceiling - s.elevation, "Storey clear height")
             polygon_check(s.footprint)
-        for obj in self.walls + self.slabs + self.spaces + self.landings:
+        for obj in self.walls + self.slabs + self.spaces + self.landings + self.facade_panels:
             if obj.storey_id not in storeys:
                 raise ValueError(f"Unknown storey for {obj.id}")
             if not isfinite(obj.base):
@@ -391,6 +394,7 @@ class BuildingModel:
     def to_dict(self) -> dict:
         self.validate()
         result = {"schema_version": 2, "units": "metres", **asdict(self)}
+        if not self.facade_panels:result.pop('facade_panels')
         # Derived mesh, rebuilt on every serialization so editing/removing a
         # void cannot leave a stale solid in the desktop. Never used for IFC.
         from shapely import constrained_delaunay_triangles
