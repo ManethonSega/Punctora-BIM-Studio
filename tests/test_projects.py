@@ -125,6 +125,33 @@ def test_reconstruction_uses_saved_crop_without_altering_source(project):
     assert not (generation / "crop-working").exists()
 
 
+def test_desktop_specialist_request_reports_truthful_classical_fallback(project):
+    path, state = project
+    result = projects.reconstruct_project(path, {"expected_revision": state["revision"],
+        "confirm_z_up": True, "job_id": token(), "settings": {},
+        "recognition_mode": "specialist"})
+    recognition = result["recognition"]
+    assert recognition["requested_provider"] == "PunctoraSpecialistProvider"
+    assert recognition["actual_provider"] == "classical"
+    assert recognition["active_branches"] == [] and recognition["missing_branches"] == list("ABCDEFGHIJ")
+    assert "automatic downloads are disabled" in recognition["fallback_reason"]
+    assert recognition["proposal_manifest"] is None and recognition["overlay_proposals"] == []
+    assert result["model"]["metadata"]["recognition"]["requested_mode"] == "specialist"
+    assert projects.load_project(path)["recognition"] == recognition
+
+
+def test_project_rejects_overlay_without_content_bound_proposal(project):
+    path, state = project
+    state["recognition"] = {"schema_version": 1, "requested_mode": "specialist",
+        "actual_provider": "classical", "proposal_manifest": None,
+        "overlay_proposals": [{"id": "unbound", "status": "proposed", "class": "wall",
+            "geometry_authority": "review_only", "polygon_xy_m": [[0, 0], [1, 0], [1, 1]],
+            "z_min_m": 0, "z_max_m": 3}]}
+    projects.atomic_json(path, state)
+    with pytest.raises(ValueError, match="published ProposalSet"):
+        projects.load_project(path)
+
+
 def test_cancelled_job_keeps_and_marks_latest_diagnostic(project):
     path, _ = project
     job_id = token()

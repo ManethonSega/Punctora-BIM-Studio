@@ -36,6 +36,9 @@ public sealed class MainWindow : Window
     readonly ComboBox method=new(){ItemsSource=new[]{"Contours","Region growing"},SelectedIndex=0};
     readonly ComboBox reconstructionScope=new(){ItemsSource=new[]{"Auto (interior or exterior)","Interior","Exterior / partial scan"},SelectedIndex=0};
     readonly ComboBox reconstructionAction=new(){ItemsSource=new[]{"Replace current model","Add to existing model"},SelectedIndex=0};
+    readonly ComboBox recognitionMode=new(){ItemsSource=new[]{"Classical","Punctora specialist","Hybrid specialist + projected evidence"},SelectedIndex=0};
+    readonly TextBox specialistModels=new(){Watermark="Folder containing model_A.onnx through model_J.onnx",
+        Text=Environment.GetEnvironmentVariable("PUNCTORA_SPECIALIST_MODELS")??""};
     readonly CheckBox sharedSurveyFrame=new(){Content="Scans share survey coordinates (confirm)"};
     readonly TextBox modelAlignment=new(){Watermark="Optional placement: X; Y; Z; yaw degrees"};
     readonly TextBox manualLevels=new(){AcceptsReturn=true,MinHeight=80,TextWrapping=TextWrapping.Wrap,
@@ -64,7 +67,7 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a27 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
+        Title="Punctora BIM Studio | 0.3.0a28 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
@@ -74,7 +77,7 @@ public sealed class MainWindow : Window
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a27",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a28",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new WrapPanel{Orientation=Orientation.Horizontal,ItemSpacing=8,LineSpacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -108,6 +111,10 @@ public sealed class MainWindow : Window
         options.Children.Add(Text("Surface method",11));options.Children.Add(method);options.Children.Add(zUp);options.Children.Add(compareBudgets);
         options.Children.Add(Text("Reconstruction scope",11));options.Children.Add(reconstructionScope);
         options.Children.Add(Text("Result action",11));options.Children.Add(reconstructionAction);
+        options.Children.Add(Text("Recognition mode",11));options.Children.Add(recognitionMode);
+        options.Children.Add(specialistModels);
+        var chooseSpecialists=Button("Choose specialist model folder",ChooseSpecialistFolderAsync);options.Children.Add(chooseSpecialists);projectActions.Add(chooseSpecialists);
+        options.Children.Add(Text("Specialist and hybrid modes create review-only proposals. Original points still control final geometry; missing assets or runtime fallback stay visible.",11));
         options.Children.Add(Text("Manual level bounds (optional)",11));options.Children.Add(manualLevels);
         options.Children.Add(Text("One row: name; bottom; top, in local metres. Save settings, then detect. Empty uses automatic bounds.",11));
         void SetupChanged(){if(refreshing||state==null||busy)return;dirty=true;UpdateActions();}
@@ -177,6 +184,7 @@ public sealed class MainWindow : Window
         deleteCandidateButton.IsEnabled=!busy&&selected!=null&&new[]{"openings","stairs","landings","slab_openings"}.Contains(selected.Value.Kind);
         method.IsEnabled=zUp.IsEnabled=!busy;
         reconstructionScope.IsEnabled=manualLevels.IsEnabled=!busy&&state!=null;
+        recognitionMode.IsEnabled=specialistModels.IsEnabled=!busy&&state!=null;
         cropBottom.IsEnabled=cropTop.IsEnabled=!busy&&state!=null;
         cropDraw.IsEnabled=cropApply.IsEnabled=cropClear.IsEnabled=!busy&&state!=null;
         cropCancel.IsEnabled=!busy&&viewport.CropDrawing;
@@ -262,6 +270,7 @@ public sealed class MainWindow : Window
         {
             var setup=state["reconstruction_options"] as JsonObject;
             reconstructionScope.SelectedIndex=setup?["scope"]?.GetValue<string>() switch{"interior"=>1,"exterior"=>2,_=>0};
+            recognitionMode.SelectedIndex=state["recognition"]?["requested_mode"]?.GetValue<string>() switch{"specialist"=>1,"hybrid"=>2,_=>0};
             manualLevels.Text=string.Join("\n",(setup?["manual_levels"]?.AsArray()??[]).Select(row=>
                 row!["name"]!.GetValue<string>()+"; "+row["bottom_m"]!.GetValue<double>().ToString("G17",CultureInfo.InvariantCulture)+"; "+
                 row["top_m"]!.GetValue<double>().ToString("G17",CultureInfo.InvariantCulture)));
@@ -294,7 +303,11 @@ public sealed class MainWindow : Window
             var slabCuts=model?["slab_openings"]?.AsArray().Count(o=>o!["preview_geometry"]?["ifc_cut_eligible"]?.GetValue<bool>()==true)??0;
             var slabReviews=model?["slab_openings"]?.AsArray().Count(o=>o!["preview_geometry"]?["ifc_cut_eligible"]?.GetValue<bool>()!=true&&o["review_state"]?.GetValue<string>()!="rejected")??0;
             var openingReviews=model?["metadata"]?["opening_boundary_validation"]?.AsArray().Count(r=>r?["action"]?.GetValue<string>()=="review_only")??0;
-            counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {model?["walls"]?.AsArray().Count??0} walls, {model?["slabs"]?.AsArray().Count??0} slabs, {slabCuts} slab cuts, {slabReviews} gap reviews, {model?["openings"]?.AsArray().Count??0} wall openings, {openingReviews} opening reviews, {model?["stairs"]?.AsArray().Count??0} flights, {model?["landings"]?.AsArray().Count??0} landings · local metres{cropState}";
+            var recognition=state["recognition"] as JsonObject;
+            var active=recognition?["active_branches"] is JsonArray activeBranches?string.Join("",activeBranches.Select(n=>n!.GetValue<string>())):"";
+            var missing=recognition?["missing_branches"] is JsonArray missingBranches?string.Join("",missingBranches.Select(n=>n!.GetValue<string>())):"";
+            var recognitionState=recognition==null?"":$" · recognition: {recognition["requested_provider"]?.GetValue<string>()} requested, {recognition["actual_provider"]?.GetValue<string>()} actual · active [{active}] · missing/failed [{missing}]";
+            counts.Text=$"Preview: {scene.Points.Length/7:N0} of {scene.TotalPoints:N0} points · {model?["walls"]?.AsArray().Count??0} walls, {model?["slabs"]?.AsArray().Count??0} slabs, {slabCuts} slab cuts, {slabReviews} gap reviews, {model?["openings"]?.AsArray().Count??0} wall openings, {openingReviews} opening reviews, {model?["stairs"]?.AsArray().Count??0} flights, {model?["landings"]?.AsArray().Count??0} landings · local metres{cropState}{recognitionState}";
         }
         finally{refreshing=false;}
         ShowProperties();FilterStorey();UpdateActions();
@@ -521,6 +534,12 @@ public sealed class MainWindow : Window
     }
     async Task LoadAsync(string path)
     {var result=await RunAsync("open",path);if(result!=null){dirty=false;undo.Clear();await RunAsync("cleanup",path);await PresentAsync(path,result,true);}}
+    async Task ChooseSpecialistFolderAsync()
+    {
+        if(state==null)return;
+        var folders=await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions{Title="Choose the supplied specialist ONNX model folder",AllowMultiple=false});
+        if(folders.FirstOrDefault()?.TryGetLocalPath() is { } path)specialistModels.Text=path;
+    }
     async Task SaveAsync()
     {if(state==null||projectPath==null)return;var result=await RunAsync("save",projectPath,ModelRequest());if(result!=null){dirty=false;await PresentAsync(projectPath,result,false);status.Text="Project saved.";}}
     async Task CopyAsync()
@@ -532,8 +551,8 @@ public sealed class MainWindow : Window
     {
         if(state==null||projectPath==null||!RequireClean())return;
         if(zUp.IsChecked!=true){status.Text="Confirm Z is up before fitting. A missing CRS can remain explicitly unknown for local review.";return;}
-        var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["confirm_z_up"]=true,["model_action"]=reconstructionAction.SelectedIndex==1?"add":"replace",["reconstruction_options"]=DetectionOptions(),["compare_budgets"]=compareBudgets.IsChecked==true,["settings"]=new JsonObject{["surface_method"]=method.SelectedIndex==1?"region_growing":"contour"}};
-        var result=await RunAsync("reconstruct",projectPath,request);if(result!=null){dirty=false;undo.Clear();await RunAsync("cleanup",projectPath);await PresentAsync(projectPath,result,false);}
+        var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["confirm_z_up"]=true,["model_action"]=reconstructionAction.SelectedIndex==1?"add":"replace",["reconstruction_options"]=DetectionOptions(),["recognition_mode"]=recognitionMode.SelectedIndex switch{1=>"specialist",2=>"hybrid",_=>"classical"},["specialist_model_directory"]=string.IsNullOrWhiteSpace(specialistModels.Text)?null:specialistModels.Text,["compare_budgets"]=compareBudgets.IsChecked==true,["settings"]=new JsonObject{["surface_method"]=method.SelectedIndex==1?"region_growing":"contour"}};
+        var result=await RunAsync("reconstruct",projectPath,request);if(result!=null){dirty=false;undo.Clear();await RunAsync("cleanup",projectPath);await PresentAsync(projectPath,result,false);var r=result["recognition"];status.Text=r==null?"Candidates ready for review":$"Candidates ready · {r["requested_provider"]?.GetValue<string>()} requested · {r["actual_provider"]?.GetValue<string>()} actual{(r["fallback_reason"]?.GetValue<string>() is { } reason?$" · FALLBACK: {reason}":"")}";}
     }
     async Task AddProjectModelAsync()
     {

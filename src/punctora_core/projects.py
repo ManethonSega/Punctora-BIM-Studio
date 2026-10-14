@@ -252,6 +252,31 @@ def load_project(path):
         records = wall.get("evidence", {}).get("records")
         if records and not safe_path(root, records["path"]).is_file():
             raise ValueError("Wall evidence data is missing")
+    recognition = state.get("recognition")
+    if recognition is not None:
+        if (not isinstance(recognition, dict) or recognition.get("schema_version") != 1
+                or recognition.get("requested_mode") not in {"classical", "specialist", "hybrid"}
+                or not isinstance(recognition.get("overlay_proposals"), list)
+                or len(recognition["overlay_proposals"]) > 5000):
+            raise ValueError("Invalid desktop recognition state")
+        proposal_path = recognition.get("proposal_manifest")
+        if proposal_path is None and recognition["overlay_proposals"]:
+            raise ValueError("Recognition overlays require a published ProposalSet")
+        if proposal_path is not None:
+            proposal_path = safe_path(root, proposal_path)
+            if proposal_path.name != "proposals-v1.json" or not proposal_path.is_file():
+                raise ValueError("Recognition ProposalSet is missing")
+            from .recognition.contracts import load_proposal_set
+            load_proposal_set(proposal_path.parent, verify_arrays=False)
+        for proposal in recognition["overlay_proposals"]:
+            polygon = np.asarray(proposal.get("polygon_xy_m", []), dtype=np.float64)
+            z = np.asarray([proposal.get("z_min_m"), proposal.get("z_max_m")], dtype=np.float64)
+            if (proposal.get("status") != "proposed"
+                    or proposal.get("geometry_authority") != "review_only"
+                    or proposal.get("class") not in {"wall", "opening", "beam", "column", "stair", "slab"}
+                    or polygon.ndim != 2 or polygon.shape[1:] != (2,) or len(polygon) < 3
+                    or not np.isfinite(polygon).all() or not np.isfinite(z).all() or z[1] <= z[0]):
+                raise ValueError("Malformed review-only specialist overlay")
     return state
 
 
@@ -422,6 +447,131 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
             return state
 
 
+def _desktop_recognition(state, cloud, model, request, stage, save_performance, progress):
+    """Run review-only recognition beside, never into, accepted geometry."""
+    mode = request.get("recognition_mode", "classical")
+    if mode not in {"classical", "specialist", "hybrid"}:
+        raise ValueError("Recognition mode must be classical, specialist or hybrid")
+    if mode == "classical":
+        return {"schema_version": 1, "requested_mode": "classical", "actual_provider": "classical",
+                "requested_provider": "classical", "provider_chain": ["classical"],
+                "geometry_authority": "existing deterministic reconstruction",
+                "active_branches": [], "missing_branches": [], "fallback_reason": None,
+                "model_pack_manifest_sha256": None, "loaded_hashes": {},
+                "proposal_manifest": None, "overlay_proposals": []}
+    model_root = request.get("specialist_model_directory")
+    if not isinstance(model_root, str) or not model_root.strip():
+        return {"schema_version": 1, "requested_mode": mode, "actual_provider": "classical",
+                "requested_provider": "PunctoraSpecialistProvider", "provider_chain": ["classical"],
+                "geometry_authority": "existing deterministic reconstruction",
+                "active_branches": [], "missing_branches": list("ABCDEFGHIJ"),
+                "fallback_reason": "No explicit specialist model directory was selected; automatic downloads are disabled",
+                "model_pack_manifest_sha256": None, "loaded_hashes": {},
+                "proposal_manifest": None, "overlay_proposals": []}
+    model_root = Path(model_root).resolve()
+    specialist_python = request.get("specialist_python") or os.environ.get("PUNCTORA_SPECIALIST_PYTHON") or __import__("sys").executable
+    specialist_python = str(Path(specialist_python).resolve())
+    if state.get("import_manifest") is None:
+        return {"schema_version": 1, "requested_mode": mode, "actual_provider": "classical",
+                "requested_provider": "PunctoraSpecialistProvider", "provider_chain": ["classical"],
+                "geometry_authority": "existing deterministic reconstruction",
+                "active_branches": [], "missing_branches": list("ABCDEFGHIJ"),
+                "fallback_reason": "Specialist desktop recognition requires imported original scan and record identities",
+                "model_pack_manifest_sha256": None, "loaded_hashes": {},
+                "proposal_manifest": None, "overlay_proposals": []}
+    from .annotation_io import read_json as annotation_read_json
+    from .recognition.classical_provider import ClassicalProvider
+    from .recognition.hybrid import HybridProvider
+    from .recognition.job import run_recognition
+    from .recognition.contracts import safe_artifact_path
+    from .recognition.specialist_provider import (PunctoraSpecialistAssets,
+        PunctoraSpecialistProvider, SpecialistSettings)
+    from .recognition.tiling import TileSettings
+    manifest = state["import_manifest"]
+    translation = manifest["coordinate_mapping"]["working_to_source_translation_m"]
+    identity = {"case_id": state["project_id"], "source_sha256": manifest["source"]["sha256"],
+                "coordinate_mapping": {"translation_m": list(map(float, translation)), "yaw_degrees": 0.},
+                "crop": deepcopy(state["crop"]) if crop_active(state["crop"]) else None}
+    manual = state["reconstruction_options"].get("manual_levels", [])
+    if manual:
+        levels = tuple({**value, "evidence_state": "user_supplied_bound_not_measured_floor"} for value in manual)
+    else:
+        levels = tuple({"name": item.name, "bottom_m": item.elevation, "top_m": item.ceiling,
+                        "evidence_state": "detected_level_bound_not_measured_floor"}
+                       for item in model.storeys)
+    provider = PunctoraSpecialistProvider(
+        PunctoraSpecialistAssets(specialist_python, str(model_root)),
+        SpecialistSettings(level_bounds=levels))
+    fallback = ClassicalProvider(model=model)
+    tiles = TileSettings(size_m=8., overlap_m=2., normal_radius_m=.3, index_cell_m=.25,
+                         maximum_context_points=1_500_000, maximum_tiles=4096)
+    latest = {}
+    def diagnostic(value):
+        latest.clear(); latest.update(deepcopy(value))
+        performance = deepcopy(model.metadata.get("performance", {}))
+        performance["recognition"] = {"requested_mode": mode, **latest}
+        performance.setdefault("schema_version", 2)
+        performance.setdefault("status", "running")
+        save_performance(performance)
+    progress(62, f"Running {mode} review-only proposals")
+    proposal_directory, proposal, cache_hit = run_recognition(
+        cloud, identity, provider, stage / "recognition", tile_settings=tiles,
+        fallback=fallback, diagnostics=diagnostic)
+    specialist = proposal.get("extensions", {}).get("specialist_v1")
+    overlays = []
+    if specialist:
+        overlay_report = annotation_read_json(safe_artifact_path(proposal_directory, specialist["proposals_path"]))
+        overlays.extend(item for item in overlay_report["proposals"]
+                        if "polygon_xy_m" in item and "z_min_m" in item and "z_max_m" in item)
+        overlays = overlays[:5000]
+        for instance in proposal["instances"][:5000 - len(overlays)]:
+            if instance["class"] != "wall" or instance.get("geometry", {}).get("type") != "wall":
+                continue
+            geometry = instance["geometry"]
+            start, end = np.asarray(geometry["start"]), np.asarray(geometry["end"])
+            direction = end - start
+            length = np.linalg.norm(direction)
+            if length <= 1e-12:
+                continue
+            side = np.array([-direction[1], direction[0]]) / length * geometry["thickness"] / 2
+            overlays.append({"id": instance["id"], "branch": "J", "class": "wall", "status": "proposed",
+                             "polygon_xy_m": [(start - side).tolist(), (end - side).tolist(),
+                                              (end + side).tolist(), (start + side).tolist()],
+                             "z_min_m": geometry["base"], "z_max_m": geometry["base"] + geometry["height"],
+                             "geometry_authority": "review_only"})
+    provider_chain = [proposal["provider"]["id"]]
+    final_directory, final_proposal, final_hit = proposal_directory, proposal, cache_hit
+    if mode == "hybrid":
+        progress(74, "Fusing specialist and projected review-only evidence")
+        final_directory, final_proposal, final_hit = run_recognition(
+            cloud, identity, HybridProvider(proposal_directory), stage / "hybrid-recognition",
+            tile_settings=tiles, diagnostics=diagnostic)
+        provider_chain.append(final_proposal["provider"]["id"])
+    warning = next((value for value in proposal["warnings"] if "fallback" in value.lower()), None)
+    relative = final_directory.relative_to(stage).as_posix() + "/proposals-v1.json"
+    specialist_relative = proposal_directory.relative_to(stage).as_posix() + "/proposals-v1.json"
+    active = [name for name, value in (specialist or {}).get("branches", {}).items() if value["status"] == "active"]
+    missing = [name for name, value in (specialist or {}).get("branches", {}).items() if value["status"] != "active"]
+    if specialist is None and proposal["provider"]["id"] == "classical":
+        missing = list("ABCDEFGHIJ")
+    result = {"schema_version": 1, "requested_mode": mode,
+              "requested_provider": "PunctoraSpecialistProvider",
+              "actual_provider": final_proposal["provider"]["id"], "provider_chain": provider_chain,
+              "geometry_authority": "review_only proposals; deterministic reconstruction unchanged",
+              "active_branches": active, "missing_branches": missing,
+              "model_pack_manifest_sha256": (specialist or {}).get("model_pack_manifest_sha256"),
+              "loaded_hashes": {name: value.get("graph_sha256") for name, value in
+                                (specialist or {}).get("branches", {}).items() if value["status"] == "active"},
+              "fallback_reason": warning, "proposal_manifest": f"generations/{request['job_id']}/{relative}",
+              "specialist_proposal_manifest": f"generations/{request['job_id']}/{specialist_relative}",
+              "proposal_cache_hit": bool(final_hit), "overlay_proposals": overlays,
+              "model_view_population": (specialist or {}).get("point_model_view_population", 0),
+              "original_population": len(cloud.points)}
+    model.metadata["recognition"] = {key: deepcopy(value) for key, value in result.items() if key != "overlay_proposals"}
+    model.metadata.setdefault("performance", {})["recognition"] = deepcopy(model.metadata["recognition"])
+    return result
+
+
 def reconstruct_project(path, request, progress=lambda *_: None):
     with project_lock(path):
         state = load_project(path)
@@ -485,6 +635,12 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                     model.metadata["e57"] = {"coordinate_metadata": manifest["coordinate_metadata"],
                                               "coordinate_metadata_status": manifest["coordinate_metadata_status"]}
                     model.warnings.extend(manifest["warnings"])
+                recognition = _desktop_recognition(state, cloud, model, request, stage, save_performance, progress)
+                model.metadata["recognition"] = {key: deepcopy(value) for key, value in recognition.items()
+                                                 if key != "overlay_proposals"}
+                if recognition.get("fallback_reason"):
+                    model.warnings.append("Recognition fallback: " + recognition["fallback_reason"])
+                state["recognition"] = recognition
                 progress(80, "Retaining source evidence")
                 evidence = stage / "evidence" / "records"
                 evidence.parent.mkdir()
@@ -507,6 +663,8 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                     model.metadata['reconstruction_options']=options
                     model.metadata['crop']=crop_report
                     model.metadata['performance']=current.metadata.get('performance',{})
+                    model.metadata['recognition']={key:deepcopy(value) for key,value in recognition.items()
+                                                   if key!='overlay_proposals'}
                 state["model"] = model.to_dict()
                 state["model_crop"] = deepcopy(state["crop"])
                 state["model_crop_stale"] = False

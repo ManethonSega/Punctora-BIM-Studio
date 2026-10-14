@@ -177,11 +177,14 @@ def validate_proposal_set(manifest, directory, verify_arrays=True, cancelled=lam
     if not isinstance(manifest.get("warnings"), list) or any(not isinstance(w, str) for w in manifest["warnings"]):
         raise ValueError("Proposal warnings must be strings")
     extensions = manifest.get("extensions", {})
-    if not isinstance(extensions, dict) or set(extensions) - {"hybrid_v1"}:
+    if not isinstance(extensions, dict) or set(extensions) - {"hybrid_v1", "specialist_v1"}:
         raise ValueError("Unknown ProposalSet extension")
     if "hybrid_v1" in extensions:
         from .element_graph import validate_hybrid_artifacts
         validate_hybrid_artifacts(manifest, directory, verify_arrays, cancelled)
+    if "specialist_v1" in extensions:
+        from .specialist_contracts import validate_specialist_artifacts
+        validate_specialist_artifacts(manifest, directory, verify_arrays, cancelled)
     return manifest
 
 

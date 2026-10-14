@@ -22,6 +22,7 @@ Download `Punctora-BIM-Studio-M3-win-x64` from a successful **M3 desktop preview
 
 1. Choose **Example** for the generated two-storey walkthrough, or **Import E57** for an already registered scan. Choose a new `.punctora` filename.
 2. Check the coordinate and pose warnings. Confirm **Z is up** before **Detect elements**. Missing CRS and vertical datum remain unknown; this checkbox does not establish either.
+   For Run 4 specialist review, choose **Punctora specialist** or **Hybrid specialist + projected evidence**, then choose the external A-J model folder. The saved result reports the requested/actual provider and active/missing branches. Specialist output is a review overlay and cannot change the deterministic model or IFC in this run. See [Run 4 specialist provider](RUN_4_SPECIALIST_PROVIDER.md).
 3. Orbit by dragging, pan by right-dragging, zoom with the wheel, and use **Fit view**. Toggle the cloud/model, choose height, original or monochrome point colours, adjust point size and model opacity, select a storey, or lower the temporary section height. For a persistent processing crop, optionally enter lower or upper Z limits, choose **Draw polygon**, left-click at least three XY vertices, then choose **Apply crop**. Right-click removes the last draft vertex. **Cancel polygon** abandons the draft and **Clear crop** restores the full cloud. Save a changed crop before running detection.
 4. Select a candidate in the element list or 3D view. Edit wall endpoints/base/height/thickness/classification, slab base/thickness, wall-opening host/class/dimensions, stair geometry, landing base/thickness, slab-opening host/footprint/width, or storey name/floor/ceiling. Choose a review state and **Apply correction**. The feature controls add a door/window to a selected wall, a flight to a selected storey, a landing to a selected flight, or a void to a selected slab; **Delete selected candidate** removes only supported feature candidates. Ctrl-click collinear wall rows to merge them, or split one wall by local distance. **Undo edit** restores the preceding draft; **Revert** reloads the saved model.
 5. **Save** retains corrections. **Save copy** copies the project and required assets to a new filename. Keep the `.punctora` file and its sibling `.assets` folder together when moving a project.
@@ -54,6 +55,8 @@ dotnet run --project desktop/Punctora.Desktop -c Release
 ```
 
 `PUNCTORA_PYTHON` can point to a compatible worker Python executable. The bundled worker takes precedence over a developer virtual environment. `--software` forces the bounded software view. A `.punctora` path passed on the command line opens that project.
+
+`PUNCTORA_SPECIALIST_PYTHON` can point to an explicit Python 3.11/3.12 environment containing the pinned CPU specialist requirements. Punctora does not install or download that environment or the external A-J model pack.
 
 Build a Windows package with Python 3.11/3.12 and the pinned .NET SDK:
 

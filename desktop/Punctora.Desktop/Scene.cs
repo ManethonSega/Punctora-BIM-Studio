@@ -142,6 +142,34 @@ public sealed class SceneData
                     Number(landing,"base"),Number(landing,"thickness"),mesh:landing["preview_geometry"] as JsonObject);
             }
         }
+        // Specialist output is a visual overlay only.  It is intentionally
+        // absent from editable model collections and IFC export.
+        if(state["recognition"]?["overlay_proposals"] is JsonArray proposals)
+        {
+            var levels=(state["model"]?["storeys"] as JsonArray)??[];
+            string Storey(double z)
+            {
+                var containing=levels.FirstOrDefault(level=>z>=level!["elevation"]!.GetValue<double>()-.6
+                    && z<=level["ceiling"]!.GetValue<double>()+.6);
+                if(containing!=null)return containing["id"]!.GetValue<string>();
+                return levels.OrderBy(level=>Math.Abs(level!["elevation"]!.GetValue<double>()-z))
+                    .FirstOrDefault()?["id"]?.GetValue<string>()??"specialist-proposals";
+            }
+            foreach(var node in proposals)
+            {
+                if(node is not JsonObject proposal||proposal["polygon_xy_m"] is not JsonArray polygon||polygon.Count<3)continue;
+                var z0=Number(proposal,"z_min_m");var z1=Number(proposal,"z_max_m");
+                if(z1<=z0)continue;
+                var kind=proposal["class"]?.GetValue<string>() switch
+                {
+                    "wall"=>"ProposalWall","opening"=>"ProposalOpening","beam"=>"ProposalBeam",
+                    "column"=>"ProposalColumn","stair"=>"ProposalStair","slab"=>"ProposalSlab",
+                    _=>"Proposal"
+                };
+                var render=(JsonObject)proposal.DeepClone();render["review_state"]="proposal";
+                Add(elements,render,kind,polygon.Select(p=>XY(p!)).ToArray(),z0,z1-z0,Storey((z0+z1)/2));
+            }
+        }
         foreach(var element in elements)
             for(var i=0;i<element.Triangles.Length;i+=7)
             {var position=Camera.Position(element.Triangles,i);minimum=Vector3.Min(minimum,position);maximum=Vector3.Max(maximum,position);}
@@ -157,7 +185,7 @@ public sealed class SceneData
     {
         var review = obj["review_state"]?.GetValue<string>() ?? "unreviewed";
         return review switch { "reviewed" => new Vector4(.18f,.82f,.54f,.5f), "flagged"=>new Vector4(1,.68f,.15f,.55f),
-            "rejected"=>new Vector4(.9f,.25f,.35f,.16f), _=>kind switch {"Wall"=>new Vector4(.43f,.62f,1,.4f),"Stair"=>new Vector4(.9f,.45f,.72f,.7f),"Landing"=>new Vector4(.98f,.55f,.32f,.65f),"SlabOpening"=>new Vector4(.75f,.25f,.95f,.72f),"door"=>new Vector4(.95f,.65f,.25f,.5f),"window"=>new Vector4(.2f,.85f,.9f,.35f),"unknown"=>new Vector4(.95f,.85f,.25f,.45f),_=>new Vector4(.64f,.68f,.78f,.3f)} };
+            "rejected"=>new Vector4(.9f,.25f,.35f,.16f), _=>kind switch {"Wall"=>new Vector4(.43f,.62f,1,.4f),"Stair"=>new Vector4(.9f,.45f,.72f,.7f),"Landing"=>new Vector4(.98f,.55f,.32f,.65f),"SlabOpening"=>new Vector4(.75f,.25f,.95f,.72f),"door"=>new Vector4(.95f,.65f,.25f,.5f),"window"=>new Vector4(.2f,.85f,.9f,.35f),"unknown"=>new Vector4(.95f,.85f,.25f,.45f),"ProposalWall"=>new Vector4(.12f,.93f,.85f,.24f),"ProposalOpening"=>new Vector4(1,.78f,.16f,.34f),"ProposalBeam"=>new Vector4(.65f,.45f,1,.28f),"ProposalColumn"=>new Vector4(.35f,.95f,.45f,.30f),"ProposalStair"=>new Vector4(1,.36f,.68f,.30f),"ProposalSlab"=>new Vector4(.2f,.65f,1,.22f),_=>new Vector4(.64f,.68f,.78f,.3f)} };
     }
     static void Add(List<SceneElement> elements, JsonObject obj, string kind, Vector2[] polygon, float z, float height, string? storeyId=null,JsonObject? mesh=null)
     {

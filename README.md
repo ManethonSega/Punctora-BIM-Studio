@@ -68,6 +68,7 @@ Doors, windows and spaces follow once the basic pipeline passes its checks. AI r
 | [Dependency inventory](docs/DEPENDENCIES.md) | Candidate components and licence evidence |
 | [SpatialLM paper assessment](docs/research/SPATIALLM.md) | Versioned research findings, proposal precision, scan evidence and future AI experiment |
 | [Cloud2BIM consolidated reference](docs/research/CLOUD2BIM_REFERENCE.md) | Supplied models, verified contracts, geometry findings, probe evidence and remaining implementation handoffs |
+| [Run 4 specialist provider](docs/RUN_4_SPECIALIST_PROVIDER.md) | A-J ONNX runtime, review-only desktop orchestration and external checkpoint |
 | [Licence policy](docs/LICENSE_POLICY.md) | Rules for importing code, packaging libraries and models |
 | [Third-party notices](THIRD_PARTY_NOTICES.md) | Attribution status and retained licence references |
 | [Attributions](ATTRIBUTIONS.md) | Creator credits and licence notices mapped to code, runtime, models and research |
