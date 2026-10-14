@@ -5,6 +5,8 @@ asset, tensor or graph contract is malformed.  The worker never downloads,
 installs, accepts geometry or writes IFC.
 """
 from importlib import metadata
+from collections import OrderedDict
+import gc
 import hashlib
 import json
 from pathlib import Path
@@ -97,9 +99,14 @@ def verify_session(branch, contract, session):
             raise ValueError(f"Branch {branch} output tensor schema changed")
 
 
-def load_session(ort, request, branch):
+def load_session(ort, request, branch, sessions=None):
     contract = request["manifest"]["branches"][branch]
     root = Path(request["model_root"])
+    key = (str(root.resolve()), branch, contract["graph_sha256"], contract.get("companion_sha256"))
+    if sessions is not None and key in sessions:
+        session = sessions.pop(key)
+        sessions[key] = session
+        return session
     graph = root / contract["graph"]
     if digest(graph) != contract["graph_sha256"]:
         raise ValueError(f"Branch {branch} graph changed after provider admission")
@@ -110,6 +117,14 @@ def load_session(ort, request, branch):
     session = ort.InferenceSession(str(graph), sess_options=session_options(ort),
                                    providers=["CPUExecutionProvider"])
     verify_session(branch, contract, session)
+    if sessions is not None:
+        limit = request.get("maximum_cached_sessions", 1)
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 10:
+            raise ValueError("Specialist session-cache limit must be an integer from one through ten")
+        while len(sessions) >= limit:
+            sessions.popitem(last=False)
+            gc.collect()
+        sessions[key] = session
     return session
 
 
@@ -122,10 +137,13 @@ def preflight(ort, request):
                            "providers": session.get_providers()}
         active.append(branch)
         del session
+        gc.collect()
     return {"schema_version": 1, "status": "complete", "active_branches": active,
             "runtime": {"id": "onnxruntime", "version": metadata.version("onnxruntime"),
                         "requested_provider": "CPUExecutionProvider",
-                        "actual_provider": "CPUExecutionProvider"},
+                        "actual_provider": "CPUExecutionProvider",
+                        "worker_protocol": "persistent-json-lines-v1",
+                        "maximum_cached_sessions": request.get("maximum_cached_sessions", 1)},
             "contracts": details}
 
 
@@ -157,10 +175,10 @@ def image_tensor(branch, image):
     raise ValueError("Unknown specialist image branch")
 
 
-def infer_image(ort, request):
+def infer_image(ort, request, sessions=None):
     import numpy as np
     branch = request["branch"]
-    session = load_session(ort, request, branch)
+    session = load_session(ort, request, branch, sessions)
     tensor = np.load(request["tensor"], allow_pickle=False)
     expected = ((1, 3, 560, 560) if branch in {"A", "B", "C"} else
                 (1, 1, 512, 512) if branch in {"D", "E", "F", "G", "H"} else
@@ -179,9 +197,9 @@ def infer_image(ort, request):
             "output_shapes": {name: list(value.shape) for name, value in zip(names, arrays)}}
 
 
-def infer_point(ort, request):
+def infer_point(ort, request, sessions=None):
     import numpy as np
-    session = load_session(ort, request, "I")
+    session = load_session(ort, request, "I", sessions)
     feed_manifest = read_json(request["feed_manifest"])
     if set(feed_manifest) != expected_point_names():
         raise ValueError("Branch I feed manifest does not contain exactly 40 tensors")
@@ -205,41 +223,76 @@ def infer_point(ort, request):
             "input_voxels": int(len(feed["feat"])), "output_shape": list(logits.shape)}
 
 
-def execute(request):
+def execute(request, sessions=None):
     if request.get("schema_version") != 1 or request.get("mode") not in {"preflight", "image", "point"}:
         raise ValueError("Unsupported specialist worker request")
     if request.get("automatic_download") is not False:
         raise ValueError("Specialist worker forbids automatic downloads")
+    limit = request.get("maximum_cached_sessions")
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 10:
+        raise ValueError("Specialist session-cache limit must be an integer from one through ten")
     import onnxruntime as ort
     if "CPUExecutionProvider" not in ort.get_available_providers():
         raise ImportError("ONNX Runtime CPUExecutionProvider is unavailable")
     if request["mode"] == "preflight":
         return preflight(ort, request)
     if request["mode"] == "image":
-        return infer_image(ort, request)
-    return infer_point(ort, request)
+        return infer_image(ort, request, sessions)
+    return infer_point(ort, request, sessions)
+
+
+def _failure(exc):
+    if isinstance(exc, (ImportError, metadata.PackageNotFoundError)):
+        return "unavailable", "Unavailable specialist runtime: " + str(exc)
+    if isinstance(exc, MemoryError):
+        return "unavailable", "Unavailable specialist memory: " + str(exc)
+    if isinstance(exc, RuntimeError):
+        text = str(exc).lower()
+        if any(value in text for value in ("out of memory", "execution provider", "not implemented")):
+            return "unavailable", "Unavailable specialist device/operator: " + str(exc)
+        return "invalid", "Specialist runtime contract failure: " + str(exc)
+    return "invalid", "Invalid specialist worker contract: " + str(exc)
+
+
+def serve():
+    sessions = OrderedDict()
+    print(json.dumps({"schema_version": 1, "status": "ready"}, separators=(",", ":")), flush=True)
+    for line in sys.stdin:
+        request_id = None
+        try:
+            message = json.loads(line)
+            if not isinstance(message, dict) or set(message) != {"request_id", "request"}:
+                raise ValueError("Malformed specialist server message")
+            request_id, path = message["request_id"], message["request"]
+            if not isinstance(request_id, int) or request_id < 1 or not isinstance(path, str):
+                raise ValueError("Malformed specialist server request identity")
+            request = read_json(path)
+            response = execute(request, sessions)
+            write_json(request["response"], response)
+            reply = {"schema_version": 1, "status": "complete", "request_id": request_id,
+                     "cached_sessions": len(sessions)}
+        except Exception as exc:
+            status, error = _failure(exc)
+            reply = {"schema_version": 1, "status": status,
+                     "request_id": request_id, "error": error}
+        print(json.dumps(reply, ensure_ascii=False, allow_nan=False,
+                         separators=(",", ":")), flush=True)
+    return 0
 
 
 def main():
+    if len(sys.argv) == 2 and sys.argv[1] == "--serve":
+        return serve()
     response = None
     try:
         request = read_json(sys.argv[1])
         response = execute(request)
         write_json(request["response"], response)
         return 0
-    except (ImportError, metadata.PackageNotFoundError) as exc:
-        print("Unavailable specialist runtime: " + str(exc))
-        return 20
-    except RuntimeError as exc:
-        text = str(exc).lower()
-        if any(value in text for value in ("out of memory", "execution provider", "not implemented")):
-            print("Unavailable specialist device/operator: " + str(exc))
-            return 20
-        print("Specialist runtime contract failure: " + str(exc))
-        return 21
     except Exception as exc:
-        print("Invalid specialist worker contract: " + str(exc))
-        return 21
+        status, error = _failure(exc)
+        print(error)
+        return 20 if status == "unavailable" else 21
 
 
 if __name__ == "__main__":

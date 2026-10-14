@@ -23,7 +23,7 @@ The supplied pack resolves to manifest SHA-256 `8a66e03582328be3c5bbdf74a575fb32
 
 ## Runtime and evidence rules
 
-- ONNX Runtime runs in an isolated interpreter with `CPUExecutionProvider`, sequential execution and two intra-op threads. Punctora never downloads a runtime or model.
+- ONNX Runtime runs in one isolated persistent interpreter per recognition attempt with `CPUExecutionProvider`, sequential execution and two intra-op threads. Reviewed sessions use a RAM-bounded LRU cache, so a dense scan does not reload the same graph for every exact tile. Punctora never downloads a runtime or model.
 - Missing runtime/assets may enter the declared classical fallback. Changed hashes, malformed graphs, tensors, indices or outputs fail visibly and never fall back.
 - The 70% job memory ceiling, explicit tile/view caps, cancellation, child cleanup, atomic publication and content-addressed cache remain active.
 - Canonical points stay float64. Scan IDs, original record IDs and working IDs remain unsigned integers. Model-only views use float32.
@@ -62,23 +62,47 @@ The Run 4 tests cover:
 - missing-runtime fallback, malformed-output no-fallback and cancellation cleanup;
 - desktop-request fallback reporting and project rejection of unbound overlays.
 
-The checked-in tests do not claim real-scan accuracy or final IFC improvement. The final local suite completed with **428 passing tests**. A separate content-bound smoke run used the supplied 1,119,170,454-byte pack through ONNX Runtime 1.23.2 on `CPUExecutionProvider`: A-J all reported active, branch I consumed its exact 40 inputs for 121 source/model-view points, 37 plan/section views completed, five TTA summaries were retained, and the acceptance counters remained zero for geometry changes, cuts and IFC objects. That generated fixture qualifies runtime wiring and evidence publication only; it is not a scan-quality result. Windows/.NET results are recorded by pull-request CI.
+The checked-in tests do not claim real-scan accuracy or final IFC improvement. The final local suite completed with **429 passing tests**. A separate content-bound smoke run used the supplied 1,119,170,454-byte pack through ONNX Runtime 1.23.2 on `CPUExecutionProvider`: A-J all reported active, branch I consumed its exact 40 inputs for 121 source/model-view points, 37 plan/section views completed, five TTA summaries were retained, and the acceptance counters remained zero for geometry changes, cuts and IFC objects. That generated fixture qualifies runtime wiring and evidence publication only; it is not a scan-quality result. Windows/.NET results are recorded by pull-request CI.
 
-## External checkpoint — awaiting user execution
+## Returned external checkpoint and a29 repair
 
-Use the same model pack and settings for all three cases. Save the project before each cancellation test.
+The 2026-10-14 checkpoint did not produce a successful specialist result on any of the three scans:
 
-1. Configure `PUNCTORA_SPECIALIST_PYTHON`, launch the candidate, import/open the scan and confirm Z-up.
-2. Select **Punctora specialist**, select the A-J model folder, save the chosen crop, then run **Detect elements**.
-3. Run one interior crop, one exterior/façade crop and one stair-related crop. Keep each crop small enough for the visible plan-tile limit; do not change thresholds between comparisons.
-4. Confirm the UI says `PunctoraSpecialistProvider` was requested, shows the truthful actual provider and lists branches A-J as active. Record any missing/failed branch and the displayed reason.
-5. Compare point cloud and proposal overlay from the same camera. Report false and missing wall, opening, slab, beam, column and stair regions separately. At this checkpoint judge proposal placement, mirroring, rotation, shift and scale—not final IFC geometry.
-6. Start one additional specialist detection, cancel it, then reopen the previously saved project. Confirm the prior saved model is unchanged and the cancelled attempt did not become a published generation.
-7. Attach the saved `.punctora` project with its assets folder, `last-performance.json`, the applicable per-job diagnostic JSON, and paired cloud/overlay screenshots. No PDF is requested or produced.
+| Scan | Requested mode | Observed result | Run 4 meaning |
+| --- | --- | --- | --- |
+| `RS 138 EG Kita.e57` | Punctora specialist | Failed at `infer_chunk`: original-point halo exceeded the 1,500,000-point cap | Dense interior input exposed a repairable exact-tiling defect. The earlier successful window/door observations came from classical mode and are not specialist evidence. |
+| `RS 138 Treppenhaus Sued.e57` | Punctora specialist | Failed at `infer_chunk` with the same halo-cap message | The supplied crop contains 26,242,199 original points and reproduced the defect locally. |
+| `RS 138 Fassade.e57` | Punctora specialist, both Auto and Exterior/partial | Failed at recognition admission under the old 70% calculation | Retained reconstruction RSS was incorrectly compared with a fraction of currently available RAM as though both shared the same origin. |
+
+The cancellation/preservation check passed and does not need to be repeated for a29. The missing-ceiling observation belongs to the classical baseline; Run 6 will reassess ceiling evidence after a successful specialist checkpoint.
+
+The a29 repair:
+
+- filters spatial-index cells to the exact 3D halo before enforcing the cap;
+- recursively partitions overflowing tiles in X, Y or Z without point decimation, while retaining bounded context for normals and recording every child core/halo;
+- uses child-core voting at internal subdivision boundaries, preventing repeated context from multiplying votes;
+- retains source evidence and releases the completed reconstruction index before recognition;
+- defines the default job cap as baseline process RSS plus 70% of RAM available at recognition start, while an explicit user cap remains an absolute ceiling;
+- persists admission diagnostics even when construction of the recognition control fails;
+- reuses one isolated specialist worker and RAM-bounded ONNX sessions throughout the attempt, while preserving timeout, cancellation, malformed-output and process-tree cleanup rules.
+
+The exact 26,242,199-point stair crop now partitions into 179 leaf tiles. The largest contains 1,496,840 context points, below the unchanged 1,500,000 cap; all source points are retained and the maximum subdivision depth is 11.
+
+## Simplified a29 retest
+
+The “A-J folder” simply means the existing model folder containing `model_A.onnx` through `model_J.onnx` and their required companion files. Do not create or rename another folder.
+
+Use the same folder and unchanged thresholds, then run only these three checks:
+
+1. `RS 138 EG Kita.e57` with **Punctora specialist**.
+2. `RS 138 Fassade.e57` with **Punctora specialist** and **Exterior/partial scan**.
+3. `RS 138 Treppenhaus Sued.e57` with **Punctora specialist**.
+
+For each scan, first report only whether detection completed or failed. If it failed, attach the screenshot, per-job diagnostic JSON and `last-performance.json`. If it completed, confirm `PunctoraSpecialistProvider` requested, the displayed actual provider and A-J branch status, then attach one same-view cloud/overlay screenshot and list any obvious missing, extra, shifted, rotated, mirrored or wrongly scaled proposals by element class. Attach the saved `.punctora` project and assets when practical. No PDF is requested or produced.
 
 Use this report form:
 
-- **Run/build:** 0.3.0a28 / Run 4
+- **Run/build:** 0.3.0a29 / Run 4 repair
 - **Computer and GPU:**
 - **Scan and crop:** interior, exterior or stair; include approximate bounds
 - **Requested provider / displayed actual provider:**
@@ -89,11 +113,11 @@ Use this report form:
 - **Proposal class:** wall, opening, slab, beam, column or stair
 - **Error type:** false, missing, mirrored, rotated, shifted or scaled
 - **Frequency:** once, intermittent or every run
-- **Cancellation result:** saved project preserved / problem observed
+- **Cancellation result:** already passed on a28; repeat only if a new lifecycle problem appears
 - **Attachments:** project/assets, diagnostics and paired screenshots
 - **Result recommendation:** proceed, repair this run, redesign this run or revise a future run
 
-Until that evidence is returned, the Run 4 disposition is **awaiting external checkpoint**. Missing external evidence does not select “Repeat current run.”
+The checkpoint selected **Repeat current run** because two repairable implementation assumptions failed: a fixed dense-tile halo and the RAM admission origin. It was not selected merely because external review was incomplete. After the a29 repair is published, Run 4 remains awaiting the three-result retest above.
 
 ## Handoff
 

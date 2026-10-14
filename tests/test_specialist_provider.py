@@ -55,23 +55,37 @@ def fixture_resolution(active="I"):
 FAKE_WORKER = r'''
 import json, pathlib, sys, time
 import numpy as np
-request=json.loads(pathlib.Path(sys.argv[1]).read_text())
-root=pathlib.Path(request["model_root"])
-if request["mode"]=="preflight":
-    if (root/"slow").exists(): time.sleep(30)
-    response={"schema_version":1,"status":"complete","active_branches":request["active_branches"],
-              "runtime":{"id":"onnxruntime","version":"1.23.2","requested_provider":"CPUExecutionProvider",
-                         "actual_provider":"CPUExecutionProvider"},"contracts":{}}
-elif request["mode"]=="point":
-    feed=json.loads(pathlib.Path(request["feed_manifest"]).read_text())
-    count=len(np.load(feed["feat"],allow_pickle=False))
-    logits=np.zeros((count,12),dtype=np.float32);logits[:,0]=3;logits[:,1]=1
-    if (root/"malformed").exists(): logits=logits[:,:11]
-    np.save(request["output"],logits,allow_pickle=False)
-    response={"schema_version":1,"status":"complete","branch":"I","output":request["output"]}
+def execute(path):
+    request=json.loads(pathlib.Path(path).read_text())
+    root=pathlib.Path(request["model_root"])
+    if request["mode"]=="preflight":
+        if (root/"slow").exists(): time.sleep(30)
+        response={"schema_version":1,"status":"complete","active_branches":request["active_branches"],
+                  "runtime":{"id":"onnxruntime","version":"1.23.2","requested_provider":"CPUExecutionProvider",
+                             "actual_provider":"CPUExecutionProvider","worker_protocol":"persistent-json-lines-v1",
+                             "maximum_cached_sessions":request["maximum_cached_sessions"]},"contracts":{}}
+    elif request["mode"]=="point":
+        feed=json.loads(pathlib.Path(request["feed_manifest"]).read_text())
+        count=len(np.load(feed["feat"],allow_pickle=False))
+        logits=np.zeros((count,12),dtype=np.float32);logits[:,0]=3;logits[:,1]=1
+        if (root/"malformed").exists(): logits=logits[:,:11]
+        np.save(request["output"],logits,allow_pickle=False)
+        response={"schema_version":1,"status":"complete","branch":"I","output":request["output"]}
+    else:
+        raise RuntimeError("fixture only supports point inference")
+    pathlib.Path(request["response"]).write_text(json.dumps(response),encoding="utf-8")
+if sys.argv[1]=="--serve":
+    print(json.dumps({"schema_version":1,"status":"ready"}),flush=True)
+    for line in sys.stdin:
+        message=json.loads(line);request_id=message["request_id"]
+        try:
+            execute(message["request"])
+            reply={"schema_version":1,"status":"complete","request_id":request_id,"cached_sessions":1}
+        except Exception as exc:
+            reply={"schema_version":1,"status":"invalid","request_id":request_id,"error":str(exc)}
+        print(json.dumps(reply),flush=True)
 else:
-    raise RuntimeError("fixture only supports point inference")
-pathlib.Path(request["response"]).write_text(json.dumps(response),encoding="utf-8")
+    execute(sys.argv[1])
 '''
 
 
@@ -238,7 +252,9 @@ def test_isolated_specialist_provider_runs_point_graph_and_publishes_review_only
         cloud(), identity(), provider, tmp_path / "cache",
         tile_settings=TileSettings(size_m=8., overlap_m=2., maximum_context_points=10000))
     assert not hit and report["requested_provider"]["id"] == "PunctoraSpecialistProvider"
+    assert provider.worker_start_count == 1
     assert report["provider"]["backend"] == "CPUExecutionProvider"
+    assert report["provider"]["runtime"]["worker_protocol"] == "persistent-json-lines-v1"
     extension = report["extensions"]["specialist_v1"]
     assert extension["branches"]["I"]["status"] == "active"
     assert all(extension["branches"][name]["status"] == "missing" for name in "ABCDEFGHJ")

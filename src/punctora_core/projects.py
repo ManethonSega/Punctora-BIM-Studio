@@ -21,6 +21,7 @@ from .ifc_export import write_ifc
 from .model import BuildingModel, Landing, Opening, SlabOpening, Stair, slab_opening_is_validated
 from .convergence import compare_budgets
 from .reconstruction import ReconstructionSettings, reconstruct
+from .sampling import release_completed_working_memory
 from .level_bounds import validate_detection_options
 from dataclasses import replace
 from .wall_editing import merge_walls, split_wall
@@ -504,7 +505,9 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
         SpecialistSettings(level_bounds=levels))
     fallback = ClassicalProvider(model=model)
     tiles = TileSettings(size_m=8., overlap_m=2., normal_radius_m=.3, index_cell_m=.25,
-                         maximum_context_points=1_500_000, maximum_tiles=4096)
+                         maximum_context_points=1_500_000, maximum_tiles=4096,
+                         adaptive_partition=True, vertical_overlap_m=.3,
+                         minimum_core_m=.25, maximum_subdivision_depth=16)
     latest = {}
     def diagnostic(value):
         latest.clear(); latest.update(deepcopy(value))
@@ -635,13 +638,7 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                     model.metadata["e57"] = {"coordinate_metadata": manifest["coordinate_metadata"],
                                               "coordinate_metadata_status": manifest["coordinate_metadata_status"]}
                     model.warnings.extend(manifest["warnings"])
-                recognition = _desktop_recognition(state, cloud, model, request, stage, save_performance, progress)
-                model.metadata["recognition"] = {key: deepcopy(value) for key, value in recognition.items()
-                                                 if key != "overlay_proposals"}
-                if recognition.get("fallback_reason"):
-                    model.warnings.append("Recognition fallback: " + recognition["fallback_reason"])
-                state["recognition"] = recognition
-                progress(80, "Retaining source evidence")
+                progress(58, "Retaining source evidence before recognition")
                 evidence = stage / "evidence" / "records"
                 evidence.parent.mkdir()
                 write_model_evidence(cloud,model,evidence,settings.processing_chunk_points)
@@ -653,6 +650,14 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                     record = proposal.get("representative_cloud_records")
                     if record:
                         record["path"] = f"generations/{token}/{record['path']}"
+                release_completed_working_memory()
+                recognition = _desktop_recognition(state, cloud, model, request, stage, save_performance, progress)
+                model.metadata["recognition"] = {key: deepcopy(value) for key, value in recognition.items()
+                                                 if key != "overlay_proposals"}
+                if recognition.get("fallback_reason"):
+                    model.warnings.append("Recognition fallback: " + recognition["fallback_reason"])
+                state["recognition"] = recognition
+                progress(80, "Finalizing reviewed candidates")
                 model.warnings = [w for w in model.warnings if "No desktop review" not in w]
                 model.warnings.append("Whole-cloud deviation reporting remains pending; review observed and inferred geometry separately.")
                 if previous_model is not None:

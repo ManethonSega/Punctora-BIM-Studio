@@ -1,8 +1,10 @@
 """Punctora-owned specialist runtime, proposals and truthful orchestration."""
 from copy import deepcopy
 from dataclasses import dataclass, asdict
+import json
 import os
 from pathlib import Path
+import queue
 import shutil
 import subprocess
 import tempfile
@@ -118,6 +120,13 @@ class PunctoraSpecialistProvider(RecognitionProvider):
         self.settings = (settings or SpecialistSettings()).validate()
         self.instances, self.warnings = [], []
         self.process = None
+        self.control = None
+        self.response_queue = None
+        self.stdout_reader = self.stderr_reader = None
+        self.stderr_tail = bytearray()
+        self.request_sequence = 0
+        self.worker_start_count = 0
+        self.session_cache_limit = 1
         self.manifest = deepcopy(MODEL_PACK_MANIFEST)
         self.asset_status = {name: {"status": "unchecked"} for name in "ABCDEFGHIJ"}
         self.active_branches, self.missing_branches = [], list("ABCDEFGHIJ")
@@ -155,9 +164,12 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             return
         largest = max(value.get("graph_bytes", 0) + value.get("companion_bytes", 0)
                       for value in self.asset_status.values())
-        if largest * 4 > control.working_budget:
+        session_estimate = largest * 4
+        if session_estimate > control.working_budget:
             self.preflight = {"status": "unavailable", "reason": "Largest specialist graph admission estimate exceeds RAM budget"}
             return
+        self.session_cache_limit = max(1, min(10, len(self.active_branches),
+                                             int(control.working_budget * .60) // max(1, session_estimate)))
         try:
             with tempfile.TemporaryDirectory(prefix="punctora-specialist-preflight-") as temporary:
                 directory = Path(temporary)
@@ -195,51 +207,107 @@ class PunctoraSpecialistProvider(RecognitionProvider):
         response = directory / "response.json"
         return {"schema_version": 1, "mode": mode, "automatic_download": False,
                 "model_root": self.assets.model_root, "manifest": self.manifest,
-                "response": str(response)}
+                "response": str(response), "maximum_cached_sessions": self.session_cache_limit}
+
+    def _start_worker(self, control):
+        if self.process is not None and self.process.poll() is None:
+            return
+        environment = {key: value for key, value in os.environ.items()
+                       if key in {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "LD_LIBRARY_PATH"}}
+        environment.update({"OMP_NUM_THREADS": "2", "MKL_NUM_THREADS": "2", "OPENBLAS_NUM_THREADS": "2"})
+        self.response_queue = queue.Queue()
+        self.stderr_tail = bytearray()
+        self.process = subprocess.Popen(
+            [self.assets.python, "-I", str(self.worker_path), "--serve"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=environment)
+        self.control = control
+        self.worker_start_count += 1
+        control.child_pid = self.process.pid
+        stdout, stderr = self.process.stdout, self.process.stderr
+        responses, stderr_tail = self.response_queue, self.stderr_tail
+
+        def read_stdout():
+            try:
+                for line in iter(stdout.readline, b""):
+                    try:
+                        responses.put(json.loads(line.decode("utf-8")))
+                    except Exception as exc:
+                        responses.put(ValueError("Specialist worker emitted malformed protocol JSON: " + str(exc)))
+            except (OSError, ValueError):
+                pass
+
+        def read_stderr():
+            try:
+                for block in iter(lambda: stderr.read(4096), b""):
+                    stderr_tail.extend(block)
+                    if len(stderr_tail) > 16384:
+                        del stderr_tail[:-16384]
+            except (OSError, ValueError):
+                pass
+
+        self.stdout_reader = threading.Thread(target=read_stdout, daemon=True)
+        self.stderr_reader = threading.Thread(target=read_stderr, daemon=True)
+        self.stdout_reader.start()
+        self.stderr_reader.start()
+        started = time.monotonic()
+        while True:
+            control.check()
+            if self.process.poll() is not None:
+                detail = self.stderr_tail.decode("utf-8", errors="replace").strip()
+                raise ProviderUnavailable(detail or "Specialist worker stopped before protocol readiness")
+            try:
+                ready = self.response_queue.get(timeout=.05)
+            except queue.Empty:
+                if time.monotonic() - started > self.assets.timeout_seconds:
+                    raise ProviderUnavailable("Specialist worker startup timeout exceeded")
+                continue
+            if isinstance(ready, BaseException):
+                raise ready
+            if ready != {"schema_version": 1, "status": "ready"}:
+                raise ValueError("Specialist worker failed its readiness contract")
+            return
 
     def _execute(self, request, directory, control):
         directory.mkdir(parents=True, exist_ok=True)
         request_path = directory / "request.json"
         write_report(request_path, request)
-        environment = {key: value for key, value in os.environ.items()
-                       if key in {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "LD_LIBRARY_PATH"}}
-        environment.update({"OMP_NUM_THREADS": "2", "MKL_NUM_THREADS": "2", "OPENBLAS_NUM_THREADS": "2"})
-        tail = bytearray()
         try:
-            self.process = subprocess.Popen([self.assets.python, "-I", str(self.worker_path), str(request_path)],
-                                            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                            stderr=subprocess.STDOUT, env=environment)
-            control.child_pid = self.process.pid
-            pipe = self.process.stdout
-            def drain():
-                try:
-                    for block in iter(lambda: pipe.read(4096), b""):
-                        tail.extend(block)
-                        if len(tail) > 16384:
-                            del tail[:-16384]
-                except (OSError, ValueError):
-                    pass
-            reader = threading.Thread(target=drain, daemon=True)
-            reader.start()
+            self._start_worker(control)
+            self.request_sequence += 1
+            request_id = self.request_sequence
+            message = json.dumps({"request_id": request_id, "request": str(request_path.resolve())},
+                                 ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n"
+            self.process.stdin.write(message.encode("utf-8"))
+            self.process.stdin.flush()
             started = time.monotonic()
-            while self.process.poll() is None:
+            while True:
                 control.check()
-                if time.monotonic() - started > self.assets.timeout_seconds:
-                    raise ProviderUnavailable("Specialist worker timeout exceeded")
-                threading.Event().wait(.05)
-            reader.join(timeout=1.)
-            output = tail.decode("utf-8", errors="replace").strip()
-            if self.process.returncode == 20:
-                raise ProviderUnavailable(output or "Specialist runtime unavailable")
-            if self.process.returncode != 0:
-                raise ValueError("Specialist worker failed its contract: " + output)
+                if self.process.poll() is not None:
+                    detail = self.stderr_tail.decode("utf-8", errors="replace").strip()
+                    raise ValueError("Specialist worker stopped during inference: " + detail)
+                try:
+                    reply = self.response_queue.get(timeout=.05)
+                except queue.Empty:
+                    if time.monotonic() - started > self.assets.timeout_seconds:
+                        raise ProviderUnavailable("Specialist worker request timeout exceeded")
+                    continue
+                if isinstance(reply, BaseException):
+                    raise reply
+                if (not isinstance(reply, dict) or reply.get("schema_version") != 1
+                        or reply.get("request_id") != request_id):
+                    raise ValueError("Specialist worker failed its response identity contract")
+                if reply.get("status") == "unavailable":
+                    raise ProviderUnavailable(reply.get("error") or "Specialist runtime unavailable")
+                if reply.get("status") != "complete":
+                    raise ValueError("Specialist worker failed its contract: " + reply.get("error", "unknown failure"))
+                break
             response = read_json(request["response"])
             if response.get("schema_version") != 1 or response.get("status") != "complete":
                 raise ValueError("Specialist worker returned an incomplete response")
             return response
-        finally:
+        except BaseException:
             self.close()
-            control.child_pid = None
+            raise
 
     def prepare(self, cloud, identity, directory, control):
         if not isinstance(self.preflight, dict) or self.preflight.get("status") != "complete":
@@ -854,30 +922,50 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             return
         try:
             if process.poll() is None:
-                try:
-                    import psutil
-                    owner = psutil.Process(process.pid)
-                    children = owner.children(recursive=True)
-                except Exception:
-                    children = []
-                for child in children:
+                if process.stdin:
                     try:
-                        child.terminate()
-                    except Exception:
+                        process.stdin.close()
+                    except (OSError, ValueError):
                         pass
-                process.terminate()
                 try:
-                    process.wait(timeout=2.)
+                    process.wait(timeout=.5)
                 except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=2.)
-                for child in children:
                     try:
-                        if child.is_running():
-                            child.kill()
+                        import psutil
+                        owner = psutil.Process(process.pid)
+                        children = owner.children(recursive=True)
                     except Exception:
-                        pass
+                        children = []
+                    for child in children:
+                        try:
+                            child.terminate()
+                        except Exception:
+                            pass
+                    process.terminate()
+                    try:
+                        process.wait(timeout=2.)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=2.)
+                    for child in children:
+                        try:
+                            if child.is_running():
+                                child.kill()
+                        except Exception:
+                            pass
         finally:
-            if process.stdout:
-                process.stdout.close()
+            for pipe in (process.stdin, process.stdout, process.stderr):
+                if pipe:
+                    try:
+                        pipe.close()
+                    except (OSError, ValueError):
+                        pass
+            for reader in (self.stdout_reader, self.stderr_reader):
+                if reader:
+                    reader.join(timeout=1.)
+            if self.control is not None:
+                self.control.child_pid = None
             self.process = None
+            self.control = None
+            self.response_queue = None
+            self.stdout_reader = self.stderr_reader = None

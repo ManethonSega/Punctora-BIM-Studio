@@ -248,6 +248,26 @@ def test_empty_crop_and_context_overflow_fail_without_silent_decimation(tmp_path
         run_recognition(source(), identity(), FixtureProvider(), tmp_path / "cache", tile_settings=tiny)
 
 
+def test_dense_context_is_exactly_subdivided_without_decimation(tmp_path):
+    grid = np.linspace(.05, 3.95, 10)
+    points = np.asarray([(x, y, z) for x in grid for y in grid for z in grid], dtype=np.float64)
+    count = len(points)
+    cloud = CloudData(points, scan_index=np.zeros(count, dtype="<u8"),
+        source_record_index=np.arange(count, dtype="<u8"), working_index=np.arange(count, dtype="<u8"))
+    settings = TileSettings(size_m=4., overlap_m=.1, normal_radius_m=.1, index_cell_m=.25,
+                            maximum_context_points=220, maximum_tiles=256,
+                            adaptive_partition=True, vertical_overlap_m=.1,
+                            minimum_core_m=.25, maximum_subdivision_depth=16)
+    directory, report, _ = run_recognition(
+        cloud, identity(), FixtureProvider(), tmp_path / "adaptive", tile_settings=settings)
+    assert len(report["tiles"]) > 1
+    assert max(tile["context_points"] for tile in report["tiles"]) <= 220
+    assert all(tile["partition_depth"] > 0 for tile in report["tiles"])
+    assert all(any(value > 0 for value in tile["context_overlap_xyz"]) for tile in report["tiles"])
+    assert all(tile["vote_overlap_xyz"] == [0., 0., 0.] for tile in report["tiles"])
+    assert np.all(np.load(directory / "labels.npy") == 0)
+
+
 def test_normals_use_original_neighbours_and_deterministic_voxel_inverse():
     points = np.array([[x, y, 1.] for x in (0., .04, .08) for y in (0., .04, .08)])
     normals, valid = original_normals(points, np.array([4]))
@@ -384,10 +404,13 @@ def test_typed_input_readonly_cli_guards_and_semantic_cli(tmp_path):
 
 def test_resource_plan_obeys_70_percent_and_lower_user_cap():
     control = RecognitionControl()
-    assert control.memory_limit_bytes <= int(control.available_at_start * .70)
+    assert control.working_budget <= int(control.available_at_start * .70)
+    assert control.memory_limit_bytes == control.baseline_rss + control.working_budget
     assert control.chunk_points <= 65536
+    diagnostics = []
     with pytest.raises(ValueError, match="Insufficient available RAM"):
-        RecognitionControl(memory_limit_bytes=1024)
+        RecognitionControl(memory_limit_bytes=1024, diagnostics=diagnostics.append)
+    assert diagnostics[-1]["status"] == "failed" and diagnostics[-1]["stage"] == "admission"
 
 
 def test_cancellation_at_publication_preserves_existing_generation(tmp_path):

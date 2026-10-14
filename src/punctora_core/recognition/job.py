@@ -15,7 +15,7 @@ from ..storage import mapped_array
 from .cache import ProposalCache, cache_key
 from .contracts import ARRAY_TYPES, TAXONOMY, ProviderUnavailable, array_descriptor
 from .provider import implementation_fingerprint, write_vote_shard
-from .tiling import TileIndex, TileSettings
+from .tiling import TileIndex, TileOverflow, TileSettings
 
 
 class RecognitionControl:
@@ -30,25 +30,33 @@ class RecognitionControl:
             raise ValueError("Recognition chunk size must be a positive integer")
         if isinstance(memory_limit_bytes, bool) or not isinstance(memory_limit_bytes, int) or memory_limit_bytes < 0:
             raise ValueError("Recognition RAM cap must be a nonnegative integer")
-        self.available_at_start = available_memory_bytes()
-        ceiling = int(self.available_at_start * .70)
-        self.memory_limit_bytes = min(ceiling, memory_limit_bytes) if memory_limit_bytes else ceiling
+        self.cancelled, self.diagnostics = cancelled, diagnostics
+        self.started, self.last_emit = time.monotonic(), 0.
+        self.status, self.stage, self.child_pid = "running", "admission", None
+        self.failure = None
         self.baseline_rss = _process().memory_info().rss
+        self.available_at_start = available_memory_bytes()
+        available_budget = int(self.available_at_start * .70)
+        default_limit = self.baseline_rss + available_budget
+        self.memory_limit_bytes = min(default_limit, memory_limit_bytes) if memory_limit_bytes else default_limit
         self.working_budget = self.memory_limit_bytes - self.baseline_rss
         if self.working_budget < 16 * 1024**2:
             from ..sampling import release_completed_working_memory
             release_completed_working_memory()
-            self.available_at_start = available_memory_bytes()
-            ceiling = int(self.available_at_start * .70)
-            self.memory_limit_bytes = min(ceiling, memory_limit_bytes) if memory_limit_bytes else ceiling
             self.baseline_rss = _process().memory_info().rss
+            self.available_at_start = available_memory_bytes()
+            available_budget = int(self.available_at_start * .70)
+            default_limit = self.baseline_rss + available_budget
+            self.memory_limit_bytes = min(default_limit, memory_limit_bytes) if memory_limit_bytes else default_limit
             self.working_budget = self.memory_limit_bytes - self.baseline_rss
         if self.working_budget < 16 * 1024**2:
-            raise ValueError("Insufficient available RAM for recognition at the 70% ceiling")
+            self.status = "failed"
+            self.failure = ValueError("Insufficient available RAM for recognition at the 70% ceiling")
+            self.peak_rss = self.baseline_rss
+            self.emit()
+            raise self.failure
         self.chunk_points = min(chunk_points, 65536, max(1, self.working_budget // 4096))
-        self.cancelled, self.diagnostics = cancelled, diagnostics
-        self.started, self.last_emit = time.monotonic(), 0.
-        self.status, self.stage, self.child_pid = "running", "prepare", None
+        self.stage = "prepare"
         self.peak_rss, self.failure = self.baseline_rss, None
         self.stop = threading.Event()
         self.thread = threading.Thread(target=self._monitor, daemon=True)
@@ -239,14 +247,27 @@ def run_recognition(cloud, identity, provider, cache_directory, *, tile_settings
                     control.stage = "prepare_instances"
                     provider.prepare_instances(cloud, identity, work, control, index.index)
                     shards, tiles = [], []
-                    for cell in index.tiles:
+                    pending = list(index.tiles)
+                    while pending:
+                        cell = pending.pop(0)
                         control.stage = "infer_chunk"
-                        tile = index.get(cell, identity["crop"])
+                        try:
+                            tile = index.get(cell, identity["crop"])
+                        except TileOverflow as overflow:
+                            if len(pending) + len(tiles) + len(overflow.children) > settings.maximum_tiles:
+                                raise ProviderUnavailable(
+                                    "Adaptive exact tiling exceeds the explicit tile limit; partition the crop")
+                            pending[0:0] = overflow.children
+                            continue
                         if tile is None:
                             continue
                         prediction = provider.infer_chunk(tile, work, control)
                         shards.append(write_vote_shard(tile, prediction, work))
                         tiles.append({"id": tile.id, "core_min_xy": tile.core_min_xy, "core_max_xy": tile.core_max_xy,
+                                      "core_min_z": tile.core_min_z, "core_max_z": tile.core_max_z,
+                                      "partition_depth": tile.partition_depth,
+                                      "context_overlap_xyz": tile.context_overlap_xyz,
+                                      "vote_overlap_xyz": tile.vote_overlap_xyz,
                                       "context_points": len(tile.points), "vote_points": int(tile.vote_mask.sum())})
                     control.stage = "combine_tiles"
                     labels = provider.combine_tiles(shards, len(cloud.points), stage, control)
