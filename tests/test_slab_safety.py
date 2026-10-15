@@ -50,6 +50,53 @@ def fixture_shape():
     return box(0,0,13,7).difference(unary_union(lamps))
 
 
+@pytest.mark.parametrize('paired',[True,False])
+def test_narrow_profile_connection_preserves_both_bodies_and_real_hole_policy(tmp_path,paired):
+    body = unary_union([box(0,0,1,1),box(2,0,3,1),box(.9,.4,2.1,.4000000002)])
+    hole = box(.2,.2,.8,.8)
+    shape = body.difference(hole)
+    model = zone_model(shape,shape,paired=paired)
+    assert len(model.slabs)==2 and len(model.slab_openings)==1
+    assert len({s.id for s in model.slabs})==2
+    opening = model.slab_openings[0]
+    assert unary_union([Polygon(s.footprint) for s in model.slabs]).symmetric_difference(body).area < 1e-8
+    assert all(s.evidence['profile_repair']['strategy']=='bounded_component_split' for s in model.slabs)
+    assert sum(s.evidence['supported_area_m2'] for s in model.slabs)==pytest.approx(shape.area,abs=1e-9)
+    assert sum(s.evidence['supported_area_m2']+s.evidence['inferred_area_m2'] for s in model.slabs)==pytest.approx(body.area,abs=1e-9)
+    assert Polygon(opening.footprint).symmetric_difference(hole).area < 1e-12
+    assert slab_opening_is_validated(opening)==paired
+    expected = shape.area if paired else body.area
+    assert preview_area(model)==pytest.approx(expected,abs=1e-8)
+    report = write_ifc(model,tmp_path/'narrow-profile.ifc')
+    assert report['valid'] and report['profile_errors']==[]
+    file = ifcopenshell.open(tmp_path/'narrow-profile.ifc')
+    assert len(file.by_type('IfcRelVoidsElement'))==int(paired)
+    assert volume(file)==pytest.approx(expected*.2,abs=1e-8)
+
+
+def test_numerical_split_preserves_parent_fixture_pattern_without_new_cuts(tmp_path):
+    body = unary_union([box(0,0,3,3),box(6,0,9,3),box(2.9,1.4,6.1,1.4000000002)])
+    holes = [box(.4,.4,1.,1.),box(1.7,.4,2.3,1.),box(6.4,.4,7.,1.)]
+    shape = body.difference(unary_union(holes))
+    model = zone_model(shape,shape)
+    assert len(model.slabs)==2 and len(model.slab_openings)==3
+    assert all(o.evidence['classification']=='light_fixture_pattern' for o in model.slab_openings)
+    assert not any(slab_opening_is_validated(o) for o in model.slab_openings)
+    assert preview_area(model)==pytest.approx(body.area,abs=1e-8)
+    assert write_ifc(model,tmp_path/'split-fixtures.ifc')['valid']
+    file = ifcopenshell.open(tmp_path/'split-fixtures.ifc')
+    assert not file.by_type('IfcRelVoidsElement')
+    assert volume(file)==pytest.approx(body.area*.2,abs=1e-8)
+
+
+def test_numerical_split_retains_a_small_lobe_from_an_eligible_parent():
+    shape = unary_union([box(0,0,1,1),box(2,0,2.1,1),box(.9,.4,2.05,.4000000002)])
+    model = zone_model(shape,shape)
+    areas = sorted(Polygon(s.footprint).area for s in model.slabs)
+    assert areas==pytest.approx([.1,1.],abs=1e-8)
+    assert len({s.id for s in model.slabs})==2
+
+
 @pytest.mark.parametrize('paired_pattern',[True,False])
 def test_33_light_fixture_gaps_create_zero_ifc_cuts(tmp_path,paired_pattern):
     shape=fixture_shape()

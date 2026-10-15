@@ -1,7 +1,8 @@
 # Run 4: PunctoraSpecialistProvider runtime and desktop orchestration
 
-**Current repair: 0.3.0a31.** See [the publication/runtime repair, 80% recognition
-RAM policy and bounded checkpoint](RUN_4_REPAIR_A31.md). The user extended Run 4
+**Current repair: 0.3.0a32.** See [the positive-wall crash, slab-profile and section-alignment
+repair](RUN_4_REPAIR_A32.md), retaining [the CPU/runtime and 80% recognition RAM
+policy](RUN_4_REPAIR_A31.md). The user extended Run 4
 after both a29 results; [the eight-path a30 repair](RUN_4_REPAIR_A30.md) remains
 the geometry baseline.
 Provider artifacts remain review-only; a separate original-point validator now

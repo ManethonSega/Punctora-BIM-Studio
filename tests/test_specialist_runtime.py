@@ -160,7 +160,17 @@ def image_cloud():
         working_index=np.arange(900,900+len(points),dtype='<u8'))
 
 
-def test_isolated_parallel_views_preserve_proposals_labels_and_source_support(tmp_path, monkeypatch):
+def wall_query_cloud():
+    from punctora_core.cloud_io import CloudData
+    x,z = np.meshgrid(np.arange(1.,9.001,.05),np.arange(100.,103.001,.05))
+    points = np.column_stack((x.ravel(),np.full(x.size,5.12),z.ravel()))
+    return CloudData(points,scan_index=np.arange(len(points),dtype='<u8')%3,
+        source_record_index=np.arange(2**53,2**53+len(points),dtype='<u8'),
+        working_index=np.arange(900,900+len(points),dtype='<u8'))
+
+
+@pytest.mark.parametrize('positive_detections', [False,True],ids=['empty-query','positive-wall-query'])
+def test_isolated_parallel_views_preserve_proposals_labels_and_source_support(tmp_path, monkeypatch, positive_detections):
     from test_specialist_provider import make_provider, fixture_resolution, identity
     from punctora_core.recognition.job import run_recognition
     from punctora_core.recognition.tiling import TileSettings
@@ -168,18 +178,19 @@ def test_isolated_parallel_views_preserve_proposals_labels_and_source_support(tm
     from punctora_core.recognition.contracts import open_proposal_array
     providers = []
     for name in ('serial','parallel'):
-        provider = make_provider(tmp_path/name, monkeypatch)
+        provider = make_provider(tmp_path/name, monkeypatch, 'positive-detections' if positive_detections else None)
         providers.append(provider)
     monkeypatch.setattr('punctora_core.recognition.specialist_provider.resolve_model_pack',
                         lambda *a,**k: fixture_resolution('ABCDEFGHIJ'))
     reports = []
     for provider, cores in zip(providers, (1,4)):
-        directory, report, hit = run_recognition(image_cloud(), identity(), provider, tmp_path/'cache',
+        directory, report, hit = run_recognition(wall_query_cloud() if positive_detections else image_cloud(), identity(), provider, tmp_path/'cache',
             tile_settings=TileSettings(maximum_context_points=10_000),cpu_workers=cores)
         assert not hit
         reports.append((directory,report))
     left, right = reports
     assert left[1]['cache_key'] != right[1]['cache_key']
+    assert left[1]['instances'] == right[1]['instances']
     for key in ('labels','scores','scan_ids','record_ids','working_rows'):
         arrays = [open_proposal_array(path, report['arrays'][key]) for path, report in reports]
         try: assert np.array_equal(*arrays)
@@ -192,8 +203,76 @@ def test_isolated_parallel_views_preserve_proposals_labels_and_source_support(tm
         assert read_json(left[0]/extensions[0][key]) == read_json(right[0]/extensions[1][key])
     for filename in ('proposal-source-rows.npy',):
         assert np.array_equal(np.load(left[0]/'specialist'/filename), np.load(right[0]/'specialist'/filename))
+    if positive_detections:
+        for (directory, report), extension in zip(reports,extensions):
+            views = read_json(directory/extension['views_path'])
+            assert any(v['branch']=='J' and v['candidates']>0 for v in views['views'])
+            assert {'B','C'} <= {v['branch'] for v in views['views'] if v.get('section_scope')=='wall'}
+            assert report['instances'] and all(v['class']=='wall' for v in report['instances'])
+            items = read_json(directory/extension['proposals_path'])['proposals']
+            assert {'A','B','C'} <= {item['branch'] for item in items}
+            support = read_json(directory/extension['support_index_path'])['entries']
+            counts = {item['id']:item['count'] for item in support}
+            assert all(counts[item['id']]>0 for item in report['instances'])
+        directory, replay, hit = run_recognition(wall_query_cloud(), identity(), providers[1], tmp_path/'cache',
+            tile_settings=TileSettings(maximum_context_points=10_000),cpu_workers=4)
+        assert hit and directory == right[0] and replay == right[1]
+        expected = wall_query_cloud()
+        for key, values in (('scan_ids',expected.scan_index),('record_ids',expected.source_record_index),
+                            ('working_rows',expected.working_index)):
+            array = open_proposal_array(directory,replay['arrays'][key])
+            try: assert np.array_equal(array,values)
+            finally: array._mmap.close()
     assert not list((tmp_path/'cache').glob('.proposal-stage-*'))
     assert not list(right[0].rglob('*tensor.npy'))
+
+
+@pytest.mark.parametrize('angle_degrees',[0.,27.])
+def test_positive_wall_sections_follow_offset_wall_plane_at_survey_coordinates(tmp_path,monkeypatch,angle_degrees):
+    from types import SimpleNamespace
+    from test_specialist_provider import make_provider
+    from punctora_core.cloud_io import CloudData
+    from punctora_core.spatial_index import SpatialPointIndex
+    provider = make_provider(tmp_path,monkeypatch)
+    centre = np.array([7_000_003.25,5_000_004.75])
+    # Native J pixel centres place this query away from the tile centre.
+    wall_centre = centre + [.01,-2.57]
+    angle = np.deg2rad(angle_degrees)
+    axis = np.array([np.cos(angle),np.sin(angle)])
+    along,z = np.meshgrid(np.arange(-2.5,2.501,.05),np.arange(100.,103.001,.05))
+    xy = wall_centre + along.ravel()[:,None]*axis
+    provider.cloud = CloudData(np.column_stack((xy,z.ravel())))
+    provider.active_branches = list('BCDJ')
+    def infer(branch,image,identifier,control):
+        if branch == 'D':
+            logits = np.zeros((1,3,512,512),dtype=np.float32); logits[:,1] = 1
+            return {'logits':logits},{}
+        outputs = {'dets':np.zeros((1,300,4),dtype=np.float32),
+                   'labels':np.full((1,300,3 if branch=='J' else 2 if branch=='B' else 1),-20.,dtype=np.float32)}
+        if branch == 'J': outputs['angles'] = np.zeros((1,300,1),dtype=np.float32)
+        if branch != 'J' or identifier.endswith('_0_0_J'):
+            outputs['dets'][0,0] = [.5,.75,.65,.08] if branch=='J' else [.5,.5,.8,.5]
+            outputs['labels'][0,0,0] = 3.
+            if branch=='B': outputs['labels'][0,0,1] = -3.
+            if branch=='J': outputs['angles'][0,0,0] = -angle
+        return outputs,{}
+    monkeypatch.setattr(provider,'_try_image',infer)
+    monkeypatch.setattr(provider,'_try_images',lambda jobs,control:[infer(*job,control) for job in jobs])
+    control = SimpleNamespace(chunk_points=257,check=lambda:None)
+    index = SpatialPointIndex.build(provider.cloud,memory_budget_bytes=16*1024**2,chunk_points=509)
+    try:
+        provider._stream_plan_tile(centre,provider.settings.level_bounds[0],'offset',index,control)
+    finally: index.close()
+    assert len(provider.instances)==1
+    sections = [p for p in provider.proposals if p['branch'] in 'BC']
+    assert {p['branch'] for p in sections} == {'B','C'}
+    perpendicular = np.array([-axis[1],axis[0]])
+    for item in sections:
+        ends = np.asarray([item['world']['start'],item['world']['end']])
+        assert np.max(np.abs((ends-wall_centre)@perpendicular)) < 1e-6
+        rows = provider.proposal_support[item['id']]
+        assert len(rows)>0 and np.all(rows<len(provider.cloud.points))
+        assert np.max(np.abs((provider.cloud.points[rows,:2]-wall_centre)@perpendicular)) < 1e-8
 
 
 def test_cancellation_terminates_inflight_parallel_wave_and_publishes_nothing(tmp_path, monkeypatch):

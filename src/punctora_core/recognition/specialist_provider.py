@@ -618,11 +618,11 @@ class PunctoraSpecialistProvider(RecognitionProvider):
         finally:
             labels._mmap.close()
 
-    def _stream_plan_tile(self, centre, level, tile_number, index, control):
+    def _stream_plan_tile(self, centre, level, tile_number, spatial_index, control):
         from .streaming_views import SourceBox, components, owned, plan_images, section_image
         settings = self.settings
         half = settings.stair_tile_m * np.sqrt(2) / 2
-        source = SourceBox(self.cloud, index, [centre[0]-half, centre[1]-half, level['bottom_m']],
+        source = SourceBox(self.cloud, spatial_index, [centre[0]-half, centre[1]-half, level['bottom_m']],
             [centre[0]+half, centre[1]+half, level['top_m']], control, settings.maximum_view_points)
         core_min = np.asarray(centre)-settings.plan_tile_m/2
         core_max = np.asarray(centre)+settings.plan_tile_m/2
@@ -660,8 +660,8 @@ class PunctoraSpecialistProvider(RecognitionProvider):
         inferred_views = self._try_images([image_jobs[i] for i in order], control)
         inferred_views = dict(zip(order, inferred_views))
         refinement_jobs, refinement_frames = [], []
-        for index, ((branch, image, identifier), (_, frame, raster)) in enumerate(zip(image_jobs, image_context)):
-            inferred = inferred_views[index]
+        for view_index, ((branch, image, identifier), (_, frame, raster)) in enumerate(zip(image_jobs, image_context)):
+            inferred = inferred_views[view_index]
             if inferred is None: continue
             outputs, worker = inferred
             labels, _, _ = decode_masks(branch, outputs)
@@ -724,7 +724,7 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             from shapely import contains_xy
             shape = Polygon(wall['corners_xy_m']).buffer(1e-9)
             bounds=shape.bounds
-            wall_source=SourceBox(self.cloud,index,[bounds[0],bounds[1],level['bottom_m']],
+            wall_source=SourceBox(self.cloud,spatial_index,[bounds[0],bounds[1],level['bottom_m']],
                 [bounds[2],bounds[3],level['top_m']],control,settings.maximum_view_points,shape)
             support, points_sample = [], []
             for rows, points in wall_source.blocks():
@@ -734,21 +734,23 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                     points_sample.extend(points[keep][:max(0,4096-len(points_sample))].tolist())
             if support:
                 self._wall_instances([wall], level, f'{tile_number}-{wi}', np.asarray(points_sample), np.asarray(support))
-        jobs = [('A', np.array([1., 0.]), 'overview',source)] if 'A' in self.active_branches else []
+        jobs = [('A', np.array([1., 0.]), 'overview',source,centre)] if 'A' in self.active_branches else []
         # B/C still execute on orthogonal sections when J emits no wall query.
         for wall in walls[:max(1,(settings.maximum_section_views-len(jobs))//2)]:
             corners=np.asarray(wall['corners_xy_m']);edges=np.roll(corners,-1,axis=0)-corners
             axis=edges[np.linalg.norm(edges,axis=1).argmax()]
             shape=Polygon(corners).buffer(.20);bounds=shape.bounds
-            section_source=SourceBox(self.cloud,index,[bounds[0],bounds[1],level['bottom_m']],
+            section_source=SourceBox(self.cloud,spatial_index,[bounds[0],bounds[1],level['bottom_m']],
                 [bounds[2],bounds[3],level['top_m']],control,settings.maximum_view_points,shape)
-            jobs.extend((b,axis,'wall',section_source) for b in _branches_for_role(self.active_branches,'BC'))
+            # The section must lie on the detected wall, not on a parallel
+            # plane through the tile centre. This origin also restores boxes.
+            jobs.extend((b,axis,'wall',section_source,corners.mean(axis=0)) for b in _branches_for_role(self.active_branches,'BC'))
         if not walls:
             for axis in (np.array([1.,0.]),np.array([0.,1.])):
-                jobs.extend((b,axis,'orthogonal_fallback',source) for b in _branches_for_role(self.active_branches,'BC'))
-        for sequence, (branch, axis, scope, section_source) in enumerate(jobs[:settings.maximum_section_views]):
+                jobs.extend((b,axis,'orthogonal_fallback',source,centre) for b in _branches_for_role(self.active_branches,'BC'))
+        for sequence, (branch, axis, scope, section_source, section_origin) in enumerate(jobs[:settings.maximum_section_views]):
             identifier = f'section:{tile_number}:{branch}:{sequence}'
-            frame, image = section_image(section_source, identifier, axis, centre, level['bottom_m'], .15 if branch=='B' else 0.)
+            frame, image = section_image(section_source, identifier, axis, section_origin, level['bottom_m'], .15 if branch=='B' else 0.)
             if frame is None:
                 continue
             windows = slab_section_windows(frame, image) if branch=='A' else [(image, frame, {})]

@@ -55,7 +55,7 @@ def fixture_resolution(active="I"):
 FAKE_WORKER = r'''
 import json, pathlib, sys, time
 import numpy as np
-def image(request):
+def image(request,root):
     branch=request['branch']
     if branch in 'DEFGH':
         logits=np.zeros((1,3 if branch in 'DE' else 2,512,512),dtype=np.float32);logits[:,1]=1
@@ -64,6 +64,10 @@ def image(request):
         outputs={'dets':np.zeros((1,300,4),dtype=np.float32),
                  'labels':np.full((1,300,3 if branch=='J' else 2 if branch=='B' else 1),-20.,dtype=np.float32)}
         if branch=='J':outputs['angles']=np.zeros((1,300,1),dtype=np.float32)
+        if (root/'positive-detections').exists():
+            outputs['dets'][0,0]=[.5,.5,.8,.08 if branch=='J' else .5]
+            outputs['labels'][0,0,0]=3.
+            if branch=='B':outputs['labels'][0,0,1]=-3.
     np.savez(request['output'],**outputs)
     return {'schema_version':1,'status':'complete','branch':branch,'output':request['output']}
 def execute(path):
@@ -82,11 +86,11 @@ def execute(path):
         if (root/"malformed").exists(): logits=logits[:,:11]
         np.save(request["output"],logits,allow_pickle=False)
         response={"schema_version":1,"status":"complete","branch":"I","output":request["output"]}
-    elif request['mode']=='image':response=image(request)
+    elif request['mode']=='image':response=image(request,root)
     elif request['mode']=='image_batch':
         if (root/'slow-image').exists():
             (root/'wave-started').touch();time.sleep(30)
-        response={'schema_version':1,'status':'complete','results':[image(j) for j in request['jobs']]}
+        response={'schema_version':1,'status':'complete','results':[image(j,root) for j in request['jobs']]}
     else:
         raise RuntimeError("unsupported fixture request")
     pathlib.Path(request["response"]).write_text(json.dumps(response),encoding="utf-8")

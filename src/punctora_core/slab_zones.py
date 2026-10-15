@@ -381,18 +381,29 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
         elif zone.get("disconnected_boundary_transition"):
             base = upper.elevation-thickness
         components = sorted(_polygons(geometry), key=lambda p: (-p.area, p.bounds))
-        for number, piece in enumerate(components, 1):
+        prepared = []
+        from .profile_geometry import clean_profiles
+        prefix = "top-slab" if index == len(zones)-1 else f"{owner.id}-floor"
+        for number, piece in enumerate(components,1):
             if piece.area < settings.slab_minimum_component_area_m2:
                 continue
             exterior = Polygon(piece.exterior).simplify(1e-9, preserve_topology=True)
-            from .profile_geometry import clean_profile
-            profile, profile_repair = clean_profile(list(exterior.exterior.coords)[:-1])
-            exterior = Polygon(profile)
-            prefix = "top-slab" if index == len(zones)-1 else f"{owner.id}-floor"
-            slab_id = prefix if len(components) == 1 else f"{prefix}-component-{number}"
+            parent_gaps = unary_union([*face_holes[0],*face_holes[1],
+                                      *[Polygon(r) for r in piece.interiors]]).intersection(exterior)
+            parent_holes = [p for p in _polygons(parent_gaps)
+                            if p.area >= settings.slab_minimum_hole_area_m2]
+            profiles, profile_repair = clean_profiles(list(exterior.exterior.coords)[:-1])
+            parent_id = prefix if len(components)==1 else f"{prefix}-component-{number}"
+            for part, profile in enumerate(profiles,1):
+                exterior = Polygon(profile)
+                prepared.append((piece.intersection(exterior),exterior,
+                                 {**profile_repair,'component_index':part},
+                                 f"{parent_id}-profile-{part}" if len(profiles)>1 else parent_id,parent_holes))
+        for piece, exterior, profile_repair, slab_id, parent_holes in prepared:
+            piece_holes = [Polygon(r) for p in _polygons(piece) for r in p.interiors]
             # Preserve gaps seen on just one face as review candidates too.
             gaps = unary_union([*face_holes[0], *face_holes[1],
-                                *[Polygon(r) for r in piece.interiors]]).intersection(exterior)
+                                *piece_holes]).intersection(exterior)
             retained_holes = [p for p in _polygons(gaps)
                               if p.area >= settings.slab_minimum_hole_area_m2]
             exported = exterior
@@ -420,9 +431,9 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
                         "net_polygon_area_m2": exported.area, "supported_area_m2": support,
                         "inferred_area_m2": inferred, "supported_percent": 100*support/exported.area,
                         "inferred_percent": 100*inferred/exported.area,
-                        "unsupported_gaps": [{"classification": "unsupported_gap", "area_m2": Polygon(r).area,
+                        "unsupported_gaps": [{"classification": "unsupported_gap", "area_m2": hole.area,
                                              "decision": "below_hole_threshold_filled_and_counted_inferred"}
-                                            for r in piece.interiors if Polygon(r).area < settings.slab_minimum_hole_area_m2],
+                                            for hole in piece_holes if hole.area < settings.slab_minimum_hole_area_m2],
                         "scope": "horizontal occupancy support; empty interiors are candidate holes, not confirmed stairwells"}
             slabs.append(Slab(slab_id, owner.id, list(exterior.exterior.coords)[:-1], base, thickness,
                               "NOTDEFINED" if index == len(zones)-1 else "FLOOR",
@@ -437,7 +448,9 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
                 band = hole.boundary.buffer(settings.slab_raster_cell_m)
                 face_support = [face.geometry.intersection(band).area/band.area for face in (lower, upper)]
                 matches = [_matching_hole(hole, candidates) for candidates in face_holes]
-                pattern = _fixture_pattern(hole, retained_holes)
+                # Numerical decomposition must not turn a parent's fixture
+                # pattern into smaller groups that incorrectly authorize cuts.
+                pattern = _fixture_pattern(hole, parent_holes)
                 matching = (zone["paired"] and zone["lower"] != zone["upper"]
                             and min(matches) >= .8 and min(face_support) >= .25 and not pattern)
                 classification = ("light_fixture_pattern" if pattern else
