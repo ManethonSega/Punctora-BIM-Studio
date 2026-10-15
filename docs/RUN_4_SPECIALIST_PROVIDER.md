@@ -1,7 +1,9 @@
 # Run 4: PunctoraSpecialistProvider runtime and desktop orchestration
 
-**Current repair: 0.3.0a30.** The user extended Run 4 after the two returned a29
-results. See [the eight-path repair and bounded checkpoint](RUN_4_REPAIR_A30.md).
+**Current repair: 0.3.0a31.** See [the publication/runtime repair, 80% recognition
+RAM policy and bounded checkpoint](RUN_4_REPAIR_A31.md). The user extended Run 4
+after both a29 results; [the eight-path a30 repair](RUN_4_REPAIR_A30.md) remains
+the geometry baseline.
 Provider artifacts remain review-only; a separate original-point validator now
 adds unreviewed model candidates. The historical a28/a29 scope and tests below
 are retained as an audit trail, not the current retest instructions.
@@ -25,13 +27,13 @@ Run 4 connects the supplied A-through-J ONNX model pack to **Detect elements** a
 | I | Twelve-class point labels through the exact 40-input PTv3 graph contract |
 | J | Query-aware oriented wall boxes from the declared BGR plan overlay |
 
-The supplied pack resolves to manifest SHA-256 `8a66e03582328be3c5bbdf74a575fb3245824fb6f799a17f63a0024c648f92f0`. The ten graphs and four companions total 1,119,170,454 bytes. The model assets remain outside the repository.
+The original pack-1 manifest SHA-256 was `8a66e03582328be3c5bbdf74a575fb3245824fb6f799a17f63a0024c648f92f0`. A31 uses provider 4.1 / pack contract 2 to bind the new runtime policy; its manifest and actual runtime plan are recorded in each result. All learned graph/companion hashes are unchanged. The ten graphs and four companions total 1,119,170,454 bytes and remain outside the repository.
 
 ## Runtime and evidence rules
 
-- ONNX Runtime runs in one isolated persistent interpreter per recognition attempt with `CPUExecutionProvider`, sequential execution and two intra-op threads. Reviewed sessions use a RAM-bounded LRU cache, so a dense scan does not reload the same graph for every exact tile. Punctora never downloads a runtime or model.
+- ONNX Runtime uses one isolated persistent interpreter per attempt with `CPUExecutionProvider`. A31 shares the explicit CPU budget across bounded independent image waves, retaining sequential graph execution and deterministic result order. Point inference receives its phase budget. Sessions use a RAM-bounded LRU cache, including reuse after preflight. Punctora never downloads a runtime or model.
 - Missing runtime/assets may enter the declared classical fallback. Changed hashes, malformed graphs, tensors, indices or outputs fail visibly and never fall back.
-- The 70% job memory ceiling, explicit tile/view caps, cancellation, child cleanup, atomic publication and content-addressed cache remain active.
+- Recognition's selectable API RAM ceiling is 70–80%, default 80%, bounded by available RAM and total physical/container RAM; source/worker/descendant RSS is sampled together. Reconstruction sampling retains 70%. Explicit tile/view caps, cancellation, cleanup, atomic publication and content-addressed caches remain active.
 - Canonical points stay float64. Scan IDs, original record IDs and working IDs remain unsigned integers. Model-only views use float32.
 - Branch I validates all 40 inputs, four curve orders, native k3/k5 offset order, tail windows, pool clusters, sentinels, stable source ordering and the fixed 0.06 m grid before inference.
 - Plan views use physical 10.24 m or 20.48 m fields, positive-Y row mapping, 0/30/60-degree views and true mirrors. Foreground consensus is separate from unresolved subtype voting.
