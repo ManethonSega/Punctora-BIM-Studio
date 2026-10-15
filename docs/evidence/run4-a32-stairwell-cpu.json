@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "scope": "original E57, CPU classical reconstruction and IFC export only; no specialist inference or desktop publication",
+  "source": {
+    "filename": "RS 138 Treppenhaus Sued.e57",
+    "sha256": "758bffcc05e5704fd678220786f84c5ba4e38e6f110dfc356f2f40fd3f9745fb",
+    "valid_points": 39068825,
+    "crop": null,
+    "source_hash_unchanged": true
+  },
+  "environment": {
+    "os": "Linux",
+    "host_cpu_limit": 8,
+    "host_memory_limit_gib": 8,
+    "reconstruction_workers": 4,
+    "explicit_memory_ceiling_gib": 3.5,
+    "compute_backend": "CPU"
+  },
+  "timing_seconds": {
+    "classical_reconstruction": 82.22242733500025,
+    "reconstruction_and_ifc_export": 90.42687091400148,
+    "scope": "excludes import, recognition, desktop publication and evidence export; not a designated-computer runtime"
+  },
+  "resource_plan": {
+    "workers": 4,
+    "concurrent_storeys": 4,
+    "workers_per_storey": 1,
+    "memory_bytes": 2706710630,
+    "point_limit": 660818,
+    "chunk_points": 220272,
+    "available_at_start": 4389445632,
+    "baseline_process_rss_bytes": 341901312,
+    "source_cloud_bytes_estimate": 24000000,
+    "available_memory_fraction_limit": 0.7,
+    "temporary_parallel_wave_bytes_estimate": 676675584,
+    "memory_scope": "shared working-set ceiling, not an OS allocation request or guarantee"
+  },
+  "counts": {
+    "storeys": 4,
+    "walls": 30,
+    "slabs": 8,
+    "openings": 16,
+    "stairs": 6,
+    "landings": 7,
+    "slab_openings": 12
+  },
+  "ifc_validation": {
+    "valid": true,
+    "express_findings": [],
+    "geometry_errors": [],
+    "profile_errors": [],
+    "tessellated_products": 90
+  },
+  "old_windows_failure_reproduced": false,
+  "old_profile_failure_count_in_replay": 0,
+  "qualification": "Original source CPU replay passed. No external visual acceptance or full specialist-runtime qualification. Exact failing Windows contour absent from returned archive."
+}

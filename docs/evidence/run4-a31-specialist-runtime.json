@@ -1,0 +1,527 @@
+{
+  "scope": "supplied D/E/I weights, generated fixed inputs; in-process worker helper timing; not real-scan quality or full desktop runtime",
+  "onnxruntime": "1.23.2",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "cpu_budget": 7,
+  "runtime_plan": {
+    "version": "bounded-cpu-v2",
+    "cpu_budget": 7,
+    "image_workers": 2,
+    "image_intra_op_threads": 3,
+    "point_intra_op_threads": 7,
+    "normal_workers": 7,
+    "inter_op_threads": 1,
+    "execution_mode": "sequential",
+    "allow_spinning": false,
+    "admission_scope": "estimated graph/activation bytes plus sampled combined RSS"
+  },
+  "model_pack_sha256": "3fca2fc4088822aa1f7f22c972755112238b50e04cb009fb8cceace5f451eefe",
+  "weights": {
+    "D": {
+      "status": "available",
+      "graph_sha256": "c8fb784866896b91bf22d9ca7cb440651bb32add4f7ae254cd7d250ff67fad14",
+      "companion_sha256": "4758d242e870f7f6196094a5d4bc2df4ed1a533da8d5a83988dc15d61f3a5746",
+      "graph_bytes": 49604,
+      "companion_bytes": 97675200
+    },
+    "E": {
+      "status": "available",
+      "graph_sha256": "5e24a06ba2450a2548561465585d99916e1225fd33d0f8c81c735bb862719fc5",
+      "companion_sha256": null,
+      "graph_bytes": 97720380,
+      "companion_bytes": 0
+    },
+    "I": {
+      "status": "available",
+      "graph_sha256": "775ca536bfd691979c6a45fae388f161b3f80ba332c6bb308257b937fd08f680",
+      "companion_sha256": null,
+      "graph_bytes": 185122504,
+      "companion_bytes": 0
+    }
+  },
+  "images": [
+    {
+      "configuration": "legacy",
+      "trial": -1,
+      "cold": true,
+      "wall_seconds": 1.151430559999426,
+      "cpu_seconds": 2.009310133,
+      "component_timings": [
+        {
+          "session_load_seconds": 0.19893925200449303,
+          "input_seconds": 0.0005418439977802336,
+          "inference_seconds": 0.3830909349999274,
+          "output_seconds": 0.002089207999233622
+        },
+        {
+          "session_load_seconds": 0.19654682899999898,
+          "input_seconds": 0.0009033970054588281,
+          "inference_seconds": 0.3672919099990395,
+          "output_seconds": 0.00198046399600571
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": -1,
+      "cold": true,
+      "wall_seconds": 0.7502422489997116,
+      "cpu_seconds": 2.3900140590000003,
+      "component_timings": [
+        {
+          "session_load_seconds": 0.15260128799127415,
+          "input_seconds": 0.0012012139995931648,
+          "inference_seconds": 0.39169202400080394,
+          "output_seconds": 0.00504850300058024
+        },
+        {
+          "session_load_seconds": 0.19143949300632812,
+          "input_seconds": 0.000808354998298455,
+          "inference_seconds": 0.3994235659993137,
+          "output_seconds": 0.004332297001383267
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": 0,
+      "cold": false,
+      "wall_seconds": 0.3993905680035823,
+      "cpu_seconds": 1.9266649180000002,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.971400580368936e-05,
+          "input_seconds": 0.0007645779987797141,
+          "inference_seconds": 0.3953573399994639,
+          "output_seconds": 0.002476720001141075
+        },
+        {
+          "session_load_seconds": 2.4286993721034378e-05,
+          "input_seconds": 0.00045084700104780495,
+          "inference_seconds": 0.3240427600030671,
+          "output_seconds": 0.0033771929956856184
+        }
+      ]
+    },
+    {
+      "configuration": "legacy",
+      "trial": 0,
+      "cold": false,
+      "wall_seconds": 0.7065951510012383,
+      "cpu_seconds": 1.443612991000001,
+      "component_timings": [
+        {
+          "session_load_seconds": 0.00010164199920836836,
+          "input_seconds": 0.0009151449994533323,
+          "inference_seconds": 0.3366432699986035,
+          "output_seconds": 0.00206128600257216
+        },
+        {
+          "session_load_seconds": 7.930900028441101e-05,
+          "input_seconds": 0.00038328600203385577,
+          "inference_seconds": 0.3642594900011318,
+          "output_seconds": 0.0021034199962741695
+        }
+      ]
+    },
+    {
+      "configuration": "legacy",
+      "trial": 1,
+      "cold": false,
+      "wall_seconds": 0.7681599220013595,
+      "cpu_seconds": 1.600528732999999,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.129199755378067e-05,
+          "input_seconds": 0.0004218440008116886,
+          "inference_seconds": 0.42249294700013706,
+          "output_seconds": 0.0029197350013419054
+        },
+        {
+          "session_load_seconds": 0.00010294499952578917,
+          "input_seconds": 0.00045528399641625583,
+          "inference_seconds": 0.3390528500021901,
+          "output_seconds": 0.0025926539965439588
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": 1,
+      "cold": false,
+      "wall_seconds": 0.38742994299536804,
+      "cpu_seconds": 1.9058718740000007,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.325499998638406e-05,
+          "input_seconds": 0.0007493209996027872,
+          "inference_seconds": 0.34011409799859393,
+          "output_seconds": 0.002064190004603006
+        },
+        {
+          "session_load_seconds": 2.1792999177705497e-05,
+          "input_seconds": 0.0005005069979233667,
+          "inference_seconds": 0.38370086600480136,
+          "output_seconds": 0.001926252996781841
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": 2,
+      "cold": false,
+      "wall_seconds": 0.39627621399995405,
+      "cpu_seconds": 2.081858251,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.845199095550925e-05,
+          "input_seconds": 0.0012813249995815568,
+          "inference_seconds": 0.38413590500567807,
+          "output_seconds": 0.0021657519973814487
+        },
+        {
+          "session_load_seconds": 2.2845008061267436e-05,
+          "input_seconds": 0.0005083729993202724,
+          "inference_seconds": 0.3915738709983998,
+          "output_seconds": 0.0019574210018618032
+        }
+      ]
+    },
+    {
+      "configuration": "legacy",
+      "trial": 2,
+      "cold": false,
+      "wall_seconds": 0.7784586900015711,
+      "cpu_seconds": 1.581391082999998,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.324500282062218e-05,
+          "input_seconds": 0.00043056700087618083,
+          "inference_seconds": 0.34886586899665417,
+          "output_seconds": 0.002464521996444091
+        },
+        {
+          "session_load_seconds": 8.424699626630172e-05,
+          "input_seconds": 0.000383846003387589,
+          "inference_seconds": 0.42328449599881424,
+          "output_seconds": 0.0028246529982425272
+        }
+      ]
+    },
+    {
+      "configuration": "legacy",
+      "trial": 3,
+      "cold": false,
+      "wall_seconds": 0.9056721039960394,
+      "cpu_seconds": 1.8818705260000002,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.511800165753812e-05,
+          "input_seconds": 0.00043541400373214856,
+          "inference_seconds": 0.44977353899594164,
+          "output_seconds": 0.002194597000197973
+        },
+        {
+          "session_load_seconds": 8.687100489623845e-05,
+          "input_seconds": 0.0004447679966688156,
+          "inference_seconds": 0.4496506089999457,
+          "output_seconds": 0.00296142900333507
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": 3,
+      "cold": false,
+      "wall_seconds": 0.4216950780028128,
+      "cpu_seconds": 2.228357312,
+      "component_timings": [
+        {
+          "session_load_seconds": 7.547399582108483e-05,
+          "input_seconds": 0.0009304179984610528,
+          "inference_seconds": 0.4177018189948285,
+          "output_seconds": 0.002232273000117857
+        },
+        {
+          "session_load_seconds": 2.8553004085551947e-05,
+          "input_seconds": 0.0004785490018548444,
+          "inference_seconds": 0.41296869899815647,
+          "output_seconds": 0.002474316999723669
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": 4,
+      "cold": false,
+      "wall_seconds": 0.3792302110014134,
+      "cpu_seconds": 2.051787898999997,
+      "component_timings": [
+        {
+          "session_load_seconds": 0.0002240269968751818,
+          "input_seconds": 0.0013151450039003976,
+          "inference_seconds": 0.36963356899650535,
+          "output_seconds": 0.0029204980019130744
+        },
+        {
+          "session_load_seconds": 2.6400004571769387e-05,
+          "input_seconds": 0.0008463709964416921,
+          "inference_seconds": 0.3743956830003299,
+          "output_seconds": 0.0026625099999364465
+        }
+      ]
+    },
+    {
+      "configuration": "legacy",
+      "trial": 4,
+      "cold": false,
+      "wall_seconds": 0.8902767960025812,
+      "cpu_seconds": 1.8117663480000026,
+      "component_timings": [
+        {
+          "session_load_seconds": 0.00021446200116770342,
+          "input_seconds": 0.0006234269967535511,
+          "inference_seconds": 0.4706591580034001,
+          "output_seconds": 0.0037995879974914715
+        },
+        {
+          "session_load_seconds": 9.18180012376979e-05,
+          "input_seconds": 0.0005147639967617579,
+          "inference_seconds": 0.41126749200338963,
+          "output_seconds": 0.0029137879973859526
+        }
+      ]
+    }
+  ],
+  "points": [
+    {
+      "configuration": "legacy",
+      "trial": -1,
+      "cold": true,
+      "wall_seconds": 1.0877779759975965,
+      "cpu_seconds": 1.8485024370000005,
+      "component_timings": [
+        {
+          "session_load_seconds": 0.3585064440048882,
+          "input_seconds": 0.00325756299571367,
+          "inference_seconds": 0.7254673480056226,
+          "output_seconds": 0.0005002109974157065
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": -1,
+      "cold": true,
+      "wall_seconds": 0.8199365160035086,
+      "cpu_seconds": 2.3029063819999998,
+      "component_timings": [
+        {
+          "session_load_seconds": 0.43804724399524275,
+          "input_seconds": 0.004694219998782501,
+          "inference_seconds": 0.3765399680050905,
+          "output_seconds": 0.0006036869963281788
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": 0,
+      "cold": false,
+      "wall_seconds": 0.3452967940029339,
+      "cpu_seconds": 1.7095716249999988,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.383599975379184e-05,
+          "input_seconds": 0.0029568220052169636,
+          "inference_seconds": 0.3417195799993351,
+          "output_seconds": 0.0005119089983054437
+        }
+      ]
+    },
+    {
+      "configuration": "legacy",
+      "trial": 0,
+      "cold": false,
+      "wall_seconds": 0.6919765600032406,
+      "cpu_seconds": 1.375344829000003,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.124200444901362e-05,
+          "input_seconds": 0.003814899995632004,
+          "inference_seconds": 0.6873343270053738,
+          "output_seconds": 0.0006901469969307072
+        }
+      ]
+    },
+    {
+      "configuration": "legacy",
+      "trial": 1,
+      "cold": false,
+      "wall_seconds": 0.7201781760013546,
+      "cpu_seconds": 1.4396119550000002,
+      "component_timings": [
+        {
+          "session_load_seconds": 0.00013201799447415397,
+          "input_seconds": 0.005056034999142867,
+          "inference_seconds": 0.7142554290039698,
+          "output_seconds": 0.0006866019975859672
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": 1,
+      "cold": false,
+      "wall_seconds": 0.36183568100386765,
+      "cpu_seconds": 1.7524004380000022,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.607899558730423e-05,
+          "input_seconds": 0.003422411005885806,
+          "inference_seconds": 0.35766948399395915,
+          "output_seconds": 0.0005772470030933619
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": 2,
+      "cold": false,
+      "wall_seconds": 0.35872667099465616,
+      "cpu_seconds": 1.6683858270000016,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.386599852703512e-05,
+          "input_seconds": 0.003128850003122352,
+          "inference_seconds": 0.354989867999393,
+          "output_seconds": 0.0004987889988115057
+        }
+      ]
+    },
+    {
+      "configuration": "legacy",
+      "trial": 2,
+      "cold": false,
+      "wall_seconds": 0.6896051520016044,
+      "cpu_seconds": 1.3745855300000045,
+      "component_timings": [
+        {
+          "session_load_seconds": 5.7737001043278724e-05,
+          "input_seconds": 0.002750191000814084,
+          "inference_seconds": 0.6862370129965711,
+          "output_seconds": 0.0005145129980519414
+        }
+      ]
+    },
+    {
+      "configuration": "legacy",
+      "trial": 3,
+      "cold": false,
+      "wall_seconds": 0.7047678579983767,
+      "cpu_seconds": 1.4082475680000002,
+      "component_timings": [
+        {
+          "session_load_seconds": 5.6835000577848405e-05,
+          "input_seconds": 0.002737010996497702,
+          "inference_seconds": 0.7014215620001778,
+          "output_seconds": 0.0005093860017950647
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": 3,
+      "cold": false,
+      "wall_seconds": 0.3445438619964989,
+      "cpu_seconds": 1.639764632000002,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.506699719466269e-05,
+          "input_seconds": 0.0034208290016977116,
+          "inference_seconds": 0.3403001580009004,
+          "output_seconds": 0.0006602020002901554
+        }
+      ]
+    },
+    {
+      "configuration": "bounded",
+      "trial": 4,
+      "cold": false,
+      "wall_seconds": 0.3683375530017656,
+      "cpu_seconds": 1.6628331670000023,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.497800495708361e-05,
+          "input_seconds": 0.0032681089942343533,
+          "inference_seconds": 0.3644521060050465,
+          "output_seconds": 0.0005085039956611581
+        }
+      ]
+    },
+    {
+      "configuration": "legacy",
+      "trial": 4,
+      "cold": false,
+      "wall_seconds": 0.7404740589990979,
+      "cpu_seconds": 1.4727469469999974,
+      "component_timings": [
+        {
+          "session_load_seconds": 6.131199916126207e-05,
+          "input_seconds": 0.003342199997860007,
+          "inference_seconds": 0.7363995690029697,
+          "output_seconds": 0.00059169800078962
+        }
+      ]
+    }
+  ],
+  "parity": {
+    "D": {
+      "max_absolute_logit_difference": 0.0,
+      "label_disagreements": 0,
+      "decisions": 262144
+    },
+    "E": {
+      "max_absolute_logit_difference": 0.0,
+      "label_disagreements": 0,
+      "decisions": 262144
+    },
+    "I": {
+      "max_absolute_logit_difference": 9.5367431640625e-06,
+      "label_disagreements": 0,
+      "decisions": 8192
+    }
+  },
+  "summary": {
+    "images": {
+      "median_warm_wall_seconds": {
+        "legacy": 0.7784586900015711,
+        "bounded": 0.39627621399995405
+      },
+      "speedup": 1.964434559783246
+    },
+    "points": {
+      "median_warm_wall_seconds": {
+        "legacy": 0.7047678579983767,
+        "bounded": 0.35872667099465616
+      },
+      "speedup": 1.96463746630335
+    }
+  },
+  "cell_reads": {
+    "legacy": {
+      "seconds": 0.4882554989962955,
+      "blocks": 12000,
+      "source_row_sha256": "9b500e2e4bfc3659e9fdd02b328062b323c482479803b06c2c07e47f19106d13",
+      "point_sha256": "23b134d5a9ec943729fe03fec0af0ef2777389bf12b11cdc454ee7eb8db9d6a2"
+    },
+    "coalesced": {
+      "seconds": 0.02164236200042069,
+      "blocks": 2,
+      "source_row_sha256": "9b500e2e4bfc3659e9fdd02b328062b323c482479803b06c2c07e47f19106d13",
+      "point_sha256": "23b134d5a9ec943729fe03fec0af0ef2777389bf12b11cdc454ee7eb8db9d6a2"
+    },
+    "exact_parity": true,
+    "scope": "96,000 generated points in 12,000 cells; exact row/value digests; excludes E57 and inference"
+  }
+}

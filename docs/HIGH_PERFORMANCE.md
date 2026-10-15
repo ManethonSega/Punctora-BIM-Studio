@@ -2,6 +2,12 @@
 
 The reconstruction worker now uses an adaptive, evidence-preserving pipeline.
 
+The a31 specialist runtime has a separate **70–80%** recognition RAM policy,
+defaulting to **80%**, bounded by both currently available RAM and total physical
+RAM across the source process and worker. It shares a CPU budget across bounded
+image waves and point inference. See [the a31 repair and measurements](RUN_4_REPAIR_A31.md).
+The reconstruction sampling policy below remains 70%.
+
 Run 1 adds one lossless complete-cloud XYZ cell index, reused by wall fitting,
 openings and evidence export, with bounded sorting runs, mapped spill and
 measured point visits distinct from unique source rows. See [Run 1 verification](RUN_1_SCALE.md).

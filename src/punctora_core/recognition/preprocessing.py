@@ -16,20 +16,21 @@ PREPROCESSING = {"version": "punctora-ptv3-original-normal-v1", "grid_m": .06,
                  "feature_channels": ["normal_x", "normal_y", "normal_z"]}
 
 
-def original_normals(context, selected, radius=.3, max_nn=30, check=lambda: None):
+def original_normals(context, selected, radius=.3, max_nn=30, check=lambda: None, query_points=None, workers=1):
     context = np.asarray(context, dtype=np.float64)
     tree = cKDTree(context)
-    normals = np.zeros((len(selected), 3), dtype=np.float64)
-    valid = np.zeros(len(selected), dtype=bool)
+    queries = context[selected] if query_points is None else np.asarray(query_points, dtype=np.float64)
+    normals = np.zeros((len(queries), 3), dtype=np.float64)
+    valid = np.zeros(len(queries), dtype=bool)
     neighbours = min(max_nn, len(context))
-    for begin in range(0, len(selected), 4096):
+    for begin in range(0, len(queries), 4096):
         check()
-        rows = selected[begin:begin + 4096]
-        distance, indices = tree.query(context[rows], k=neighbours, distance_upper_bound=radius, workers=1)
+        query = queries[begin:begin + 4096]
+        distance, indices = tree.query(query, k=neighbours, distance_upper_bound=radius, workers=workers)
         if neighbours == 1:
             distance, indices = distance[:, None], indices[:, None]
         keep = np.isfinite(distance)
-        values = context[np.minimum(indices, len(context) - 1)] - context[rows, None, :]
+        values = context[np.minimum(indices, len(context) - 1)] - query[:, None, :]
         values *= keep[..., None]
         count = keep.sum(axis=1)
         mean = values.sum(axis=1) / np.maximum(count, 1)[:, None]
@@ -40,8 +41,8 @@ def original_normals(context, selected, radius=.3, max_nn=30, check=lambda: None
         major = np.abs(normal).argmax(axis=1)
         sign = np.where(normal[np.arange(len(normal)), major] < 0, -1., 1.)
         supported = (count >= 3) & (eigenvalues[:, 1] > 1e-12)
-        normals[begin:begin + len(rows)] = normal * sign[:, None] * supported[:, None]
-        valid[begin:begin + len(rows)] = supported
+        normals[begin:begin + len(query)] = normal * sign[:, None] * supported[:, None]
+        valid[begin:begin + len(query)] = supported
     return normals, valid
 
 

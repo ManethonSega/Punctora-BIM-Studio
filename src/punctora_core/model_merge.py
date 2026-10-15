@@ -7,7 +7,7 @@ from shapely.geometry import Polygon,box
 from .model import BuildingModel
 from .opening_bounds import fit_generated_opening,proposal_record
 
-COLLECTIONS=('storeys','walls','slabs','spaces','openings','stairs','landings','slab_openings')
+COLLECTIONS=('storeys','walls','slabs','spaces','openings','stairs','landings','slab_openings','facade_panels')
 
 
 def alignment_for(target,source,matrix=None,confirm_shared_frame=False):
@@ -45,7 +45,7 @@ def transform_model(model,matrix):
     def xy(p):return (matrix[:2,:2]@np.asarray(p)+matrix[:2,3]).tolist()
     for s in result.storeys:
         s.elevation+=dz;s.ceiling+=dz;s.footprint=[xy(p) for p in s.footprint]
-    for w in result.walls:
+    for w in result.walls+result.facade_panels:
         w.start,w.end=xy(w.start),xy(w.end);w.base+=dz
         for f in w.observed_faces:
             f['start'],f['end']=xy(f['start']),xy(f['end'])
@@ -138,6 +138,11 @@ def merge_models(existing,incoming,namespace='added',alignment_matrix=None,confi
         if duplicate:
             host_map[wall.id]=duplicate.id;corroborate(duplicate,wall);removed_walls+=1
         else:result.walls.append(wall);host_map[wall.id]=wall.id
+    for panel in source.facade_panels:
+        duplicate=next((p for p in result.facade_panels if _same_wall_plane(p,panel)
+            and _wall_shape(p,p).buffer(.001).covers(_wall_shape(panel,p))),None)
+        if duplicate:corroborate(duplicate,panel)
+        else:result.facade_panels.append(panel)
     slab_map={};removed_slabs=0
     for slab in source.slabs:
         duplicate=next((s for s in result.slabs if abs(s.base-slab.base)<.001

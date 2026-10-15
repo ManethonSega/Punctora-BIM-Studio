@@ -85,7 +85,7 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
         properties.update({f"{key}_provenance": value for key, value in states.items()})
         properties.update(extra or {})
         source_object=next((obj for collection in (model.walls,model.slabs,model.openings,
-            model.stairs,model.landings,model.slab_openings) for obj in collection if obj.id==identifier),None)
+            model.stairs,model.landings,model.slab_openings,model.facade_panels) for obj in collection if obj.id==identifier),None)
         if source_object is not None:
             evidence=source_object.evidence
             if evidence.get('source_context') or evidence.get('additional_sources'):
@@ -200,6 +200,18 @@ def create_ifc(model: BuildingModel) -> ifcopenshell.file:
     def glazing_display(product):
         file.create_entity('IfcStyledItem',Item=product.Representation.Representations[0].Items[0],
                            Styles=[glazing_style],Name='Inferred glazing appearance; composition unverified')
+    for panel in model.facade_panels:
+        if panel.review_state=='rejected':
+            continue
+        entity=root('IfcWindow',panel.id,predefined='WINDOW')
+        api('spatial.assign_container',products=[entity],relating_structure=storeys[panel.storey_id])
+        frame,length=wall_frame(panel)
+        entity.OverallWidth=length;entity.OverallHeight=panel.height
+        solid(entity,rectangle(length,panel.thickness),panel.height,frame)
+        glazing_display(entity)
+        provenance(entity,panel.id,panel.provenance,{'ReviewState':panel.review_state,
+            'RepresentationScope':'Original-point frame/window plane; no invented opaque host or wall cut',
+            'GeometricEvidence':json.dumps(panel.evidence,sort_keys=True)})
     curtain_panels = set()
     for identifier, openings in sorted(supported_facade_groups(model).items()):
         evidence = openings[0].evidence['facade_system']

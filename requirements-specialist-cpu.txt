@@ -1,0 +1,5 @@
+# Explicit, CPU-only isolated environment for PunctoraSpecialistProvider.
+# The host uses requirements-core.txt. Model files remain external and are
+# never downloaded by Punctora.
+numpy==2.3.5
+onnxruntime==1.23.2

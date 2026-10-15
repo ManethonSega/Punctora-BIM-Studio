@@ -8,7 +8,7 @@ from ..annotation_io import (CLASSES, content_digest, file_digest, read_json, re
                              validate_annotations, validate_identity)
 from ..cloud_io import CloudData
 from ..quality_benchmark import write_report
-from .contracts import TAXONOMY, load_proposal_set, safe_artifact_path
+from .contracts import TAXONOMY, load_proposal_set, safe_artifact_path, open_proposal_array
 
 
 @contextmanager
@@ -75,7 +75,7 @@ def export_semantic_samples(proposal_directory, sample_keys, output=None):
     arrays = {}
     try:
         for name in ("scan_ids", "record_ids", "labels", "selected"):
-            arrays[name] = np.load(safe_artifact_path(directory, manifest["arrays"][name]["path"]), mmap_mode="r", allow_pickle=False)
+            arrays[name] = open_proposal_array(directory, manifest['arrays'][name])
         for begin in range(0, manifest["source_point_count"], 65536):
             for offset, (scan, record) in enumerate(zip(arrays["scan_ids"][begin:begin + 65536], arrays["record_ids"][begin:begin + 65536])):
                 pair = (int(scan), int(record))

@@ -996,7 +996,7 @@ def reconstruct(cloud: CloudData, settings: ReconstructionSettings | None = None
                                 "source_working_row_examples": surface.indices[:12].astype(int).tolist()})
                 if settings.detect_stairs_enabled:
                     model.stairs = detect_stairs(cloud, sorted_levels, settings, backend,
-                                                stair_statistics, model.landings, floor_surfaces)
+                                                stair_statistics, model.landings, floor_surfaces, walls=model.walls)
                 from shapely.geometry import Polygon
                 for landing in model.landings:
                     polygon = Polygon(landing.footprint)

@@ -23,6 +23,10 @@
       "sha256": "6c304df9caa7a6a5710b91709dd4786bf20a74d57672b3c31f7033cc638174ca"
     },
     {
+      "file": "pillow-12.0.0-cp312-cp312-win_amd64.whl",
+      "sha256": "9fe611163f6303d1619bbcb653540a4d60f9e55e622d60a3108be0d5b441017a"
+    },
+    {
       "file": "pye57-0.4.19-cp312-cp312-win_amd64.whl",
       "sha256": "ec415dac94f66832d8f8709ef33eb43b1a5a002ac63c02af5458229c8d29e3a2"
     },

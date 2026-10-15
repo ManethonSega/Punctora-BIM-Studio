@@ -343,6 +343,15 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
         geometry, seam_area = consolidate_scan_fragments(geometry, settings.slab_close_gap_m)
         face_holes = [_face_holes(lower), _face_holes(upper)]
         owner = storeys[min(index, len(storeys)-1)]
+        room_addition, room_report = Polygon(), []
+        if index == len(zones)-1 and index:
+            from .ceiling_completion import complete_ceiling_rooms
+            real_voids = [a for a in face_holes[0] if zone['paired'] and zone['lower'] != zone['upper']
+                          and _matching_hole(a,face_holes[1]) >= .8
+                          and not _fixture_pattern(a,face_holes[0])]
+            floor = surfaces[zones[index-1]['upper']].geometry
+            geometry, room_addition, room_report = complete_ceiling_rooms(
+                geometry,raw,floor,walls,owner,upper.elevation,unary_union(real_voids))
         from .slab_corners import complete_wall_corners
         geometry,corner_addition,corner_report=complete_wall_corners(
             geometry,walls,upper.elevation,settings,owner.id)
@@ -372,29 +381,61 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
         elif zone.get("disconnected_boundary_transition"):
             base = upper.elevation-thickness
         components = sorted(_polygons(geometry), key=lambda p: (-p.area, p.bounds))
-        for number, piece in enumerate(components, 1):
+        prepared = []
+        from .profile_geometry import clean_profiles, ProfileGeometryError
+        prefix = "top-slab" if index == len(zones)-1 else f"{owner.id}-floor"
+        for number, piece in enumerate(components,1):
             if piece.area < settings.slab_minimum_component_area_m2:
                 continue
             exterior = Polygon(piece.exterior).simplify(1e-9, preserve_topology=True)
-            from .profile_geometry import clean_profile
-            profile, profile_repair = clean_profile(list(exterior.exterior.coords)[:-1])
-            exterior = Polygon(profile)
-            prefix = "top-slab" if index == len(zones)-1 else f"{owner.id}-floor"
-            slab_id = prefix if len(components) == 1 else f"{prefix}-component-{number}"
+            parent_gaps = unary_union([*face_holes[0],*face_holes[1],
+                                      *[Polygon(r) for r in piece.interiors]]).intersection(exterior)
+            parent_holes = [p for p in _polygons(parent_gaps)
+                            if p.area >= settings.slab_minimum_hole_area_m2]
+            parent_id = prefix if len(components)==1 else f"{prefix}-component-{number}"
+            parent_records = []
+            for hole_index,hole in enumerate(parent_holes,1):
+                band = hole.boundary.buffer(settings.slab_raster_cell_m)
+                face_support = [face.geometry.intersection(band).area/band.area for face in (lower,upper)]
+                matches = [_matching_hole(hole,candidates) for candidates in face_holes]
+                pattern = _fixture_pattern(hole,parent_holes)
+                matching = (zone['paired'] and zone['lower']!=zone['upper']
+                            and min(matches)>=.8 and min(face_support)>=.25 and not pattern)
+                parent_records.append((hole,{'parent_hole_id':f'{parent_id}-parent-hole-{hole_index}',
+                    'parent_hole_area_m2':hole.area,'evidence_scope':'whole parent hole before profile partition',
+                    'classification':'light_fixture_pattern' if pattern else 'observed_hole' if matching else 'partially_observed_hole',
+                    'face_boundary_support_fractions':face_support,'face_hole_overlap_fractions':matches,
+                    'validation_state':'validated' if matching else 'review_required',
+                    'validation_basis':'matching_faces' if matching else None}))
+            try:
+                profiles, profile_repair = clean_profiles(list(exterior.exterior.coords)[:-1])
+            except ProfileGeometryError as exc:
+                exc.diagnostics.update(zone_index=index,component_number=number,slab_base_m=base,
+                    slab_thickness_m=thickness,storey_id=owner.id)
+                raise
+            for part, profile in enumerate(profiles,1):
+                exterior = Polygon(profile)
+                prepared.append((piece.intersection(exterior),exterior,
+                                 {**profile_repair,'component_index':part},
+                                 f"{parent_id}-profile-{part}" if len(profiles)>1 else parent_id,parent_records))
+        for piece, exterior, profile_repair, slab_id, parent_records in prepared:
+            piece_holes = [Polygon(r) for p in _polygons(piece) for r in p.interiors]
             # Preserve gaps seen on just one face as review candidates too.
-            gaps = unary_union([*face_holes[0], *face_holes[1],
-                                *[Polygon(r) for r in piece.interiors]]).intersection(exterior)
-            retained_holes = [p for p in _polygons(gaps)
-                              if p.area >= settings.slab_minimum_hole_area_m2]
+            # Eligibility and evidence belong to the complete source hole.
+            # Keep every positive fragment, even below the parent-area cutoff.
+            retained_holes = [(fragment,parent_evidence) for hole,parent_evidence in parent_records
+                              for fragment in _polygons(hole.intersection(exterior)) if fragment.area>0]
             exported = exterior
             support = exported.intersection(raw).area
             inferred = max(0., exported.area-support)
             justified=(geometry.intersection(raw.buffer(settings.slab_close_gap_m/2))
-                       .difference(raw).union(addition).union(corner_addition))
+                       .difference(raw).union(addition).union(corner_addition).union(room_addition))
             coverage=coverage_evidence(exported,raw,justified)
             evidence = {"method": "separate_face_occupancy_union", "zone_index": index,
                         "profile_repair": profile_repair, **coverage,
                         "wall_corner_completion":corner_report,
+                        "room_completion":room_report,
+                        "room_completion_area_m2":float(exterior.intersection(room_addition).area),
                         "wall_corner_inferred_area_m2":float(exterior.intersection(corner_addition).area),
                         "lower_surface_m": lower.elevation, "upper_surface_m": upper.elevation,
                         "paired_faces": zone["paired"], "raster_cell_m": settings.slab_raster_cell_m,
@@ -409,9 +450,9 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
                         "net_polygon_area_m2": exported.area, "supported_area_m2": support,
                         "inferred_area_m2": inferred, "supported_percent": 100*support/exported.area,
                         "inferred_percent": 100*inferred/exported.area,
-                        "unsupported_gaps": [{"classification": "unsupported_gap", "area_m2": Polygon(r).area,
+                        "unsupported_gaps": [{"classification": "unsupported_gap", "area_m2": hole.area,
                                              "decision": "below_hole_threshold_filled_and_counted_inferred"}
-                                            for r in piece.interiors if Polygon(r).area < settings.slab_minimum_hole_area_m2],
+                                            for hole in piece_holes if hole.area < settings.slab_minimum_hole_area_m2],
                         "scope": "horizontal occupancy support; empty interiors are candidate holes, not confirmed stairwells"}
             slabs.append(Slab(slab_id, owner.id, list(exterior.exterior.coords)[:-1], base, thickness,
                               "NOTDEFINED" if index == len(zones)-1 else "FLOOR",
@@ -419,26 +460,15 @@ def slab_zone_geometry(zones, surfaces, storeys, settings, walls=()):
                                "footprint": "inferred", "material": "unknown"},
                               review_state='flagged' if coverage['coverage_review_required'] else 'unreviewed',
                               confidence=zone["confidence"], evidence=evidence))
-            for hole_index, hole in enumerate(retained_holes, 1):
+            for hole_index, (hole,parent_evidence) in enumerate(retained_holes, 1):
                 # Independent face holes, not perimeter support alone, validate a cut.
                 from .features import _opening_frame
                 start, end, width = _opening_frame(hole)
-                band = hole.boundary.buffer(settings.slab_raster_cell_m)
-                face_support = [face.geometry.intersection(band).area/band.area for face in (lower, upper)]
-                matches = [_matching_hole(hole, candidates) for candidates in face_holes]
-                pattern = _fixture_pattern(hole, retained_holes)
-                matching = (zone["paired"] and zone["lower"] != zone["upper"]
-                            and min(matches) >= .8 and min(face_support) >= .25 and not pattern)
-                classification = ("light_fixture_pattern" if pattern else
-                                  "observed_hole" if matching else "partially_observed_hole")
                 openings.append(SlabOpening(f"{slab_id}-observed-hole-{hole_index}", slab_id,
                     start, end, width, provenance={"footprint": "inferred", "host_slab_id": "measured"},
                     confidence=zone["confidence"], footprint=list(hole.exterior.coords)[:-1],
                     evidence={"method": "enclosed_horizontal_occupancy_gap", "area_m2": hole.area,
-                              "classification": classification, "face_boundary_support_fractions": face_support,
-                              "face_hole_overlap_fractions": matches,
-                              "validation_state": "validated" if matching else "review_required",
-                              "validation_basis": "matching_faces" if matching else None,
+                              **parent_evidence,
                               "ifc_policy": "cut_only_after_independent_validation_or_explicit_user_approval",
                               "stairwell_state": "pending_stair_system_validation",
                               "scope": "enclosed unsampled region; matching independent faces can validate a cut; single-face and fixture patterns remain filled"}))

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "punctora-core"
-version = "0.3.0a27"
+version = "0.3.0a33"
 description = "Punctora BIM Studio experimental E57 reconstruction and IFC core"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -14,6 +14,7 @@ dependencies = [
   "numpy==2.3.5",
   "scipy==1.17.0",
   "opencv-python-headless==4.11.0.86",
+  "pillow==12.0.0",
   "shapely==2.1.2",
   "ifcopenshell==0.8.3",
   "pye57==0.4.19",
@@ -28,6 +29,7 @@ dependencies = [
 [project.optional-dependencies]
 test = ["pytest==8.4.2"]
 gpu = ["pyopencl==2026.1.4"]
+specialist = ["onnxruntime==1.23.2"]
 
 [project.scripts]
 punctora-core = "punctora_core.cli:main"

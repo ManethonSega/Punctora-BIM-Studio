@@ -322,6 +322,13 @@ def write_wall_evidence(cloud, walls, directory, chunk_points=100_000, surface_p
 def write_model_evidence(cloud, model, directory, chunk_points=100_000):
     """Reuse reconstruction's index and report export as part of the same job."""
     index = getattr(model,"_spatial_index",None)
+    if index is None and model.walls:
+        from .spatial_index import SpatialPointIndex
+        from .sampling import available_memory_bytes
+        budget=max(1024**2,int(available_memory_bytes()*.20))
+        index=SpatialPointIndex.build(cloud,.2,budget,min(chunk_points,65536),
+                                      scratch_directory=Path(directory).parent.parent)
+        model._spatial_index=index
     profiler = getattr(model,"_performance_profiler",None)
     try:
         if profiler is None:
