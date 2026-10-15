@@ -1,5 +1,8 @@
 # Run 4 repair: 0.3.0a32
 
+Historical record: the returned A32 stairwell test still failed. See the
+[A33 amendment](RUN_4_REPAIR_A33.md) for the current repair and its limits.
+
 A31 introduced an index-shadowing regression on the positive wall-query path.
 This amendment repairs that crash, an independently reproduced section-alignment
 defect and the subsequently reported stairwell slab-profile failure. It retains

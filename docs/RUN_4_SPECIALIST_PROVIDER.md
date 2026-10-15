@@ -1,7 +1,8 @@
 # Run 4: PunctoraSpecialistProvider runtime and desktop orchestration
 
-**Current repair: 0.3.0a32.** See [the positive-wall crash, slab-profile and section-alignment
-repair](RUN_4_REPAIR_A32.md), retaining [the CPU/runtime and 80% recognition RAM
+**Current repair: 0.3.0a33.** See [the remaining stairwell profiles and diagnostic
+repair](RUN_4_REPAIR_A33.md), retaining [the positive-wall and section-alignment
+repair](RUN_4_REPAIR_A32.md) and [the CPU/runtime and 80% recognition RAM
 policy](RUN_4_REPAIR_A31.md). The user extended Run 4
 after both a29 results; [the eight-path a30 repair](RUN_4_REPAIR_A30.md) remains
 the geometry baseline.

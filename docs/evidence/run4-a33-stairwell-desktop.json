@@ -1,0 +1,263 @@
+{
+  "core_version": "0.3.0a33",
+  "scope": "Original-source CPU classical desktop project reconstruction, evidence, publication, reopen and IFC; no specialist inference or Windows contour reproduction",
+  "source": {
+    "sha256": "758bffcc05e5704fd678220786f84c5ba4e38e6f110dfc356f2f40fd3f9745fb",
+    "bytes": 745524224,
+    "points": 39068825
+  },
+  "settings": {
+    "reconstruction_scope": "auto",
+    "grid_size_m": 0.02,
+    "contour_tolerance_m": 0.04,
+    "minimum_wall_length_m": 0.5,
+    "minimum_wall_thickness_m": 0.08,
+    "maximum_wall_thickness_m": 0.6,
+    "assumed_wall_thickness_m": 0.2,
+    "exterior_wall_thickness_m": 0.3,
+    "assumed_slab_thickness_m": 0.2,
+    "level_bin_size_m": 0.05,
+    "level_density_fraction": 0.35,
+    "minimum_storey_height_m": 2.0,
+    "minimum_footprint_area_m2": 1.0,
+    "minimum_space_area_m2": 1.0,
+    "maximum_grid_cells": 20000000,
+    "surface_method": "contour",
+    "detection_voxel_size_m": 0.02,
+    "maximum_level_detection_points": 5000000,
+    "maximum_detection_points": 5000000,
+    "processing_chunk_points": 1000000,
+    "maximum_working_memory_gb": 0.0,
+    "cpu_workers": 0,
+    "compute_backend": "auto",
+    "gpu_memory_mb": 256,
+    "region_neighbours": 24,
+    "region_neighbour_radius_m": 0.2,
+    "region_normal_radius_m": 0.1,
+    "region_minimum_points": 30,
+    "region_normal_angle_deg": 15.0,
+    "region_plane_tolerance_m": 0.025,
+    "region_maximum_curvature": 0.04,
+    "region_vertical_tolerance_deg": 3.0,
+    "region_minimum_wall_height_fraction": 0.6,
+    "region_adaptive": false,
+    "detect_openings_enabled": true,
+    "detect_stairs_enabled": true,
+    "opening_recess_depth_m": 0.03,
+    "opening_minimum_edge_support": 0.65,
+    "stair_headroom_m": 2.0,
+    "stair_void_margin_m": 0.1,
+    "consolidate_walls_enabled": true,
+    "wall_merge_angle_deg": 2.0,
+    "wall_merge_lateral_tolerance_m": 0.08,
+    "wall_merge_gap_m": 0.35,
+    "wall_merge_thickness_tolerance_m": 0.08,
+    "corner_snap_tolerance_m": 0.3,
+    "t_junction_snap_tolerance_m": 0.2,
+    "t_junction_minimum_angle_deg": 25.0,
+    "topology_gap_tolerance_m": 0.05,
+    "slab_surface_tolerance_m": 0.035,
+    "slab_raster_cell_m": 0.08,
+    "slab_close_gap_m": 0.16,
+    "slab_minimum_component_area_m2": 0.25,
+    "slab_minimum_hole_area_m2": 0.25,
+    "slab_minimum_area_fraction": 0.2,
+    "slab_minimum_thickness_m": 0.08,
+    "slab_maximum_thickness_m": 0.6,
+    "slab_minimum_face_overlap": 0.45,
+    "slab_maximum_storey_spacing_m": 5.5
+  },
+  "options": {
+    "scope": "auto",
+    "manual_levels": []
+  },
+  "desktop_operation_seconds": 105.03621786599979,
+  "separate_ifc_export_seconds": 11.144034900004044,
+  "desktop_operation_includes": [
+    "crop",
+    "classical reconstruction",
+    "validation",
+    "evidence export",
+    "publication"
+  ],
+  "desktop_operation_excludes": [
+    "E57 import",
+    "specialist inference",
+    "separate IFC export"
+  ],
+  "host": {
+    "logical_cpus": 9,
+    "ram_bytes": 10451464192,
+    "backend": "CPU",
+    "inventory_scope": "Inventory sampled after replay; host capacity is elastic. Operation used seven CPU workers as resource_plan records."
+  },
+  "counts": {
+    "storeys": 4,
+    "walls": 31,
+    "slabs": 8,
+    "openings": 15,
+    "stairs": 6,
+    "landings": 7,
+    "slab_openings": 12
+  },
+  "evidence_rows_exact_scan_and_record_ids": 18921609,
+  "all_import_channels_match_independent_original_cache": true,
+  "import_channel_sha256": {
+    "points": "7c3d465381f785b73b699d6743c223211c099420e64cc912884ed8ee8dd68062",
+    "scan_index": "b3472311562cb786bc6de8c3b013a4896f1a8161dac3486d47da4d97a6f636b2",
+    "source_record_index": "879cb2933c06b468c87370843f922b1993768f6287a52c8b1117ba56a83e120d",
+    "colors": "c7e84a3be09d127c29144e16aefcb19b3f3086a6e934af1c2e29a8da468dce0f",
+    "color_valid": "dc7c8f3c4926ec0073b0a6a18ef36be2ec6b5f50f0d3a1c0e93ff45acf7f9aee",
+    "intensity": "ba2dddd82575097916e1964c0b8ed23c02e83df1af987b9ff916d4b080110ecc",
+    "intensity_valid": "dc7c8f3c4926ec0073b0a6a18ef36be2ec6b5f50f0d3a1c0e93ff45acf7f9aee"
+  },
+  "original_e57_hash_unchanged": true,
+  "saved_model_reopened_identically": true,
+  "storage_report_at_publication": {
+    "schema_version": 1,
+    "categories": {
+      "source_cache": {
+        "logical_bytes": 3434742230,
+        "unique_file_bytes": 3434742230,
+        "files": 9
+      },
+      "recognition": {
+        "logical_bytes": 0,
+        "unique_file_bytes": 0,
+        "files": 0
+      },
+      "evidence": {
+        "logical_bytes": 492395608,
+        "unique_file_bytes": 492395608,
+        "files": 32
+      },
+      "preview": {
+        "logical_bytes": 12000000,
+        "unique_file_bytes": 12000000,
+        "files": 1
+      },
+      "staging": {
+        "logical_bytes": 0,
+        "unique_file_bytes": 0,
+        "files": 0
+      },
+      "other": {
+        "logical_bytes": 185945,
+        "unique_file_bytes": 185945,
+        "files": 4
+      }
+    },
+    "total_logical_bytes": 3939323783,
+    "total_unique_file_bytes": 3939323783,
+    "shared_hardlink_bytes": 0,
+    "scope": "file payload bytes, hardlinks counted once; filesystem allocation/compression not estimated"
+  },
+  "post_return_staging_residue_bytes": 492395608,
+  "resource_plan": {
+    "workers": 7,
+    "concurrent_storeys": 4,
+    "workers_per_storey": 1,
+    "memory_bytes": 1174269644,
+    "point_limit": 286687,
+    "chunk_points": 95562,
+    "available_at_start": 2349707264,
+    "baseline_process_rss_bytes": 446525440,
+    "source_cloud_bytes_estimate": 24000000,
+    "available_memory_fraction_limit": 0.7,
+    "temporary_parallel_wave_bytes_estimate": 293566464,
+    "memory_scope": "shared working-set ceiling, not an OS allocation request or guarantee"
+  },
+  "ifc_validation": {
+    "schema": "IFC4",
+    "express_findings": [],
+    "geometry_errors": [],
+    "profile_errors": [],
+    "tessellated_products": 89,
+    "valid": true,
+    "scope": "IFC schema/EXPRESS, planar profile validity and tessellation; dimensional accuracy requires source comparison",
+    "slab_cut_policy": {
+      "validated_cut_ids": [
+        "storey-1-stair-system-1-storey-2-floor-component-1-opening-1",
+        "storey-1-stair-system-1-storey-2-floor-component-2-opening-1",
+        "storey-1-stair-system-1-storey-2-floor-component-2-opening-2",
+        "storey-1-stair-system-1-storey-4-floor-component-1-opening-1",
+        "storey-1-stair-system-1-storey-4-floor-component-2-opening-1",
+        "storey-1-stair-system-1-storey-4-floor-component-2-opening-2",
+        "storey-1-stair-system-1-storey-4-floor-component-2-opening-3",
+        "storey-1-stair-system-1-storey-4-floor-component-2-opening-4",
+        "storey-1-stair-system-1-storey-4-floor-component-2-opening-5",
+        "storey-1-stair-system-1-storey-3-floor-component-1-opening-1",
+        "storey-1-stair-system-1-storey-3-floor-component-1-opening-2"
+      ],
+      "review_only_ids": []
+    },
+    "stairwell_verification": [
+      {
+        "host_slab_id": "storey-1-floor",
+        "physical_intersection_area_m2": 0.0,
+        "headroom_residual_area_m2": 0.0,
+        "required_headroom_m": 2.0,
+        "solid_source": "reopened_ifc_cap_mesh",
+        "status": "clear"
+      },
+      {
+        "host_slab_id": "storey-2-floor-component-1",
+        "physical_intersection_area_m2": 0.0,
+        "headroom_residual_area_m2": 0.0,
+        "required_headroom_m": 2.0,
+        "solid_source": "reopened_ifc_cap_mesh",
+        "status": "clear"
+      },
+      {
+        "host_slab_id": "storey-2-floor-component-2",
+        "physical_intersection_area_m2": 0.0,
+        "headroom_residual_area_m2": 0.0,
+        "required_headroom_m": 2.0,
+        "solid_source": "reopened_ifc_cap_mesh",
+        "status": "clear"
+      },
+      {
+        "host_slab_id": "storey-3-floor-component-1",
+        "physical_intersection_area_m2": 2.125739420168335e-11,
+        "headroom_residual_area_m2": 2.125739420168335e-11,
+        "required_headroom_m": 2.0,
+        "solid_source": "reopened_ifc_cap_mesh",
+        "status": "clear"
+      },
+      {
+        "host_slab_id": "storey-3-floor-component-2",
+        "physical_intersection_area_m2": 0.0,
+        "headroom_residual_area_m2": 0.0,
+        "required_headroom_m": 2.0,
+        "solid_source": "reopened_ifc_cap_mesh",
+        "status": "clear"
+      },
+      {
+        "host_slab_id": "storey-4-floor-component-1",
+        "physical_intersection_area_m2": 8.5571744735396e-11,
+        "headroom_residual_area_m2": 8.5571744735396e-11,
+        "required_headroom_m": 2.0,
+        "solid_source": "reopened_ifc_cap_mesh",
+        "status": "clear"
+      },
+      {
+        "host_slab_id": "storey-4-floor-component-2",
+        "physical_intersection_area_m2": 0.0,
+        "headroom_residual_area_m2": 0.0,
+        "required_headroom_m": 2.0,
+        "solid_source": "reopened_ifc_cap_mesh",
+        "status": "clear"
+      },
+      {
+        "host_slab_id": "top-slab",
+        "physical_intersection_area_m2": 0.0,
+        "headroom_residual_area_m2": 0.0,
+        "required_headroom_m": 2.0,
+        "solid_source": "reopened_ifc_cap_mesh",
+        "status": "clear"
+      }
+    ]
+  },
+  "qualification": "CPU desktop-path compatibility; exact failed Windows contour absent from returned archive; no recognition accuracy or speedup claim",
+  "post_return_staging_note": "A generic asynchronous os.replace probe without any Punctora import also recreated old source paths five seconds after a successful rename. Publication storage recorded zero staging bytes. Post-return residue is a host workspace behavior and not an application-cleanup pass."
+}

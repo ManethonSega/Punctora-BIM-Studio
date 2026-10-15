@@ -173,6 +173,56 @@ def test_cancelled_job_keeps_and_marks_latest_diagnostic(project):
     assert (stage/"other.txt").read_text(encoding="utf-8")=="keep"
 
 
+def test_failure_snapshot_retains_reconstruction_heartbeat_and_settings(tmp_path):
+    path = tmp_path/'diagnostic.punctora'
+    write,history = projects._performance_writer(path,'failure-trace','reconstruct')
+    heartbeat = {'status':'running','source_points':39068825,'total_seconds':42.5,
+                 'reconstruction_settings':{'compute_backend':'auto','cpu_workers':0},
+                 'resource_plan':{'workers':31},
+                 'stages':[{'stage':'level_detection','status':'complete','sample_points':120441}],
+                 'events':[{'event':'stage_finished','stage':'level_detection'}]}
+    write(heartbeat)
+    write({'status':'failed','error':'Profile repair would change components or introduce holes',
+           'error_context':{'exception_type':'ValueError','profile_geometry':{'input_vertices':10}}})
+    report = projects.read_json(history)
+    assert report['source_points']==heartbeat['source_points']
+    assert report['geometry_and_evidence_seconds']==42.5
+    assert report['resource_plan']==heartbeat['resource_plan']
+    assert report['reconstruction_settings']==heartbeat['reconstruction_settings']
+    assert report['stages']==heartbeat['stages']
+    assert report['events'][0]==heartbeat['events'][0]
+    assert report['events'][-1]['event']=='job_failed'
+    assert report['status']=='failed' and report['error_context']['profile_geometry']['input_vertices']==10
+    assert projects.read_json(projects.assets_for(path)/'last-performance.json')==report
+    assert heartbeat['events']==[{'event':'stage_finished','stage':'level_detection'}]
+
+
+def test_profile_failure_retains_exact_contour_and_request_without_changing_project(project,monkeypatch):
+    from shapely.geometry import Polygon
+    from punctora_core.profile_geometry import clean_profiles
+    path,state = project
+    saved = path.read_bytes()
+    vertices = [(0,0),(4,4),(0,4),(3,0)]
+    def fail(*args,**kwargs):
+        clean_profiles(vertices)
+    monkeypatch.setattr(projects,'reconstruct',fail)
+    with pytest.raises(ValueError):
+        projects.reconstruct_project(path,request(state,job_id=token(),confirm_z_up=True,
+            settings={'cpu_workers':1,'compute_backend':'cpu'}))
+    report = projects.read_json(projects.assets_for(path)/'last-performance.json')
+    diagnostic = report['error_context']['profile_geometry']
+    assert diagnostic['original_wkb_hex']==Polygon(vertices).wkb_hex
+    assert diagnostic['capture']=='complete'
+    assert diagnostic['input_vertices']==len(vertices)
+    assert diagnostic['reason']=='meaningful_geometry_change'
+    assert report['reconstruction_settings']['cpu_workers']==1
+    assert report['reconstruction_settings']['compute_backend']=='cpu'
+    assert report['requested_recognition_mode']=='classical'
+    assert report['source_points']>0
+    assert path.read_bytes()==saved
+    assert not list((projects.assets_for(path)/'staging').iterdir())
+
+
 @pytest.mark.parametrize("changes", [{"thickness": -1}, {"height": float("nan")}, {"start": [0, 0, 0]}, {"review_state": "approved"}, {"thickness": True}])
 def test_invalid_correction_cannot_change_saved_model(project, changes):
     path, state = project

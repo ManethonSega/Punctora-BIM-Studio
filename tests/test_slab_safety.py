@@ -97,6 +97,50 @@ def test_numerical_split_retains_a_small_lobe_from_an_eligible_parent():
     assert len({s.id for s in model.slabs})==2
 
 
+def test_precision_closed_bay_stays_empty_in_preview_and_ifc(tmp_path):
+    shape = Polygon([(0,0),(4,0),(4,4),(2.0000000002,4),(2.0000000002,3),(3,3),
+                     (3,1),(1,1),(1,3),(2,3),(2,4),(0,4)])
+    assert shape.is_valid and not shape.interiors
+    model = zone_model(shape,shape)
+    assert len(model.slabs)==2 and not model.slab_openings
+    from shapely.geometry import Point
+    combined = unary_union([Polygon(s.footprint) for s in model.slabs])
+    assert not combined.covers(Point(2,2))
+    assert combined.symmetric_difference(shape).area < 1e-8
+    assert preview_area(model)==pytest.approx(12.,abs=1e-8)
+    report = write_ifc(model,tmp_path/'bay.ifc')
+    assert report['valid'] and report['profile_errors']==[]
+    file = ifcopenshell.open(tmp_path/'bay.ifc')
+    assert not file.by_type('IfcRelVoidsElement')
+    assert volume(file)==pytest.approx(12.*.2,abs=1e-8)
+
+
+@pytest.mark.parametrize('fixture',[False,True],ids=['approved-real-hole','fixture-pattern'])
+def test_void_partition_preserves_parent_hole_decisions_and_small_fragments(tmp_path,fixture):
+    body = Polygon([(0,0),(10,0),(10,6),(5.0000000002,6),(5.0000000002,5),
+                    (6,5),(6,1),(4,1),(4,5),(5,5),(5,6),(0,6)])
+    holes = [box(.4,2.86,1.2,3.66)]
+    if fixture: holes.extend([box(2.,2.86,2.8,3.66),box(7.,2.86,7.8,3.66)])
+    shape = body.difference(unary_union(holes))
+    model = zone_model(shape,shape)
+    assert len(model.slabs)==2 and len(model.slab_openings)==2*len(holes)
+    fragments = model.slab_openings
+    assert min(Polygon(o.footprint).area for o in fragments) < .25
+    parents = {}
+    for opening in fragments:
+        parents.setdefault(opening.evidence['parent_hole_id'],[]).append(Polygon(opening.footprint))
+        assert slab_opening_is_validated(opening)==(not fixture)
+        assert opening.evidence['classification']==('light_fixture_pattern' if fixture else 'observed_hole')
+    assert len(parents)==len(holes)
+    assert all(sum(p.area for p in parts)==pytest.approx(.64,abs=1e-8) for parts in parents.values())
+    expected = body.area if fixture else shape.area
+    assert preview_area(model)==pytest.approx(expected,abs=1e-8)
+    assert write_ifc(model,tmp_path/'partitioned-holes.ifc')['valid']
+    file = ifcopenshell.open(tmp_path/'partitioned-holes.ifc')
+    assert len(file.by_type('IfcRelVoidsElement'))==(0 if fixture else 2)
+    assert volume(file)==pytest.approx(expected*.2,abs=1e-8)
+
+
 @pytest.mark.parametrize('paired_pattern',[True,False])
 def test_33_light_fixture_gaps_create_zero_ifc_cuts(tmp_path,paired_pattern):
     shape=fixture_shape()

@@ -24,7 +24,7 @@ from .convergence import compare_budgets
 from .reconstruction import ReconstructionSettings, reconstruct
 from .sampling import release_completed_working_memory
 from .level_bounds import validate_detection_options
-from dataclasses import replace
+from dataclasses import replace, asdict
 from .wall_editing import merge_walls, split_wall
 
 # The preview is a display-only sample. 500k points remains small compared with
@@ -115,9 +115,12 @@ def _performance_writer(path, job_id, command):
     started = time.perf_counter()
     started_utc = datetime.now(timezone.utc).isoformat()
     last_recognition = None
+    last_report = {}
     def write(report, final=False):
-        nonlocal last_recognition
-        value = {**report, "job_id": job_id, "command": command,
+        nonlocal last_recognition, last_report
+        # Failure handlers can have no model snapshot at all. Retain the last
+        # durable stage/settings evidence instead of replacing it with an error.
+        value = {**deepcopy(last_report), **deepcopy(report), "job_id": job_id, "command": command,
                  "diagnostic_file": str(history.name)}
         if command == 'reconstruct':
             # Exception handlers may hold the pre-recognition model snapshot.
@@ -126,7 +129,7 @@ def _performance_writer(path, job_id, command):
                 last_recognition = deepcopy(value['recognition'])
             elif last_recognition is not None:
                 value['recognition'] = deepcopy(last_recognition)
-            value['geometry_and_evidence_seconds'] = report.get('geometry_and_evidence_seconds',report.get('total_seconds',0.))
+            value['geometry_and_evidence_seconds'] = report.get('geometry_and_evidence_seconds',report.get('total_seconds',last_report.get('geometry_and_evidence_seconds',0.)))
             elapsed = time.perf_counter()-started
             value.update(total_seconds=elapsed,elapsed_seconds=elapsed,
                 started_at_utc=started_utc,updated_at_utc=datetime.now(timezone.utc).isoformat(),
@@ -143,18 +146,24 @@ def _performance_writer(path, job_id, command):
                 else dict(event) for event in value.get('events',[])]
             if final or value.get('status') in {'failed','cancelled'}:
                 event='job_completed' if final else 'job_'+value['status']
-                value['events'].append({'event':event,'at':value['updated_at_utc'],
-                                        'scope':'desktop_publication'})
+                if not value['events'] or (value['events'][-1].get('event'),value['events'][-1].get('scope')) != (event,'desktop_publication'):
+                    value['events'].append({'event':event,'at':value['updated_at_utc'],
+                                            'scope':'desktop_publication'})
         atomic_json(history, value)
         atomic_json(latest, value)
+        last_report = deepcopy(value)
         return value
     return write, history
 
 
 def _error_context(exc):
-    return {'exception_type': type(exc).__name__,
+    result = {'exception_type': type(exc).__name__,
             'frames': [{'file': Path(frame.filename).name, 'function': frame.name, 'line': frame.lineno}
                        for frame in traceback.extract_tb(exc.__traceback__)]}
+    from .profile_geometry import ProfileGeometryError
+    if isinstance(exc,ProfileGeometryError):
+        result['profile_geometry'] = deepcopy(exc.diagnostics)
+    return result
 
 
 def _initial_performance(job_id, command, **details):
@@ -664,6 +673,11 @@ def reconstruct_project(path, request, progress=lambda *_: None):
             settings = ReconstructionSettings(**request.get("settings", {}))
             options=validate_detection_options(request.get('reconstruction_options',state.get('reconstruction_options')))
             settings=replace(settings,reconstruction_scope=options['scope'])
+            from . import __version__
+            save_performance({'core_version':__version__,'reconstruction_settings':asdict(settings),
+                'reconstruction_options':deepcopy(options),'source_points':len(cloud.points),
+                'requested_recognition_mode':request.get('recognition_mode','classical'),
+                'source_identity':deepcopy((state.get('import_manifest') or {}).get('source'))})
             crop_directory = stage / "crop-working"
             try:
                 if crop_active(state["crop"]):
