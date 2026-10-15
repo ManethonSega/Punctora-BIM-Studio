@@ -1,5 +1,6 @@
 """Punctora-owned specialist runtime, proposals and truthful orchestration."""
 from copy import deepcopy
+from contextlib import contextmanager
 from dataclasses import dataclass, asdict
 import json
 import math
@@ -26,6 +27,7 @@ from .specialist_indices import prepare_point_model_view
 from .specialist_pack import (MODEL_PACK_MANIFEST, SPECIALIST_PROVIDER_ID,
                               SPECIALIST_PROVIDER_VERSION, resolve_model_pack)
 from .specialist_worker import image_tensor
+from .specialist_runtime import runtime_plan
 
 
 NATIVE_TO_TAXONOMY = np.asarray([0, 5, 2, 11, 7, 12, 8, 1, 13, 14, 15, 16], dtype="<i2")
@@ -138,6 +140,34 @@ class PunctoraSpecialistProvider(RecognitionProvider):
         self.tta_diagnostics = []
         self.original_population = self.model_view_population = 0
         self.branch_failures = {}
+        self.runtime_profile = {}
+        self.runtime_plan = runtime_plan(2, 1, 1, 1)
+
+    @contextmanager
+    def _profile_phase(self, name, control):
+        """Bounded, durable timing facts, including unfinished/failed requests."""
+        previous = getattr(control, 'stage', None)
+        previous_started = getattr(control, 'provider_phase_started', None)
+        started = time.monotonic()
+        control.stage = 'specialist_' + name
+        control.provider_timings = deepcopy(self.runtime_profile)
+        control.provider_phase_started = started
+        failed = False
+        if hasattr(control, 'emit'): control.emit()
+        try:
+            yield
+        except BaseException:
+            failed = True
+            raise
+        finally:
+            entry = self.runtime_profile.setdefault(name, {'calls': 0, 'seconds': 0., 'failures': 0})
+            entry['calls'] += 1
+            entry['seconds'] += time.monotonic() - started
+            entry['failures'] += int(failed)
+            control.provider_timings = deepcopy(self.runtime_profile)
+            control.provider_phase_started = previous_started
+            if previous is not None: control.stage = previous
+            if hasattr(control, 'emit'): control.emit()
 
     @property
     def worker_path(self):
@@ -170,6 +200,8 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             return
         self.session_cache_limit = max(1, min(10, len(self.active_branches),
                                              int(control.working_budget * .60) // max(1, session_estimate)))
+        self.runtime_plan = runtime_plan(getattr(control, 'cpu_workers', 1), control.working_budget,
+                                         largest, self.session_cache_limit)
         try:
             with tempfile.TemporaryDirectory(prefix="punctora-specialist-preflight-") as temporary:
                 directory = Path(temporary)
@@ -188,7 +220,7 @@ class PunctoraSpecialistProvider(RecognitionProvider):
     def descriptor(self):
         runtime = self.preflight.get("runtime") if isinstance(self.preflight, dict) else None
         value = {"id": SPECIALIST_PROVIDER_ID, "version": SPECIALIST_PROVIDER_VERSION,
-                 "adapter_version": "a30-streaming-core-voxel-normal-v2",
+                 "adapter_version": "a31-bounded-parallel-views-v3",
                  "point_preprocessing": "source-key centring; one original-neighbour normal per fixed-0.06m voxel representative",
                  "view_point_limit_scope": "maximum_materialized_original_points_per_block; complete_physical_raster",
                  "backend": (runtime or {}).get("actual_provider", "CPUExecutionProvider pending"),
@@ -199,7 +231,7 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                  "asset_status": self.asset_status,
                  "active_branches": self.active_branches,
                  "missing_branches": self.missing_branches,
-                 "runtime": runtime, "settings": asdict(self.settings),
+                 "runtime": runtime, "runtime_plan": self.runtime_plan, "settings": asdict(self.settings),
                  "worker_sha256": file_digest(self.worker_path),
                  "interpreter_sha256": file_digest(self.assets.python) if Path(self.assets.python).is_file() else None,
                  "automatic_download": False,
@@ -210,14 +242,17 @@ class PunctoraSpecialistProvider(RecognitionProvider):
         response = directory / "response.json"
         return {"schema_version": 1, "mode": mode, "automatic_download": False,
                 "model_root": self.assets.model_root, "manifest": self.manifest,
-                "response": str(response), "maximum_cached_sessions": self.session_cache_limit}
+                "response": str(response), "maximum_cached_sessions": self.session_cache_limit,
+                "runtime_plan": self.runtime_plan}
 
     def _start_worker(self, control):
         if self.process is not None and self.process.poll() is None:
             return
         environment = {key: value for key, value in os.environ.items()
                        if key in {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "LD_LIBRARY_PATH"}}
-        environment.update({"OMP_NUM_THREADS": "2", "MKL_NUM_THREADS": "2", "OPENBLAS_NUM_THREADS": "2"})
+        # ORT owns the explicit intra-op pools. Nested BLAS/OpenMP pools must
+        # not multiply the wave's declared CPU budget.
+        environment.update({"OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"})
         self.response_queue = queue.Queue()
         self.stderr_tail = bytearray()
         self.process = subprocess.Popen(
@@ -271,6 +306,29 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             return
 
     def _execute(self, request, directory, control):
+        with self._profile_phase(request.get('branch', request['mode']) + '_worker', control):
+            response = self._execute_request(request, directory, control)
+            self._record_worker_timing(response)
+            return response
+
+    def _record_worker_timing(self, response):
+        for value in response.get('results', [response]):
+            if value.get('timings'):
+                entry = self.runtime_profile.setdefault(value['branch']+'_onnx', {'calls': 0, 'seconds': 0., 'failures': 0})
+                entry['calls'] += 1
+                for name, seconds in value['timings'].items():
+                    entry[name] = entry.get(name, 0.) + seconds
+                entry['seconds'] += sum(value['timings'].values())
+                if 'session_cache_hit' in value:
+                    name = 'session_cache_hits' if value['session_cache_hit'] else 'session_cache_misses'
+                    entry[name] = entry.get(name, 0) + 1
+        if response.get('process_timing'):
+            entry = self.runtime_profile.setdefault('worker_process', {'calls': 0, 'seconds': 0., 'failures': 0, 'cpu_seconds': 0.})
+            entry['calls'] += 1
+            entry['seconds'] += response['process_timing']['wall_seconds']
+            entry['cpu_seconds'] += response['process_timing']['cpu_seconds']
+
+    def _execute_request(self, request, directory, control):
         directory.mkdir(parents=True, exist_ok=True)
         request_path = directory / "request.json"
         write_report(request_path, request)
@@ -344,7 +402,8 @@ class PunctoraSpecialistProvider(RecognitionProvider):
         scores = np.zeros(len(tile.points), dtype="<f4")
         if "I" not in self.active_branches:
             return TilePrediction(labels, scores)
-        view = prepare_point_model_view(tile, control)
+        with self._profile_phase('I_preprocessing', control):
+            view = prepare_point_model_view(tile, control)
         if view is None:
             self.point_diagnostics.append({"tile": tile.id, "status": "no_supported_normals",
                                            "original_context_points": len(tile.points)})
@@ -420,7 +479,8 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             label_map._mmap.close()
             for value in [*vote_maps, *margin_maps, vote_count, agreement, margins]:
                 value._mmap.close()
-        self._semantic_rescue(Path(directory) / result["labels"], control)
+        with self._profile_phase('semantic_components', control):
+            self._semantic_rescue(Path(directory) / result["labels"], control)
         return result
 
     def _cloud_bounds(self, control):
@@ -477,6 +537,49 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             self.warnings.append(f'Specialist branch {branch} unavailable: {exc}')
             return None
 
+    def _try_images(self, jobs, control):
+        """Bounded independent image waves, returned in submitted view order."""
+        if self.runtime_plan['image_workers'] == 1:
+            return [self._try_image(branch, image, identifier, control) for branch, image, identifier in jobs]
+        results = []
+        width = self.runtime_plan['image_workers']
+        for begin in range(0, len(jobs), width):
+            wave = jobs[begin:begin+width]
+            active = [(i, job) for i, job in enumerate(wave) if job[0] not in self.branch_failures]
+            values = [None] * len(wave)
+            if active:
+                with tempfile.TemporaryDirectory(prefix='image-wave-', dir=self.work) as temporary:
+                    directory = Path(temporary)
+                    items = []
+                    for index, (branch, image, identifier) in active:
+                        tensor, output = directory/f'{index}-tensor.npy', directory/f'{index}-outputs.npz'
+                        np.save(tensor, image_tensor(branch, image), allow_pickle=False)
+                        items.append({'branch': branch, 'tensor': str(tensor.resolve()), 'output': str(output.resolve())})
+                    request = self._base_request(directory, 'image_batch')
+                    request['jobs'] = items
+                    try:
+                        response = self._execute(request, directory, control)
+                    except ProviderUnavailable as exc:
+                        response = {'results': [{'branch': item['branch'], 'status': 'unavailable', 'error': str(exc)} for item in items]}
+                    replies = response.get('results')
+                    if not isinstance(replies, list) or len(replies) != len(items):
+                        raise ValueError('Specialist image wave returned the wrong population')
+                    for (index, (branch, _, _)), item, reply in zip(active, items, replies):
+                        if reply.get('branch') != branch:
+                            raise ValueError('Specialist image wave changed branch identity')
+                        if reply.get('status') == 'unavailable':
+                            if branch not in self.branch_failures:
+                                self.branch_failures[branch] = reply.get('error') or 'Specialist branch unavailable'
+                                self.warnings.append(f'Specialist branch {branch} unavailable: {self.branch_failures[branch]}')
+                            continue
+                        if reply.get('status') != 'complete' or reply.get('output') != item['output']:
+                            raise ValueError('Specialist image wave changed output identity/status')
+                        with np.load(item['output'], allow_pickle=False) as archive:
+                            outputs = {name: archive[name].copy() for name in archive.files}
+                        values[index] = outputs, reply
+            results.extend(values)
+        return results
+
 
     def _add_proposals(self, items):
         for item in items:
@@ -516,7 +619,7 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             labels._mmap.close()
 
     def _stream_plan_tile(self, centre, level, tile_number, index, control):
-        from .streaming_views import SourceBox, components, owned, plan_image, section_image
+        from .streaming_views import SourceBox, components, owned, plan_images, section_image
         settings = self.settings
         half = settings.stair_tile_m * np.sqrt(2) / 2
         source = SourceBox(self.cloud, index, [centre[0]-half, centre[1]-half, level['bottom_m']],
@@ -528,6 +631,7 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             upper = level['bottom_m']
         middle = (level['bottom_m']+level['top_m'])/2
         predictions, walls, rasters = {}, [], {}
+        image_jobs, image_context, fields = [], [], []
         for branch in _branches_for_role(self.active_branches, 'DEFGH'):
             predictions[branch] = []
             zlow, zhigh = ((middle-settings.slice_thickness_m/2, middle+settings.slice_thickness_m/2)
@@ -541,30 +645,44 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                         angle, mirror, zlow, zhigh, settings.plan_model_pixels)
                     raster_key=(angle,mirror,frame.side_m,frame.native_pixels,zlow,zhigh)
                     if raster_key not in rasters:
-                        rasters[raster_key]=plan_image(source,frame)
-                    image,raster=rasters[raster_key]
-                    if not raster['rasterized_points']:
-                        continue
-                    inferred=self._try_image(branch,image,identifier.replace(':','_'),control)
-                    if inferred is None:continue
-                    outputs,worker=inferred
-                    labels, _, _ = decode_masks(branch, outputs)
-                    predictions[branch].append((frame, labels))
-                    self.views.append({'branch': branch, 'frame': frame.to_dict(), 'raster': raster,
-                        'worker': self._worker_summary(worker), 'core_min_xy_m': core_min.tolist(),
-                        'native_label_counts':np.bincount(labels.ravel(),minlength=3 if branch in 'DE' else 2).tolist(),
-                        'core_max_xy_m': core_max.tolist(), 'ownership': 'half_open_core; full_physical_halo_context'})
-                    if branch == 'D' and 'J' in self.active_branches:
-                        base = cv2.resize(image, (settings.plan_model_pixels, settings.plan_model_pixels))
-                        palette = np.asarray([[0, 0, 0], [0, 0, 255], [0, 255, 0]], dtype=np.uint8)
-                        overlay = (.5*np.repeat(base[:, :, None], 3, axis=2)+.5*palette[labels]).astype(np.uint8)
-                        inferred=self._try_image('J',overlay,identifier.replace(':','_')+'_J',control)
-                        if inferred is None:continue
-                        outputs,worker=inferred
-                        values = decode_obb(outputs, frame, settings.obb_score_threshold)
-                        walls.extend(values)
-                        self.views.append({'branch': 'J', 'frame': frame.to_dict(), 'candidates': len(values),
-                            'worker': self._worker_summary(worker), 'overlay_recipe': 'BGR alpha 0.5, no JPEG'})
+                        rasters[raster_key]=frame
+                    fields.append((branch, frame, raster_key, identifier))
+        rasters = dict(zip(rasters, plan_images(source, list(rasters.values()))))
+        for branch, frame, raster_key, identifier in fields:
+            image, raster = rasters[raster_key]
+            if not raster['rasterized_points']: continue
+            image_jobs.append((branch, image, identifier.replace(':','_')))
+            image_context.append((branch, frame, raster))
+        # Interleave branches for each TTA view. Consume in canonical branch/view
+        # order so completion order cannot change votes, proposal IDs or support.
+        order = sorted(range(len(image_jobs)), key=lambda i: (image_context[i][1].rotation_degrees,
+            image_context[i][1].mirrored, image_context[i][0]))
+        inferred_views = self._try_images([image_jobs[i] for i in order], control)
+        inferred_views = dict(zip(order, inferred_views))
+        refinement_jobs, refinement_frames = [], []
+        for index, ((branch, image, identifier), (_, frame, raster)) in enumerate(zip(image_jobs, image_context)):
+            inferred = inferred_views[index]
+            if inferred is None: continue
+            outputs, worker = inferred
+            labels, _, _ = decode_masks(branch, outputs)
+            predictions[branch].append((frame, labels))
+            self.views.append({'branch': branch, 'frame': frame.to_dict(), 'raster': raster,
+                'worker': self._worker_summary(worker), 'core_min_xy_m': core_min.tolist(),
+                'native_label_counts':np.bincount(labels.ravel(),minlength=3 if branch in 'DE' else 2).tolist(),
+                'core_max_xy_m': core_max.tolist(), 'ownership': 'half_open_core; full_physical_halo_context'})
+            if branch == 'D' and 'J' in self.active_branches:
+                base = cv2.resize(image, (settings.plan_model_pixels, settings.plan_model_pixels))
+                palette = np.asarray([[0, 0, 0], [0, 0, 255], [0, 255, 0]], dtype=np.uint8)
+                overlay = (.5*np.repeat(base[:, :, None], 3, axis=2)+.5*palette[labels]).astype(np.uint8)
+                refinement_jobs.append(('J', overlay, identifier+'_J'))
+                refinement_frames.append(frame)
+        for frame, inferred in zip(refinement_frames, self._try_images(refinement_jobs, control)):
+            if inferred is None: continue
+            outputs, worker = inferred
+            values = decode_obb(outputs, frame, settings.obb_score_threshold)
+            walls.extend(values)
+            self.views.append({'branch': 'J', 'frame': frame.to_dict(), 'candidates': len(values),
+                'worker': self._worker_summary(worker), 'overlay_recipe': 'BGR alpha 0.5, no JPEG'})
         for branch, views in predictions.items():
             if not views:
                 continue
@@ -770,7 +888,8 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                 centre = [(x + .5) * side, (y + .5) * side]
                 identifier = f"{level_index}-{tile_index}-{x}-{y}"
                 try:
-                    self._stream_plan_tile(centre, level, identifier, spatial_index, control)
+                    with self._profile_phase('image_views', control):
+                        self._stream_plan_tile(centre, level, identifier, spatial_index, control)
                 except ProviderUnavailable as exc:
                     reason = str(exc)
                     for branch in image_branches:
@@ -833,6 +952,10 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                  "provider_version": SPECIALIST_PROVIDER_VERSION, "geometry_authority": "review_only",
                  "model_pack_manifest_sha256": self.manifest["manifest_sha256"],
                  "runtime": self.preflight["runtime"], "branches": branches,
+                 "runtime_profile": deepcopy(self.runtime_profile),
+                 "runtime_plan": deepcopy(self.runtime_plan),
+                 "source_read_stats": deepcopy(getattr(control, 'source_read_stats', {})),
+                 "runtime_profile_scope": "nested host wall phases; branch ONNX component wall sums may overlap in parallel waves; worker_process records non-overlapping process wall and all-thread CPU seconds",
                  "original_source_population": self.original_population,
                  "point_model_view_population": self.model_view_population,
                  "model_context_overlap_factor": sum(v.get('original_context_points',0) for v in self.point_diagnostics)/max(1,self.original_population),

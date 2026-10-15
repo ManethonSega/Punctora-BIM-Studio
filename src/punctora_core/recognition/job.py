@@ -11,7 +11,7 @@ import numpy as np
 from ..annotation_io import validate_identity
 from ..cropping import crop_mask
 from ..performance import _process
-from ..sampling import available_memory_bytes, release_mapped_source_pages
+from ..sampling import available_memory_bytes, total_memory_bytes, release_mapped_source_pages, resolved_cpu_workers
 from ..storage import mapped_array
 from .cache import ProposalCache, cache_key
 from .contracts import ARRAY_TYPES, TAXONOMY, ProviderUnavailable, array_descriptor
@@ -26,19 +26,29 @@ class RecognitionControl:
     hard allocation guarantee. A child exceeding the cap is terminated by its
     provider. There is no automatic spatial decimation to satisfy the budget.
     """
-    def __init__(self, memory_limit_bytes=0, chunk_points=65536, cancelled=lambda: False, diagnostics=None):
+    def __init__(self, memory_limit_bytes=0, chunk_points=65536, cancelled=lambda: False, diagnostics=None,
+                 cpu_workers=0, memory_fraction=.80):
         if isinstance(chunk_points, bool) or not isinstance(chunk_points, int) or chunk_points < 1:
             raise ValueError("Recognition chunk size must be a positive integer")
         if isinstance(memory_limit_bytes, bool) or not isinstance(memory_limit_bytes, int) or memory_limit_bytes < 0:
             raise ValueError("Recognition RAM cap must be a nonnegative integer")
+        if isinstance(cpu_workers, bool) or not isinstance(cpu_workers, int) or cpu_workers < -1:
+            raise ValueError("Recognition CPU workers must be -1, zero or a positive integer")
+        if (isinstance(memory_fraction, bool) or not isinstance(memory_fraction, (int, float))
+                or not .70 <= memory_fraction <= .80):
+            raise ValueError("Recognition RAM fraction must be between 0.70 and 0.80")
+        self.memory_fraction = float(memory_fraction)
+        self.cpu_workers = min(resolved_cpu_workers(cpu_workers), resolved_cpu_workers(-1))
         self.cancelled, self.diagnostics = cancelled, diagnostics
         self.started, self.last_emit = time.monotonic(), 0.
         self.status, self.stage, self.child_pid = "running", "admission", None
+        self.source_read_stats = {'cells': 0, 'blocks': 0, 'candidate_points': 0, 'selected_points': 0, 'seconds': 0.}
         self.failure = None
         self.baseline_rss = _process().memory_info().rss
+        self.total_memory = total_memory_bytes()
         self.available_at_start = available_memory_bytes()
-        available_budget = int(self.available_at_start * .70)
-        default_limit = self.baseline_rss + available_budget
+        available_budget = int(self.available_at_start * self.memory_fraction)
+        default_limit = min(self.baseline_rss + available_budget, int(self.total_memory * self.memory_fraction))
         self.memory_limit_bytes = min(default_limit, memory_limit_bytes) if memory_limit_bytes else default_limit
         self.working_budget = self.memory_limit_bytes - self.baseline_rss
         if self.working_budget < 16 * 1024**2:
@@ -46,13 +56,13 @@ class RecognitionControl:
             release_completed_working_memory()
             self.baseline_rss = _process().memory_info().rss
             self.available_at_start = available_memory_bytes()
-            available_budget = int(self.available_at_start * .70)
-            default_limit = self.baseline_rss + available_budget
+            available_budget = int(self.available_at_start * self.memory_fraction)
+            default_limit = min(self.baseline_rss + available_budget, int(self.total_memory * self.memory_fraction))
             self.memory_limit_bytes = min(default_limit, memory_limit_bytes) if memory_limit_bytes else default_limit
             self.working_budget = self.memory_limit_bytes - self.baseline_rss
         if self.working_budget < 16 * 1024**2:
             self.status = "failed"
-            self.failure = ValueError("Insufficient available RAM for recognition at the 70% ceiling")
+            self.failure = ValueError(f"Insufficient available RAM for recognition at the {self.memory_fraction:.0%} ceiling")
             self.peak_rss = self.baseline_rss
             self.emit()
             raise self.failure
@@ -114,7 +124,7 @@ class RecognitionControl:
         rss = self._rss()
         self.peak_rss = max(self.peak_rss, rss)
         if rss > self.memory_limit_bytes:
-            raise MemoryError("Recognition combined process RSS exceeded the declared 70%-bounded cap")
+            raise MemoryError(f"Recognition combined process RSS exceeded the declared {self.memory_fraction:.0%}-bounded cap")
         if time.monotonic() - self.last_emit >= 5.:
             self.emit()
 
@@ -124,10 +134,18 @@ class RecognitionControl:
             self.diagnostics({"schema_version": 1, "status": self.status, "stage": self.stage,
                               "elapsed_seconds": self.last_emit - self.started,
                               "available_at_start_bytes": self.available_at_start,
-                              "memory_limit_bytes": self.memory_limit_bytes, "fraction_limit": .70,
+                              "memory_limit_bytes": self.memory_limit_bytes, "fraction_limit": self.memory_fraction,
+                              "total_physical_or_container_bytes": self.total_memory,
+                              "working_budget_bytes": self.working_budget,
                               "baseline_process_rss_bytes": self.baseline_rss,
                               "peak_combined_process_rss_bytes": self.peak_rss,
                               "child_pid": self.child_pid,
+                              "cpu_worker_budget": self.cpu_workers,
+                              "source_read_stats": dict(self.source_read_stats),
+                              "provider_timings": getattr(self, 'provider_timings', {}),
+                              "active_provider_phase_seconds": (
+                                  self.last_emit-self.provider_phase_started
+                                  if getattr(self, 'provider_phase_started', None) is not None else None),
                               "error": str(self.failure) if self.failure is not None else None,
                               "scope": "sampled combined RSS, not an OS hard limit"})
 
@@ -226,7 +244,7 @@ def _source_arrays(cloud, identity, directory, control):
 
 def run_recognition(cloud, identity, provider, cache_directory, *, tile_settings=None,
                     fallback=None, memory_limit_bytes=0, chunk_points=65536,
-                    cancelled=lambda: False, diagnostics=None):
+                    cancelled=lambda: False, diagnostics=None, cpu_workers=0, memory_fraction=.80):
     """prepare -> infer_chunk -> combine_tiles -> validate -> atomic publish.
 
     Missing explicit model assets/device support can fall back to classical.
@@ -240,7 +258,7 @@ def run_recognition(cloud, identity, provider, cache_directory, *, tile_settings
     cache = ProposalCache(cache_directory)
     implementation = implementation_fingerprint()
     warnings = []
-    with RecognitionControl(memory_limit_bytes, chunk_points, cancelled, diagnostics) as control:
+    with RecognitionControl(memory_limit_bytes, chunk_points, cancelled, diagnostics, cpu_workers, memory_fraction) as control:
         if min(settings.maximum_context_points, len(cloud.points)) * 2048 > control.working_budget // 2:
             raise ValueError("Tile context limit exceeds the recognition working budget; lower the explicit limit")
         with cache.stage() as stage:

@@ -236,7 +236,7 @@ def test_cancellation_discards_generation_preserves_diagnostics(tmp_path):
         run(tmp_path, p, cancelled=lambda: bool(p.visits), diagnostics=diagnostics.append)
     assert not list((tmp_path / "cache").iterdir())
     assert diagnostics[-1]["status"] == "cancelled"
-    assert diagnostics[-1]["fraction_limit"] == .70
+    assert diagnostics[-1]["fraction_limit"] == .80
 
 
 def test_empty_crop_and_context_overflow_fail_without_silent_decimation(tmp_path):
@@ -402,9 +402,11 @@ def test_typed_input_readonly_cli_guards_and_semantic_cli(tmp_path):
     assert main(["recognition-export-samples", str(directory), str(keys), "--output", str(tmp_path / "semantic.json")]) == 0
 
 
-def test_resource_plan_obeys_70_percent_and_lower_user_cap():
-    control = RecognitionControl()
-    assert control.working_budget <= int(control.available_at_start * .70)
+@pytest.mark.parametrize('fraction', [.70, .75, .80])
+def test_resource_plan_obeys_available_and_total_ram_fraction_and_lower_user_cap(fraction):
+    control = RecognitionControl(memory_fraction=fraction)
+    assert control.working_budget <= int(control.available_at_start * fraction)
+    assert control.memory_limit_bytes <= int(control.total_memory * fraction)
     assert control.memory_limit_bytes == control.baseline_rss + control.working_budget
     assert control.chunk_points <= 65536
     diagnostics = []

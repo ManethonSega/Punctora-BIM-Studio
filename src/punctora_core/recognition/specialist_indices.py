@@ -222,7 +222,8 @@ def prepare_point_model_view(tile, control):
     context = getattr(tile,'normal_points',None)
     context = points if context is None else context
     normals, valid = original_normals(context, np.empty(0,dtype=int), query_points=points[representative],
-                                      radius=.30,max_nn=30,check=control.check)
+                                      radius=.30,max_nn=30,check=control.check,
+                                      workers=getattr(control, 'cpu_workers', 1))
     if not valid.any():
         return None
     selected = np.flatnonzero(valid[inverse])

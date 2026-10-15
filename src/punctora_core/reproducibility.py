@@ -67,7 +67,13 @@ def geometry_signature(model,tolerance_m=1e-6):
     def point(value):return tuple(scalar(v) for v in value)
     def ring(vertices):
         p=normalize(set_precision(Polygon(vertices),tolerance_m))
-        return [point(v) for v in p.exterior.coords[:-1]]
+        # Reporting precision can split a valid, connected model footprint.
+        # Hash every resulting component and hole; never change the model or
+        # select only the largest piece merely to produce this diagnostic.
+        pieces=[] if p.is_empty else [p] if isinstance(p,Polygon) else list(p.geoms)
+        return sorted([[ [point(v) for v in part.exterior.coords[:-1]],
+                         sorted([point(v) for v in hole.coords[:-1]] for hole in part.interiors)]
+                       for part in pieces])
     walls={w.id:[sorted([point(w.start),point(w.end)]),scalar(w.base),
                          scalar(w.height),scalar(w.thickness)] for w in model.walls}
     shapes={'walls':sorted(walls.values()),
@@ -90,5 +96,6 @@ def geometry_signature(model,tolerance_m=1e-6):
             scalar(p.height),scalar(p.thickness)] for p in model.facade_panels)
     encoded=json.dumps(shapes,sort_keys=True,separators=(',',':')).encode()
     return {'geometry_sha256':hashlib.sha256(encoded).hexdigest(),
+            'signature_version':2,
             'comparison_tolerance_m':tolerance_m,
             'scope':'export geometry at reporting precision; source coordinates remain f64'}

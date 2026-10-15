@@ -55,6 +55,17 @@ def fixture_resolution(active="I"):
 FAKE_WORKER = r'''
 import json, pathlib, sys, time
 import numpy as np
+def image(request):
+    branch=request['branch']
+    if branch in 'DEFGH':
+        logits=np.zeros((1,3 if branch in 'DE' else 2,512,512),dtype=np.float32);logits[:,1]=1
+        outputs={'logits':logits}
+    else:
+        outputs={'dets':np.zeros((1,300,4),dtype=np.float32),
+                 'labels':np.full((1,300,3 if branch=='J' else 2 if branch=='B' else 1),-20.,dtype=np.float32)}
+        if branch=='J':outputs['angles']=np.zeros((1,300,1),dtype=np.float32)
+    np.savez(request['output'],**outputs)
+    return {'schema_version':1,'status':'complete','branch':branch,'output':request['output']}
 def execute(path):
     request=json.loads(pathlib.Path(path).read_text())
     root=pathlib.Path(request["model_root"])
@@ -71,8 +82,13 @@ def execute(path):
         if (root/"malformed").exists(): logits=logits[:,:11]
         np.save(request["output"],logits,allow_pickle=False)
         response={"schema_version":1,"status":"complete","branch":"I","output":request["output"]}
+    elif request['mode']=='image':response=image(request)
+    elif request['mode']=='image_batch':
+        if (root/'slow-image').exists():
+            (root/'wave-started').touch();time.sleep(30)
+        response={'schema_version':1,'status':'complete','results':[image(j) for j in request['jobs']]}
     else:
-        raise RuntimeError("fixture only supports point inference")
+        raise RuntimeError("unsupported fixture request")
     pathlib.Path(request["response"]).write_text(json.dumps(response),encoding="utf-8")
 if sys.argv[1]=="--serve":
     print(json.dumps({"schema_version":1,"status":"ready"}),flush=True)
@@ -257,6 +273,9 @@ def test_isolated_specialist_provider_runs_point_graph_and_publishes_review_only
     assert report["provider"]["runtime"]["worker_protocol"] == "persistent-json-lines-v1"
     extension = report["extensions"]["specialist_v1"]
     assert extension["branches"]["I"]["status"] == "active"
+    assert extension['runtime_profile']['I_worker']['calls']>0
+    assert extension['runtime_profile']['I_preprocessing']['calls']>0
+    assert extension['runtime_profile']['I_worker']['failures']==0
     assert all(extension["branches"][name]["status"] == "missing" for name in "ABCDEFGHJ")
     assert extension["accepted_geometry_changes"] == extension["accepted_cuts"] == extension["ifc_objects_written"] == 0
     assert np.all(np.load(directory / "labels.npy") == 0)

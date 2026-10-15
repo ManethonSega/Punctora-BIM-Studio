@@ -5,6 +5,7 @@ independently resized fragment. Only source materialization is subdivided.
 """
 import cv2
 import numpy as np
+import time
 
 from .specialist_frames import plan_pixels, section_pixels, SectionFrame
 
@@ -18,20 +19,48 @@ class SourceBox:
         if self.block_size < 1:
             raise ValueError("Raster source blocks require a positive point limit")
 
-    def blocks(self):
+    def _row_blocks(self):
+        """Coalesce tiny spatial cells without sorting or dropping any row.
+
+        Per-cell NumPy reads and RSS syscalls otherwise repeat for every plan,
+        vote and component pass. The materialization cap still bounds every
+        block, including a single cell larger than that cap.
+        """
         from .specialist_provider import PunctoraSpecialistProvider
+        buffer = np.empty(self.block_size, dtype=np.int64)
+        used = 0
         for candidate in PunctoraSpecialistProvider._iter_box_rows(
                 self.index, self.minimum, self.maximum):
-            for begin in range(0, len(candidate), self.block_size):
-                self.control.check()
-                rows = np.asarray(candidate[begin:begin + self.block_size], dtype=np.int64)
-                points = np.asarray(self.cloud.points[rows], dtype=np.float64)
-                keep = np.all((points >= self.minimum) & (points <= self.maximum), axis=1)
-                if self.polygon is not None:
-                    from shapely import contains_xy
-                    keep &= contains_xy(self.polygon,points[:,0],points[:,1])
-                if keep.any():
-                    yield rows[keep], points[keep]
+            if hasattr(self.control, 'source_read_stats'):
+                self.control.source_read_stats['cells'] += 1
+            begin = 0
+            while begin < len(candidate):
+                size = min(self.block_size-used, len(candidate)-begin)
+                buffer[used:used+size] = candidate[begin:begin+size]
+                used += size; begin += size
+                if used == self.block_size:
+                    yield buffer.copy()
+                    used = 0
+        if used:
+            yield buffer[:used].copy()
+
+    def blocks(self):
+        self.control.check()
+        for rows in self._row_blocks():
+            started = time.monotonic()
+            self.control.check()
+            points = np.asarray(self.cloud.points[rows], dtype=np.float64)
+            keep = np.all((points >= self.minimum) & (points <= self.maximum), axis=1)
+            if self.polygon is not None:
+                from shapely import contains_xy
+                keep &= contains_xy(self.polygon,points[:,0],points[:,1])
+            if hasattr(self.control, 'source_read_stats'):
+                stats = self.control.source_read_stats
+                stats['blocks'] += 1; stats['candidate_points'] += len(rows)
+                stats['selected_points'] += int(keep.sum())
+                stats['seconds'] += time.monotonic()-started
+            if keep.any():
+                yield rows[keep], points[keep]
 
 
 def owned(points, minimum, maximum):
@@ -40,17 +69,28 @@ def owned(points, minimum, maximum):
 
 
 def plan_image(source, frame, radius=2):
-    occupied = np.zeros((frame.native_pixels, frame.native_pixels), dtype=np.uint8)
-    count = rasterized = maximum = 0
+    return plan_images(source, [frame], radius)[0]
+
+
+def plan_images(source, frames, radius=2):
+    """Rasterize all physical TTA fields in one lossless source pass."""
+    occupied = [np.zeros((frame.native_pixels, frame.native_pixels), dtype=np.uint8) for frame in frames]
+    rasterized = [0] * len(frames)
+    count = maximum = 0
     for _, points in source.blocks():
-        rows, columns, inside = plan_pixels(frame, points)
-        occupied[rows[inside], columns[inside]] = 255
-        count += len(points); rasterized += int(inside.sum()); maximum = max(maximum, len(points))
-    if radius:
-        occupied = cv2.dilate(occupied, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1)))
-    return 255 - occupied, {"input_points": count, "rasterized_points": rasterized,
-        "maximum_materialized_points": maximum, "source_partition": "exact_bounded_blocks",
-        "dot_radius_pixels": radius, "dot_radius_m": radius * frame.pixel_m}
+        count += len(points); maximum = max(maximum, len(points))
+        for i, frame in enumerate(frames):
+            rows, columns, inside = plan_pixels(frame, points)
+            occupied[i][rows[inside], columns[inside]] = 255
+            rasterized[i] += int(inside.sum())
+    result = []
+    for image, frame, population in zip(occupied, frames, rasterized):
+        if radius:
+            image = cv2.dilate(image, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*radius+1, 2*radius+1)))
+        result.append((255-image, {"input_points": count, "rasterized_points": population,
+            "maximum_materialized_points": maximum, "source_partition": "exact_bounded_blocks",
+            "dot_radius_pixels": radius, "dot_radius_m": radius * frame.pixel_m}))
+    return result
 
 
 def section_image(source, identifier, axis, origin, base, extension=0., pixel=.01):

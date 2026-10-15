@@ -165,10 +165,46 @@ def test_runtime_total_cannot_claim_completion_before_publication(tmp_path,monke
     monkeypatch.setattr(projects.time,'perf_counter',lambda:next(ticks))
     path=tmp_path/'p.punctora';projects.assets_for(path).mkdir()
     write,_=projects._performance_writer(path,'a'*32,'reconstruct')
-    interim=write({'status':'completed','total_seconds':104.,'recognition':{'elapsed_seconds':3500.}})
+    interim=write({'status':'completed','total_seconds':104.,'recognition':{'elapsed_seconds':3500.},
+                  'events':[{'event':'job_completed','at':'stage-end'}]})
     final=write({'status':'completed','total_seconds':104.},final=True)
     assert interim['status']=='running' and final['status']=='completed'
     assert final['total_seconds']==3601. and final['geometry_and_evidence_seconds']==104.
+    assert interim['events']==[{'event':'reconstruction_pipeline_completed','at':'stage-end'}]
+    assert final['events'][-1]['event']=='job_completed'
+    assert final['events'][-1]['scope']=='desktop_publication'
+
+
+def test_failure_snapshot_retains_final_specialist_branch_heartbeat(tmp_path):
+    from punctora_core.projects import _performance_writer, assets_for
+    path=tmp_path/'case.punctora';assets_for(path).mkdir()
+    save,_=_performance_writer(path,'d'*32,'reconstruct')
+    heartbeat={'status':'failed','stage':'specialist_image_batch_worker',
+               'provider_timings':{'D_onnx':{'calls':5,'inference_seconds':12.}}}
+    save({'status':'running','recognition':heartbeat})
+    failed=save({'status':'failed','error':'generated late geometry failure'})
+    assert failed['recognition']==heartbeat
+    assert json.loads((assets_for(path)/'last-performance.json').read_text())['recognition']==heartbeat
+    assert failed['events'][-1]['event']=='job_failed'
+
+
+def test_branch_timing_retains_failed_work_and_live_phase(tmp_path,monkeypatch):
+    from test_specialist_provider import make_provider
+    provider=make_provider(tmp_path,monkeypatch)
+    reports=[]
+    control=SimpleNamespace(stage='prepare_instances',emit=lambda:reports.append(
+        (control.stage,deepcopy(control.provider_timings))))
+    with provider._profile_phase('D_worker',control):
+        assert control.stage=='specialist_D_worker'
+    with pytest.raises(ValueError,match='reproduced failure'):
+        with provider._profile_phase('I_preprocessing',control):
+            raise ValueError('reproduced failure')
+    assert provider.runtime_profile['D_worker']['calls']==1
+    assert provider.runtime_profile['D_worker']['failures']==0
+    assert provider.runtime_profile['I_preprocessing']['failures']==1
+    assert control.stage=='prepare_instances' and control.provider_phase_started is None
+    assert reports[-1][1]==provider.runtime_profile
+    assert all(item['seconds']>=0 for item in provider.runtime_profile.values())
 
 
 def test_storage_counts_hardlinked_original_ids_once_and_retains_them(tmp_path):
@@ -213,7 +249,7 @@ def test_all_raster_branches_execute_above_old_view_cap_and_cleanup(tmp_path,mon
     x,z=np.meshgrid(np.arange(0,1.,.05),np.arange(100,103.001,.05))
     cloud=source(np.column_stack((x.ravel()+7_000_000.,np.full(x.size,5_000_000.),z.ravel())))
     directory,report,_=run_recognition(cloud,identity(),provider,tmp_path/'cache',
-                                      tile_settings=TileSettings(maximum_context_points=10000))
+                                      tile_settings=TileSettings(maximum_context_points=10000), cpu_workers=1)
     branches=report['extensions']['specialist_v1']['branches']
     assert set(calls)==set('ABCDEFGHJ')
     assert all(v['status']=='active' and v['executed_views']>0 for b,v in branches.items() if b!=failed_branch)
@@ -262,7 +298,8 @@ def test_desktop_orchestration_consumes_proposals_into_unreviewed_geometry(tmp_p
     cloud,manifest=fusion_fixture(tmp_path)
     manifest.update(provider={'id':'PunctoraSpecialistProvider'},warnings=[],instances=[])
     manifest['extensions']['specialist_v1'].update(branches={'I':{'status':'active','graph_sha256':'c'*64}},
-                                                 point_model_view_population=len(cloud.points))
+        point_model_view_population=len(cloud.points),
+        runtime_profile={'I_worker':{'calls':1,'seconds':12.,'failures':0}})
     monkeypatch.setattr('punctora_core.recognition.job.run_recognition',lambda *a,**k:(tmp_path,manifest,False))
     state={'project_id':'a'*32,'import_manifest':{'source':{'sha256':'b'*64},
            'coordinate_mapping':{'working_to_source_translation_m':[0,0,0]}},
@@ -275,6 +312,7 @@ def test_desktop_orchestration_consumes_proposals_into_unreviewed_geometry(tmp_p
         assert m.walls[0].review_state=='unreviewed'
         assert 'original-point validated' in report['geometry_authority']
         assert m.metadata['performance']['recognition']['elapsed_seconds']>0
+        assert m.metadata['performance']['recognition']['runtime_profile']['I_worker']['seconds']==12.
     finally:
         if getattr(m,'_spatial_index',None):m._spatial_index.close()
 

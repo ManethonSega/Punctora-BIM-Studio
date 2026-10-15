@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import tempfile
 import time
+import traceback
 import uuid
 from datetime import datetime, timezone
 
@@ -113,10 +114,18 @@ def _performance_writer(path, job_id, command):
     latest = root / "last-performance.json"
     started = time.perf_counter()
     started_utc = datetime.now(timezone.utc).isoformat()
+    last_recognition = None
     def write(report, final=False):
+        nonlocal last_recognition
         value = {**report, "job_id": job_id, "command": command,
                  "diagnostic_file": str(history.name)}
         if command == 'reconstruct':
+            # Exception handlers may hold the pre-recognition model snapshot.
+            # They must not erase the durable final branch heartbeat.
+            if 'recognition' in value:
+                last_recognition = deepcopy(value['recognition'])
+            elif last_recognition is not None:
+                value['recognition'] = deepcopy(last_recognition)
             value['geometry_and_evidence_seconds'] = report.get('geometry_and_evidence_seconds',report.get('total_seconds',0.))
             elapsed = time.perf_counter()-started
             value.update(total_seconds=elapsed,elapsed_seconds=elapsed,
@@ -127,10 +136,25 @@ def _performance_writer(path, job_id, command):
                 value['status']='running'
             elif final:
                 value['status']='completed'
+            # A completed reconstruction/evidence stage is not desktop
+            # publication. Preserve its time without reporting job success.
+            value['events']=[{**event,'event':'reconstruction_pipeline_completed'}
+                if event.get('event')=='job_completed' and event.get('scope')!='desktop_publication'
+                else dict(event) for event in value.get('events',[])]
+            if final or value.get('status') in {'failed','cancelled'}:
+                event='job_completed' if final else 'job_'+value['status']
+                value['events'].append({'event':event,'at':value['updated_at_utc'],
+                                        'scope':'desktop_publication'})
         atomic_json(history, value)
         atomic_json(latest, value)
         return value
     return write, history
+
+
+def _error_context(exc):
+    return {'exception_type': type(exc).__name__,
+            'frames': [{'file': Path(frame.filename).name, 'function': frame.name, 'line': frame.lineno}
+                       for frame in traceback.extract_tb(exc.__traceback__)]}
 
 
 def _initial_performance(job_id, command, **details):
@@ -537,7 +561,8 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
     progress(62, f"Running {mode} specialist evidence")
     proposal_directory, proposal, cache_hit = run_recognition(
         cloud, identity, provider, stage / "recognition", tile_settings=tiles,
-        fallback=fallback, diagnostics=diagnostic)
+        fallback=fallback, diagnostics=diagnostic,
+        cpu_workers=ReconstructionSettings(**request.get('settings', {})).cpu_workers)
     specialist = proposal.get("extensions", {}).get("specialist_v1")
     fusion = None
     if specialist:
@@ -596,6 +621,10 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
               "actual_provider": final_proposal["provider"]["id"], "provider_chain": provider_chain,
               "geometry_authority": "original-point validated unreviewed candidates; provider proposals remain review-only",
               "geometry_fusion": fusion,
+              "runtime_profile": deepcopy((specialist or {}).get('runtime_profile', {})),
+              "runtime_profile_scope": (specialist or {}).get('runtime_profile_scope'),
+              "runtime_plan": deepcopy((specialist or {}).get('runtime_plan')),
+              "source_read_stats": deepcopy((specialist or {}).get('source_read_stats', {})),
               "active_branches": active, "missing_branches": missing,
               "model_pack_manifest_sha256": (specialist or {}).get("model_pack_manifest_sha256"),
               "loaded_hashes": {name: value.get("graph_sha256") for name, value in
@@ -734,6 +763,7 @@ def reconstruct_project(path, request, progress=lambda *_: None):
             except BaseException as exc:
                 failure=deepcopy(model.metadata.get('performance',{})) if 'model' in locals() else {}
                 failure.update(status='cancelled' if isinstance(exc,InterruptedError) else 'failed',error=str(exc))
+                failure['error_context'] = _error_context(exc)
                 save_performance(failure)
                 raise
             finally:
@@ -747,7 +777,8 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                 publish_generation(path, token, stage)
                 atomic_json(path, state)
             except BaseException as exc:
-                save_performance({**model.metadata.get('performance',{}),'status':'failed','error':str(exc)})
+                save_performance({**model.metadata.get('performance',{}),'status':'failed','error':str(exc),
+                                  'error_context': _error_context(exc)})
                 raise
             from .project_storage import storage_report
             final_performance={**model.metadata.get('performance',{}),'storage':storage_report(assets_for(path))}

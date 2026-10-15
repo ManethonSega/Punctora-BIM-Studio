@@ -16,7 +16,7 @@ PREPROCESSING = {"version": "punctora-ptv3-original-normal-v1", "grid_m": .06,
                  "feature_channels": ["normal_x", "normal_y", "normal_z"]}
 
 
-def original_normals(context, selected, radius=.3, max_nn=30, check=lambda: None, query_points=None):
+def original_normals(context, selected, radius=.3, max_nn=30, check=lambda: None, query_points=None, workers=1):
     context = np.asarray(context, dtype=np.float64)
     tree = cKDTree(context)
     queries = context[selected] if query_points is None else np.asarray(query_points, dtype=np.float64)
@@ -26,7 +26,7 @@ def original_normals(context, selected, radius=.3, max_nn=30, check=lambda: None
     for begin in range(0, len(queries), 4096):
         check()
         query = queries[begin:begin + 4096]
-        distance, indices = tree.query(query, k=neighbours, distance_upper_bound=radius, workers=1)
+        distance, indices = tree.query(query, k=neighbours, distance_upper_bound=radius, workers=workers)
         if neighbours == 1:
             distance, indices = distance[:, None], indices[:, None]
         keep = np.isfinite(distance)

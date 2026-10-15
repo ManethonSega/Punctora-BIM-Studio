@@ -6,11 +6,13 @@ installs, accepts geometry or writes IFC.
 """
 from importlib import metadata
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 import gc
 import hashlib
 import json
 from pathlib import Path
 import sys
+import time
 
 
 def digest(path):
@@ -39,13 +41,33 @@ def write_json(path, value):
                                      separators=(",", ":")), encoding="utf-8")
 
 
-def session_options(ort):
+def runtime_options(request, branch):
+    plan = request.get("runtime_plan")
+    if plan is None:  # Readable legacy worker requests retain their old contract.
+        return 2, True
+    budget = plan.get("cpu_budget")
+    lanes = plan.get("image_workers")
+    image = plan.get("image_intra_op_threads")
+    point = plan.get("point_intra_op_threads")
+    if (any(isinstance(v, bool) or not isinstance(v, int) or v < 1 for v in (budget, lanes, image, point))
+            or lanes > 5 or lanes * image > budget or point > budget
+            or type(plan.get("inter_op_threads")) is not int or plan.get("inter_op_threads") != 1
+            or plan.get("execution_mode") != "sequential"
+            or plan.get("allow_spinning") is not False):
+        raise ValueError("Specialist runtime CPU budget is malformed or oversubscribed")
+    return (point if branch == "I" else image), False
+
+
+def session_options(ort, request=None, branch="I"):
     options = ort.SessionOptions()
-    options.intra_op_num_threads = 2
+    threads, spinning = runtime_options(request or {}, branch)
+    options.intra_op_num_threads = threads
     options.inter_op_num_threads = 1
     options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
     options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     options.log_severity_level = 3
+    options.add_session_config_entry("session.intra_op.allow_spinning", "1" if spinning else "0")
+    options.add_session_config_entry("session.inter_op.allow_spinning", "0")
     return options
 
 
@@ -102,7 +124,8 @@ def verify_session(branch, contract, session):
 def load_session(ort, request, branch, sessions=None):
     contract = request["manifest"]["branches"][branch]
     root = Path(request["model_root"])
-    key = (str(root.resolve()), branch, contract["graph_sha256"], contract.get("companion_sha256"))
+    key = (str(root.resolve()), branch, contract["graph_sha256"], contract.get("companion_sha256"),
+           runtime_options(request, branch))
     if sessions is not None and key in sessions:
         session = sessions.pop(key)
         sessions[key] = session
@@ -114,9 +137,6 @@ def load_session(ort, request, branch, sessions=None):
         companion = root / contract["companion"]
         if digest(companion) != contract["companion_sha256"]:
             raise ValueError(f"Branch {branch} companion changed after provider admission")
-    session = ort.InferenceSession(str(graph), sess_options=session_options(ort),
-                                   providers=["CPUExecutionProvider"])
-    verify_session(branch, contract, session)
     if sessions is not None:
         limit = request.get("maximum_cached_sessions", 1)
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 10:
@@ -124,14 +144,18 @@ def load_session(ort, request, branch, sessions=None):
         while len(sessions) >= limit:
             sessions.popitem(last=False)
             gc.collect()
+    session = ort.InferenceSession(str(graph), sess_options=session_options(ort, request, branch),
+                                   providers=["CPUExecutionProvider"])
+    verify_session(branch, contract, session)
+    if sessions is not None:
         sessions[key] = session
     return session
 
 
-def preflight(ort, request):
+def preflight(ort, request, sessions=None):
     active, details = [], {}
     for branch in request["active_branches"]:
-        session = load_session(ort, request, branch)
+        session = load_session(ort, request, branch, sessions)
         details[branch] = {"inputs": [value.name for value in session.get_inputs()],
                            "outputs": [value.name for value in session.get_outputs()],
                            "providers": session.get_providers()}
@@ -143,6 +167,7 @@ def preflight(ort, request):
                         "requested_provider": "CPUExecutionProvider",
                         "actual_provider": "CPUExecutionProvider",
                         "worker_protocol": "persistent-json-lines-v1",
+                        "runtime_plan": request.get("runtime_plan"),
                         "maximum_cached_sessions": request.get("maximum_cached_sessions", 1)},
             "contracts": details}
 
@@ -175,10 +200,13 @@ def image_tensor(branch, image):
     raise ValueError("Unknown specialist image branch")
 
 
-def infer_image(ort, request, sessions=None):
+def infer_image(ort, request, sessions=None, session=None):
     import numpy as np
+    started = time.monotonic()
     branch = request["branch"]
-    session = load_session(ort, request, branch, sessions)
+    if session is None:
+        session = load_session(ort, request, branch, sessions)
+    loaded = time.monotonic()
     tensor = np.load(request["tensor"], allow_pickle=False)
     expected = ((1, 3, 560, 560) if branch in {"A", "B", "C"} else
                 (1, 1, 512, 512) if branch in {"D", "E", "F", "G", "H"} else
@@ -186,7 +214,9 @@ def infer_image(ort, request, sessions=None):
     if expected is None or tensor.dtype != np.float32 or tensor.shape != expected or not np.isfinite(tensor).all():
         raise ValueError("Specialist image tensor changed after host preprocessing")
     input_name = session.get_inputs()[0].name
+    prepared = time.monotonic()
     arrays = session.run(None, {input_name: tensor})
+    inferred = time.monotonic()
     names = [value.name for value in session.get_outputs()]
     if len(arrays) != len(names) or any(not np.isfinite(value).all() for value in arrays):
         raise ValueError("Specialist image model returned malformed or nonfinite outputs")
@@ -194,12 +224,61 @@ def infer_image(ort, request, sessions=None):
     np.savez(output, **dict(zip(names, arrays)))
     return {"schema_version": 1, "status": "complete", "branch": branch,
             "output": str(output), "input_shape": list(tensor.shape),
+            "timings": {"session_load_seconds": loaded-started, "input_seconds": prepared-loaded,
+                        "inference_seconds": inferred-prepared, "output_seconds": time.monotonic()-inferred},
             "output_shapes": {name: list(value.shape) for name, value in zip(names, arrays)}}
+
+
+def infer_images(ort, request, sessions):
+    """One bounded wave. Load/cache serially; execute independent runs concurrently.
+
+    Only the server thread mutates the session LRU. No session can be evicted
+    during the wave; results are returned in input order, never finish order.
+    """
+    jobs = request.get("jobs")
+    runtime_options(request, "D")
+    lanes = request["runtime_plan"]["image_workers"]
+    if (not isinstance(jobs, list) or not 1 <= len(jobs) <= lanes
+            or len(jobs) > request["maximum_cached_sessions"]):
+        raise ValueError("Image wave exceeds the admitted concurrency/session budget")
+    prepared, loads, hits = {}, {}, {}
+    for job in jobs:
+        if (not isinstance(job, dict) or set(job) != {"branch", "tensor", "output"}
+                or job["branch"] not in set("ABCDEFGHJ")):
+            raise ValueError("Malformed specialist image wave")
+    if len({job['output'] for job in jobs}) != len(jobs):
+        raise ValueError("Specialist image wave has duplicate output destinations")
+    for job in jobs:
+        branch = job["branch"]
+        if branch not in prepared:
+            before = set(sessions)
+            started = time.monotonic()
+            prepared[branch] = load_session(ort, request, branch, sessions)
+            loads[branch] = time.monotonic()-started
+            hits[branch] = set(sessions) == before
+    def infer(job):
+        try:
+            return infer_image(ort, {**request, **job}, session=prepared[job["branch"]])
+        except Exception as exc:
+            status, error = _failure(exc)
+            if status != "unavailable":
+                raise
+            return {"status": status, "branch": job["branch"], "error": error}
+    with ThreadPoolExecutor(max_workers=len(jobs), thread_name_prefix="punctora-image") as executor:
+        responses = list(executor.map(infer, jobs))
+    for response in responses:
+        branch = response["branch"]
+        if response["status"] == "complete" and branch in loads:
+            response["timings"]["session_load_seconds"] += loads.pop(branch)
+            response["session_cache_hit"] = hits[branch]
+    return {"schema_version": 1, "status": "complete", "results": responses}
 
 
 def infer_point(ort, request, sessions=None):
     import numpy as np
+    started = time.monotonic()
     session = load_session(ort, request, "I", sessions)
+    loaded = time.monotonic()
     feed_manifest = read_json(request["feed_manifest"])
     if set(feed_manifest) != expected_point_names():
         raise ValueError("Branch I feed manifest does not contain exactly 40 tensors")
@@ -210,7 +289,9 @@ def infer_point(ort, request, sessions=None):
         if value.dtype != expected or not value.flags.c_contiguous:
             raise ValueError("Branch I feed tensor dtype/contiguity changed")
         feed[name] = value
+    prepared = time.monotonic()
     arrays = session.run(None, feed)
+    inferred = time.monotonic()
     outputs = [value.name for value in session.get_outputs()]
     if outputs != ["seg_logits"] or len(arrays) != 1:
         raise ValueError("Branch I output contract changed")
@@ -220,25 +301,36 @@ def infer_point(ort, request, sessions=None):
     output = Path(request["output"])
     np.save(output, logits, allow_pickle=False)
     return {"schema_version": 1, "status": "complete", "branch": "I", "output": str(output),
+            "timings": {"session_load_seconds": loaded-started, "input_seconds": prepared-loaded,
+                        "inference_seconds": inferred-prepared, "output_seconds": time.monotonic()-inferred},
             "input_voxels": int(len(feed["feat"])), "output_shape": list(logits.shape)}
 
 
 def execute(request, sessions=None):
-    if request.get("schema_version") != 1 or request.get("mode") not in {"preflight", "image", "point"}:
+    if request.get("schema_version") != 1 or request.get("mode") not in {"preflight", "image", "point", "image_batch"}:
         raise ValueError("Unsupported specialist worker request")
     if request.get("automatic_download") is not False:
         raise ValueError("Specialist worker forbids automatic downloads")
+    if request.get('manifest', {}).get('runtime', {}).get('requires_runtime_plan') and not request.get('runtime_plan'):
+        raise ValueError('Specialist model pack requires the explicit job CPU runtime plan')
     limit = request.get("maximum_cached_sessions")
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 10:
         raise ValueError("Specialist session-cache limit must be an integer from one through ten")
     import onnxruntime as ort
     if "CPUExecutionProvider" not in ort.get_available_providers():
         raise ImportError("ONNX Runtime CPUExecutionProvider is unavailable")
+    started, cpu = time.monotonic(), time.process_time()
     if request["mode"] == "preflight":
-        return preflight(ort, request)
-    if request["mode"] == "image":
-        return infer_image(ort, request, sessions)
-    return infer_point(ort, request, sessions)
+        result = preflight(ort, request, sessions)
+    elif request["mode"] == "image":
+        result = infer_image(ort, request, sessions)
+    elif request["mode"] == "image_batch":
+        result = infer_images(ort, request, sessions if sessions is not None else OrderedDict())
+    else:
+        result = infer_point(ort, request, sessions)
+    result["process_timing"] = {"cpu_seconds": time.process_time()-cpu,
+                                "wall_seconds": time.monotonic()-started}
+    return result
 
 
 def _failure(exc):

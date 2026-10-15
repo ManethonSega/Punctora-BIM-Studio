@@ -11,9 +11,9 @@ from ..annotation_io import content_digest, file_digest, identifier, sha256
 
 
 SPECIALIST_PROVIDER_ID = "PunctoraSpecialistProvider"
-SPECIALIST_PROVIDER_VERSION = "4.0"
+SPECIALIST_PROVIDER_VERSION = "4.1"
 MODEL_PACK_ID = "punctora-supplied-specialists-a-j"
-MODEL_PACK_VERSION = "1"
+MODEL_PACK_VERSION = "2"
 
 
 def _branch(task, graph_sha256, inputs, outputs, renderer, decoder, *, companion=None):
@@ -25,7 +25,7 @@ def _branch(task, graph_sha256, inputs, outputs, renderer, decoder, *, companion
         "outputs": outputs,
         "renderer": renderer,
         "decoder": decoder,
-        "runtime": "onnxruntime-cpu-v1",
+        "runtime": "onnxruntime-cpu-v2",
         "provider_version": SPECIALIST_PROVIDER_VERSION,
     }
     if companion:
@@ -40,11 +40,13 @@ MODEL_PACK_MANIFEST = {
     "pack_version": MODEL_PACK_VERSION,
     "taxonomy_version": "punctora-building-v1",
     "runtime": {
-        "id": "onnxruntime-cpu-v1",
+        "id": "onnxruntime-cpu-v2",
         "execution_provider": "CPUExecutionProvider",
         "execution_mode": "sequential",
-        "intra_op_threads": 2,
+        "intra_op_threads": "explicit_job_runtime_plan",
         "inter_op_threads": 1,
+        "allow_spinning": False,
+        "requires_runtime_plan": True,
         "automatic_download": False,
     },
     "branches": {
