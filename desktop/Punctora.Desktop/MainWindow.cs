@@ -75,6 +75,7 @@ public sealed class MainWindow : Window
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
         viewport.FrameDiagnosticsChanged=value=>frameDiagnostics.Text=value;
+        viewport.SizeChanged+=(_,_)=>UpdateHeightLegend();
         viewport.ElementSelected=id=>{selectedId=id;var index=Array.IndexOf(elementIds,id);elements.SelectedIndex=index;ShowProperties();viewport.View.Selected=id;viewport.Redraw();};
         var root=new Grid{RowDefinitions=new RowDefinitions("Auto,Auto,Auto,*"),Margin=new Thickness(18,14)};
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
@@ -292,7 +293,8 @@ public sealed class MainWindow : Window
     void UpdateHeightLegend()
     {
         heightLegend.SetScale(viewport.View.Scene.HeightMinimum,viewport.View.Scene.HeightMaximum);
-        heightLegend.IsVisible=state is not null&&viewport.View.Cloud&&viewport.View.CloudColor==CloudColorMode.Height;
+        heightLegend.IsVisible=state is not null&&viewport.View.Cloud&&viewport.View.CloudColor==CloudColorMode.Height
+            &&viewport.Bounds.Width>=300&&viewport.Bounds.Height>=220;
         heightLegend.Tag=viewport.View.Scene.HeightScaleScope;
     }
     async Task PresentAsync(string path,JsonObject value,bool fit)
@@ -660,6 +662,7 @@ public sealed class MainWindow : Window
             {legendBitmap.Render(this);using var legendStream=File.Create(Path.Combine(output,"height-legend.png"));legendBitmap.Save(legendStream,PngBitmapEncoderOptions.Default);}
             // Logical dimensions reproduce small displays and Windows scaling.
             Width=800;Height=500;await Task.Delay(150);
+            if(heightLegend.IsVisible)throw new Exception("Height legend obscures the compact viewport");
             status.Text="Specialist setup unavailable: select the existing A-J model folder. Detection is blocked before opening the scan.";
             ShowRecognitionStatus(new JsonObject{["requested_provider"]="PunctoraSpecialistProvider",
                 ["actual_provider"]="unavailable",["active_branches"]=new JsonArray(),
