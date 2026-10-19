@@ -167,6 +167,7 @@ def fuse_geometry(cloud,model,manifest,directory,index,control,settings):
     extension=manifest.get('extensions',{}).get('specialist_v1')
     report={'schema_version':1,'authority':'original_point_geometry_validation',
             'added_wall_ids':[],'added_window_ids':[],'added_surface_ids':[], 'corroborated_ids':[],'rejected_proposals':[],
+            'opening_decisions':[],
             'review_state':'unreviewed','accepted_cuts':0,'user_acceptance_changes':0}
     if extension is None:return report
     proposals=read_json(safe_artifact_path(directory,extension['proposals_path']))['proposals']
@@ -185,7 +186,15 @@ def fuse_geometry(cloud,model,manifest,directory,index,control,settings):
     try:
         for proposal in sorted(proposals,key=lambda p:(p['class']!='wall',p['id'])):
             control.check();kind=proposal['class']
-            if kind in {'window','door','opening'} and not settings.detect_openings_enabled:continue
+            opening_decision = None
+            if kind in {'window','door','opening'}:
+                opening_decision = {'proposal_id':proposal['id'],'branch':proposal.get('branch'),
+                    'class':kind,'status':'pending_original_point_validation',
+                    'proposal_cache_key':manifest['cache_key'],'host_wall_id':None}
+                report['opening_decisions'].append(opening_decision)
+                if not settings.detect_openings_enabled:
+                    opening_decision.update(status='not_evaluated',reason='opening_detection_disabled')
+                    continue
             if kind not in {'wall','window','door','slab','ceiling','roof','stair','opening'}:
                 # Sections/beam/column/stair masks remain proposals, not fake solids.
                 continue
@@ -214,6 +223,9 @@ def fuse_geometry(cloud,model,manifest,directory,index,control,settings):
                     and min(w.base+w.height,proposal['z_max_m'])>max(w.base,proposal['z_min_m'])]
                 for wall in affected:
                     wall.evidence.setdefault('specialist_opening_search_ids',[]).append(proposal['id'])
+                opening_decision.update(status='deferred_original_frame_search',
+                    affected_host_ids=[wall.id for wall in affected],
+                    reason='plan_or_section_proposal_requires_original_frame_and_plane_support')
                 continue
             if kind=='stair':
                 for stair in model.stairs:
@@ -227,6 +239,9 @@ def fuse_geometry(cloud,model,manifest,directory,index,control,settings):
             plane=fit_vertical_plane(source,proposal['polygon_xy_m'],seeds,semantic,kind)
             if plane is None:
                 report['rejected_proposals'].append({'proposal_id':proposal['id'],'reason':'original_vertical_plane_or_height_support_failed'})
+                if opening_decision is not None:
+                    opening_decision.update(status='rejected',reason='original_vertical_plane_or_height_support_failed',
+                                            source_support_seed_count=len(seeds))
                 continue
             owner=min(model.storeys,key=lambda s:abs(s.elevation-plane['base']))
             proof={'specialist_proposal_id':proposal['id'],'proposal_cache_key':manifest['cache_key'],
@@ -237,6 +252,10 @@ def fuse_geometry(cloud,model,manifest,directory,index,control,settings):
                     'source_record_index':int(cloud.source_record_index[i])} for i in plane['source_row_examples']],
                 'geometry_validation':'original_point_plane_and_measured_extents','review_state':'unreviewed'}
             host=_wall_match(model,plane)
+            if opening_decision is not None:
+                opening_decision.update(original_plane_point_count=plane['count'],
+                    original_plane_rmse_m=plane['rmse'],measured_width_m=plane['u_max']-plane['u_min'],
+                    measured_height_m=plane['height'],host_wall_id=host.id if host else None)
             if kind=='wall':
                 if host:
                     host.evidence.setdefault('specialist_corroboration',[]).append(proof)
@@ -255,8 +274,10 @@ def fuse_geometry(cloud,model,manifest,directory,index,control,settings):
                     model.walls.append(wall);report['added_wall_ids'].append(wall.id)
             else:
                 framed,fractions=frame_support(source,plane,labels,kind)
+                opening_decision['independent_frame_support_fractions']=fractions
                 if not framed:
                     report['rejected_proposals'].append({'proposal_id':proposal['id'],'reason':'independent_frame_support_failed','edge_fractions':fractions})
+                    opening_decision.update(status='rejected',reason='independent_frame_support_failed')
                     continue
                 proof['independent_frame_support_fractions']=fractions
                 if host:
@@ -267,19 +288,24 @@ def fuse_geometry(cloud,model,manifest,directory,index,control,settings):
                         provenance={'dimensions':'measured','kind':'inferred','filling':'unknown'},evidence=proof)
                     candidate,boundary=fit_generated_opening(candidate,host)
                     if candidate is None:
-                        report['rejected_proposals'].append({'proposal_id':proposal['id'],'reason':'host_containment_failed'});continue
+                        report['rejected_proposals'].append({'proposal_id':proposal['id'],'reason':'host_containment_failed'})
+                        opening_decision.update(status='rejected',reason='host_containment_failed')
+                        continue
                     rectangle=box(candidate.offset,candidate.sill,candidate.offset+candidate.width,candidate.sill+candidate.height)
                     duplicate=next((o for o in model.openings if o.host_wall_id==host.id and
                         rectangle.intersection(box(o.offset,o.sill,o.offset+o.width,o.sill+o.height)).area
                         >.25*min(rectangle.area,o.width*o.height)),None)
                     if duplicate:
+                        opening_decision.update(status='corroborated_existing_opening',element_id=duplicate.id)
                         duplicate.evidence.setdefault('specialist_corroboration',[]).append(proof)
                         report['corroborated_ids'].append(duplicate.id)
                         if duplicate.kind!=candidate.kind:
+                            opening_decision.update(status='rejected',reason='conflicts_with_preserved_opening_kind')
                             report['rejected_proposals'].append({'proposal_id':proposal['id'],
                                 'reason':'conflicts_with_preserved_opening_kind','element_id':duplicate.id})
                     else:
                         model.openings.append(candidate);report['added_window_ids'].append(candidate.id)
+                        opening_decision.update(status='added_hosted_opening',element_id=candidate.id)
                 elif kind=='window':
                     identifier='specialist-fit-facade-'+content_digest(proposal['id'])[:16]
                     panel=Wall(identifier,owner.id,tuple(plane['start']),tuple(plane['end']),plane['base'],plane['height'],.02,
@@ -289,6 +315,11 @@ def fuse_geometry(cloud,model,manifest,directory,index,control,settings):
                     if not any(LineString([p.start,p.end]).hausdorff_distance(LineString([panel.start,panel.end]))<.15
                                and abs(p.base-panel.base)<.15 and abs(p.height-panel.height)<.15 for p in model.facade_panels):
                         model.facade_panels.append(panel);report['added_window_ids'].append(panel.id)
+                        opening_decision.update(status='added_standalone_window',element_id=panel.id)
+                    else:
+                        opening_decision.update(status='duplicate_standalone_window_preserved')
+                else:
+                    opening_decision.update(status='rejected',reason='door_requires_supported_host_wall')
         if settings.detect_openings_enabled:
             from ..features import detect_openings
             affected=[w for w in model.walls if w.id in report['added_wall_ids'] or w.evidence.get('specialist_opening_search_ids')]
