@@ -181,8 +181,8 @@ def stitch_proposals(items, support, check=lambda: None):
         shape = Polygon(item['polygon_xy_m'])
         if not shape.is_valid or shape.area <= 0:
             raise ValueError('Invalid specialist proposal polygon before stitching')
-        matches = []
-        for i, (previous, other, ids) in enumerate(groups):
+        matches, ids = [], [item['id']]
+        for i, (previous, other, members) in enumerate(groups):
             if (item.get('branch') != previous.get('branch') or item['class'] != previous['class']
                     or abs(item['z_min_m']-previous['z_min_m']) > .08
                     or abs(item['z_max_m']-previous['z_max_m']) > .08
@@ -190,17 +190,29 @@ def stitch_proposals(items, support, check=lambda: None):
                 continue
             if item['class'] in {'window','door','opening'} and not shape.buffer(1e-8).intersects(other):
                 continue  # A narrow opaque pier is not a seam to be stitched.
+            observed = item.get('observed_z_bounds_m')
+            prior = previous.get('observed_z_bounds_m')
+            if (observed is None) != (prior is None):
+                continue  # Partial bounds cannot describe the unknown member.
+            if (observed is not None and prior is not None
+                    and max(observed[0], prior[0]) > min(observed[1], prior[1]) + .08):
+                continue  # Shared level bounds do not establish shared measured height.
             combined = shape.union(other)
             # A rotated rectangle may describe a straight seam only. Do not
             # turn touching L-shaped components into an invented diagonal wall.
+            # Check the growing aggregate, not each pair against the input.
             if combined.minimum_rotated_rectangle.area > combined.area*1.15 + .005:
                 continue
             matches.append(i)
-        ids = [item['id']]
-        for i in reversed(matches):
-            previous, other, members = groups.pop(i)
-            shape = shape.union(other); ids.extend(members)
+            shape = combined
+            ids.extend(members)
+            item['z_min_m'] = min(item['z_min_m'], previous['z_min_m'])
+            item['z_max_m'] = max(item['z_max_m'], previous['z_max_m'])
             item['support_points'] = item.get('support_points',0)+previous.get('support_points',0)
+            if observed is not None and prior is not None:
+                item['observed_z_bounds_m'] = [min(observed[0], prior[0]), max(observed[1], prior[1])]
+        for i in reversed(matches):
+            groups.pop(i)
         groups.append((item, shape, sorted(ids)))
     result, references = [], {}
     for item, shape, ids in groups:

@@ -14,7 +14,7 @@ from .contracts import TAXONOMY, safe_artifact_path
 from .streaming_views import SourceBox
 
 
-def fit_vertical_plane(source, polygon, seeds, labels=None, class_name='wall'):
+def fit_vertical_plane(source, polygon, seeds, labels=None, class_name='wall', measured_z_bounds=None):
     """Two bounded passes over original points, no dimensions from the model box."""
     if len(seeds)<6:
         return None
@@ -31,6 +31,8 @@ def fit_vertical_plane(source, polygon, seeds, labels=None, class_name='wall'):
         keep=contains_xy(shape,points[:,0],points[:,1])
         keep &= np.abs((points[:,:2]-origin)@n)<=.08
         if labels is not None:keep &= labels[rows]==class_id
+        if measured_z_bounds is not None:
+            keep &= ((points[:,2] >= measured_z_bounds[0]) & (points[:,2] <= measured_z_bounds[1]))
         return keep
     for rows,points in source.blocks():
         keep=selected(rows,points,anchor,normal);p=points[keep]
@@ -201,9 +203,19 @@ def fuse_geometry(cloud,model,manifest,directory,index,control,settings):
             e=entries[proposal['id']];rows=support[e['offset']:e['offset']+e['count']]
             seeds=np.asarray(cloud.points[rows.astype(np.int64)],dtype=np.float64)
             shape=Polygon(proposal['polygon_xy_m']);bounds=shape.buffer(.20).bounds
-            source=SourceBox(cloud,index,[bounds[0],bounds[1],proposal['z_min_m']-.12],
-                [bounds[2],bounds[3],proposal['z_max_m']+.12],control,1_500_000)
             semantic=labels if proposal.get('branch')=='I' else None
+            measured_z = (proposal.get('observed_z_bounds_m')
+                          if semantic is not None and kind in {'window','door'} else None)
+            z_min, z_max = proposal['z_min_m'], proposal['z_max_m']
+            if measured_z is not None:
+                if (len(measured_z) != 2 or not np.isfinite(measured_z).all()
+                        or measured_z[0] > measured_z[1]
+                        or measured_z[0] < z_min or measured_z[1] > z_max):
+                    raise ValueError('Measured opening heights must be finite and inside declared level bounds')
+                z_min, z_max = measured_z
+                opening_decision['proposal_observed_z_bounds_m'] = list(measured_z)
+            source=SourceBox(cloud,index,[bounds[0],bounds[1],z_min-.12],
+                [bounds[2],bounds[3],z_max+.12],control,1_500_000)
             if kind in {'slab','ceiling','roof'}:
                 if model.metadata.get('reconstruction_scope','interior')!='exterior':
                     if semantic is not None:fuse_horizontal_patch(cloud,model,proposal,labels,source,settings,report,manifest)
@@ -236,7 +248,7 @@ def fuse_geometry(cloud,model,manifest,directory,index,control,settings):
                             'scope':'plan/point support; tread/riser geometry and endpoint verification remain independent'})
                         report['corroborated_ids'].append(stair.id)
                 continue
-            plane=fit_vertical_plane(source,proposal['polygon_xy_m'],seeds,semantic,kind)
+            plane=fit_vertical_plane(source,proposal['polygon_xy_m'],seeds,semantic,kind,measured_z)
             if plane is None:
                 report['rejected_proposals'].append({'proposal_id':proposal['id'],'reason':'original_vertical_plane_or_height_support_failed'})
                 if opening_decision is not None:
