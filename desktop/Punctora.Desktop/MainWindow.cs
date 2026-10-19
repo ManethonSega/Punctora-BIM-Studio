@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.Automation;
 
 namespace Punctora.Desktop;
 
@@ -17,7 +18,9 @@ public sealed class MainWindow : Window
     readonly WorkerClient worker=new();
     readonly SceneViewport viewport;
     readonly HeightLegend heightLegend=new();
-    readonly TextBlock status=Text("Open a project, import an E57 or try the example.",12);
+    readonly TextBlock status=Text("Open a project, import an E57 or try the example.",14);
+    readonly TextBlock recognitionStatus=Text("Recognition: choose Classical or check specialist setup before importing a scan.",12);
+    readonly Border statusBanner=new(){Background=Brush.Parse("#132238"),Padding=new Thickness(12,9),Margin=new Thickness(0,0,0,12)};
     readonly TextBlock backend=Text("Initializing graphics",11);
     readonly TextBlock frameDiagnostics=Text("Frame diagnostics appear while moving the view.",11);
     readonly ComboBox previewQuality=new(){ItemsSource=new[]{"Adaptive","Low","Medium","High"},SelectedIndex=0,HorizontalAlignment=HorizontalAlignment.Stretch};
@@ -67,17 +70,17 @@ public sealed class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title="Punctora BIM Studio | 0.3.0a33 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
+        Title="Punctora BIM Studio | 0.3.0a34 desktop preview";Width=1440;Height=920;MinWidth=800;MinHeight=500;
         Background=Brush.Parse("#0B1220");
         viewport=new SceneViewport(args.Contains("--software")||Environment.GetEnvironmentVariable("PUNCTORA_SOFTWARE_PREVIEW")=="1");
         viewport.BackendChanged=value=>backend.Text=value;
         viewport.FrameDiagnosticsChanged=value=>frameDiagnostics.Text=value;
         viewport.ElementSelected=id=>{selectedId=id;var index=Array.IndexOf(elementIds,id);elements.SelectedIndex=index;ShowProperties();viewport.View.Selected=id;viewport.Redraw();};
-        var root=new Grid{RowDefinitions=new RowDefinitions("Auto,Auto,*,Auto"),Margin=new Thickness(18,14)};
+        var root=new Grid{RowDefinitions=new RowDefinitions("Auto,Auto,Auto,*"),Margin=new Thickness(18,14)};
         var header=new Grid{ColumnDefinitions=new ColumnDefinitions("Auto,*,Auto"),Margin=new Thickness(0,0,0,14)};
         var brand=new StackPanel{Spacing=3};brand.Children.Add(Text("PUNCTORA  /  BIM STUDIO",20));brand.Children.Add(Text("Point clouds to reviewed IFC",11));
         header.Children.Add(brand);Grid.SetColumn(projectTitle,1);projectTitle.Margin=new Thickness(35,0,12,0);header.Children.Add(projectTitle);
-        var alpha=Text("M3 PREVIEW 0.3.0a33",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
+        var alpha=Text("M3 PREVIEW 0.3.0a34",11);alpha.Foreground=Brush.Parse("#FBBF24");Grid.SetColumn(alpha,2);header.Children.Add(alpha);root.Children.Add(header);
         var toolbar=new WrapPanel{Orientation=Orientation.Horizontal,ItemSpacing=8,LineSpacing=8,Margin=new Thickness(0,0,0,14)};
         Button Action(string label,Func<Task> action){var button=Button(label,async()=>await Guard(action));toolbar.Children.Add(button);projectActions.Add(button);return button;}
         Action("Import E57",ImportAsync);Action("Example",DemoAsync);Action("Open",OpenAsync);
@@ -86,7 +89,7 @@ public sealed class MainWindow : Window
         undoButton=Action("Undo edit",UndoAsync);Action("Revert",RevertAsync);
         cancel=Button("Cancel job",()=>{jobCancellation?.Cancel();return Task.CompletedTask;});cancel.IsEnabled=false;toolbar.Children.Add(cancel);
         Grid.SetRow(toolbar,1);root.Children.Add(toolbar);
-        var body=new Grid{ColumnDefinitions=new ColumnDefinitions("240,12,*,12,295")};Grid.SetRow(body,2);root.Children.Add(body);
+        var body=new Grid{ColumnDefinitions=new ColumnDefinitions("240,12,*,12,295")};Grid.SetRow(body,3);root.Children.Add(body);
         var left=new StackPanel{Margin=new Thickness(12)};
         var options=new StackPanel{Spacing=9};options.Children.Add(Text("VIEW & ELEMENT DETECTION",12));options.Children.Add(storeys);
         var cloud=new CheckBox{Content="Point cloud",IsChecked=true};var model=new CheckBox{Content="Model candidates",IsChecked=true};
@@ -114,7 +117,8 @@ public sealed class MainWindow : Window
         options.Children.Add(Text("Recognition mode",11));options.Children.Add(recognitionMode);
         options.Children.Add(specialistModels);
         var chooseSpecialists=Button("Choose specialist model folder",ChooseSpecialistFolderAsync);options.Children.Add(chooseSpecialists);projectActions.Add(chooseSpecialists);
-        options.Children.Add(Text("Specialist and hybrid modes create review-only proposals. Original points still control final geometry; missing assets or runtime fallback stay visible.",11));
+        var checkSpecialists=Button("Check specialist setup",CheckSpecialistSetupAsync);options.Children.Add(checkSpecialists);projectActions.Add(checkSpecialists);
+        options.Children.Add(Text("The portable app includes CPU specialist inference. Select your existing A-J model folder and check setup. Unavailable specialist runs stop before opening the scan; choose Classical explicitly to run without AI.",11));
         options.Children.Add(Text("Manual level bounds (optional)",11));options.Children.Add(manualLevels);
         options.Children.Add(Text("One row: name; bottom; top, in local metres. Save settings, then detect. Empty uses automatic bounds.",11));
         void SetupChanged(){if(refreshing||state==null||busy)return;dirty=true;UpdateActions();}
@@ -146,10 +150,18 @@ public sealed class MainWindow : Window
         inspector.Children.Add(Text("Ctrl-click wall rows to select fragments for merging. Split distance is measured from the selected wall start.",11));
         inspector.Children.Add(Text("SCAN EVIDENCE & ASSUMPTIONS",11));inspector.Children.Add(evidence);inspector.Children.Add(Text("PROJECT FINDINGS",11));inspector.Children.Add(warnings);
         var right=Panel(new ScrollViewer{Content=inspector,HorizontalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled});Grid.SetColumn(right,4);body.Children.Add(right);
-        // Keep the descriptive status above the thin progress strip. On short
-        // displays the final row can be clipped at the bottom; job failures
-        // must remain visible and screenshot-readable.
-        var footer=new StackPanel{Spacing=7,Margin=new Thickness(0,12,0,0)};footer.Children.Add(status);footer.Children.Add(progress);Grid.SetRow(footer,3);root.Children.Add(footer);Content=root;
+        // Persistent top feedback. Colors supplement readable state text.
+        // No flashing or animation is needed to notice failures or saved changes.
+        var feedback=new StackPanel{Spacing=5};
+        feedback.Children.Add(new ScrollViewer{Content=status,MaxHeight=76,HorizontalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled});
+        feedback.Children.Add(new ScrollViewer{Content=recognitionStatus,MaxHeight=44,HorizontalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled});
+        feedback.Children.Add(progress);
+        status.FontWeight=FontWeight.SemiBold;
+        statusBanner.Child=feedback;Grid.SetRow(statusBanner,2);root.Children.Add(statusBanner);
+        AutomationProperties.SetName(statusBanner,"Operation status and recognition provider");
+        status.PropertyChanged+=(_,e)=>{if(e.Property==TextBlock.TextProperty)UpdateStatusColor();};
+        recognitionStatus.PropertyChanged+=(_,e)=>{if(e.Property==TextBlock.TextProperty)UpdateStatusColor();};
+        Content=root;
         storeys.SelectionChanged+=(_,_)=>FilterStorey();
         elements.SelectionChanged+=(_,_)=>{if(refreshing)return;selectedId=elements.SelectedIndex>=0?elementIds[elements.SelectedIndex]:null;viewport.View.Selected=selectedId;ShowProperties();viewport.Redraw();};
         Closing+=(_,e)=>
@@ -184,7 +196,7 @@ public sealed class MainWindow : Window
         deleteCandidateButton.IsEnabled=!busy&&selected!=null&&new[]{"openings","stairs","landings","slab_openings"}.Contains(selected.Value.Kind);
         method.IsEnabled=zUp.IsEnabled=!busy;
         reconstructionScope.IsEnabled=manualLevels.IsEnabled=!busy&&state!=null;
-        recognitionMode.IsEnabled=specialistModels.IsEnabled=!busy&&state!=null;
+        recognitionMode.IsEnabled=specialistModels.IsEnabled=!busy;
         cropBottom.IsEnabled=cropTop.IsEnabled=!busy&&state!=null;
         cropDraw.IsEnabled=cropApply.IsEnabled=cropClear.IsEnabled=!busy&&state!=null;
         cropCancel.IsEnabled=!busy&&viewport.CropDrawing;
@@ -193,10 +205,32 @@ public sealed class MainWindow : Window
         projectTitle.Text=state==null?"No project open":state["name"]!.GetValue<string>()+(dirty?"  * unsaved corrections":"");
     }
     bool RequireClean(){if(!dirty)return true;status.Text="Save or revert your corrections before opening or reconstructing another project.";return false;}
+    void UpdateStatusColor()
+    {
+        var text=status.Text??"";
+        var provider=recognitionStatus.Text??"";
+        var failed=new[]{"failed","blocked","unavailable","FALLBACK"}.Any(word=>text.Contains(word,StringComparison.OrdinalIgnoreCase))
+            ||provider.Contains("FALLBACK:")||provider.Contains("Actual: unavailable");
+        var complete=new[]{"saved","Completed","ready","exported","passed"}.Any(word=>text.Contains(word,StringComparison.OrdinalIgnoreCase));
+        statusBanner.Background=Brush.Parse(failed?"#3A202B":complete?"#12352E":"#132238");
+        status.Foreground=Brush.Parse(failed?"#FBBF24":complete?"#A7F3D0":"#F1F5F9");
+    }
+    void ShowRecognitionStatus(JsonNode? recognition)
+    {
+        if(recognition==null){recognitionStatus.Text="Recognition: Classical. Specialist inference has not run.";return;}
+        var active=recognition["active_branches"]?.AsArray().Select(n=>n!.GetValue<string>())??[];
+        var missing=recognition["missing_branches"]?.AsArray().Select(n=>n!.GetValue<string>())??[];
+        recognitionStatus.Text=$"Requested: {recognition["requested_provider"]?.GetValue<string>()??"classical"} · Actual: {recognition["actual_provider"]?.GetValue<string>()??"unavailable"} · Active A-J: {string.Join(", ",active)} · Missing: {string.Join(", ",missing)}";
+        if(recognition["branch_status"]?.GetValue<string>()=="assets_verified_inference_pending")
+            recognitionStatus.Text="PunctoraSpecialistProvider setup verified · CPU runtime and A-J assets ready · Model inference has not started.";
+        if(recognition["fallback_reason"]?.GetValue<string>() is { } reason)
+            recognitionStatus.Text+=" · FALLBACK: "+reason;
+    }
     async Task<JsonObject?> RunAsync(string command,string path,JsonObject? extra=null)
     {
         if(busy)return null;
         busy=true;jobCancellation=new();UpdateActions();progress.Value=0;progress.IsIndeterminate=true;
+        status.Text="Running: "+command;
         var request=extra??new JsonObject();request["command"]=command;request["project"]=path;
         try
         {
@@ -210,7 +244,7 @@ public sealed class MainWindow : Window
         {
             status.Text="Job stopped. Saved work is preserved.";
             var cancelledJobId=request["job_id"]?.GetValue<string>();
-            if(cancelledJobId!=null)
+            if(cancelledJobId!=null&&command!="preflight_recognition")
                 await worker.RunAsync(new JsonObject{["command"]="record_cancelled",["project"]=path,
                     ["cancelled_job_id"]=cancelledJobId},null,CancellationToken.None);
             if(File.Exists(path))
@@ -224,7 +258,14 @@ public sealed class MainWindow : Window
             }
             return null;
         }
-        catch(Exception e){status.Text="Job failed: "+e.Message;return null;}
+        catch(Exception e)
+        {
+            if(command=="reconstruct"&&request["recognition_mode"]?.GetValue<string>() is "specialist" or "hybrid")
+                recognitionStatus.Text=e.Message.Contains("blocked before reconstruction")
+                    ?"Latest attempt requested PunctoraSpecialistProvider · Actual: unavailable · Scan processing did not start; saved model preserved."
+                    :"Latest attempt requested PunctoraSpecialistProvider · Recognition incomplete; see last-performance.json. Saved model preserved.";
+            status.Text="Job failed: "+e.Message;return null;
+        }
         finally{busy=false;progress.IsIndeterminate=false;jobCancellation.Dispose();jobCancellation=null;UpdateActions();}
     }
     JsonObject DetectionOptions()
@@ -271,6 +312,7 @@ public sealed class MainWindow : Window
             var setup=state["reconstruction_options"] as JsonObject;
             reconstructionScope.SelectedIndex=setup?["scope"]?.GetValue<string>() switch{"interior"=>1,"exterior"=>2,_=>0};
             recognitionMode.SelectedIndex=state["recognition"]?["requested_mode"]?.GetValue<string>() switch{"specialist"=>1,"hybrid"=>2,_=>0};
+            ShowRecognitionStatus(state["recognition"]);
             manualLevels.Text=string.Join("\n",(setup?["manual_levels"]?.AsArray()??[]).Select(row=>
                 row!["name"]!.GetValue<string>()+"; "+row["bottom_m"]!.GetValue<double>().ToString("G17",CultureInfo.InvariantCulture)+"; "+
                 row["top_m"]!.GetValue<double>().ToString("G17",CultureInfo.InvariantCulture)));
@@ -536,12 +578,21 @@ public sealed class MainWindow : Window
     {var result=await RunAsync("open",path);if(result!=null){dirty=false;undo.Clear();await RunAsync("cleanup",path);await PresentAsync(path,result,true);}}
     async Task ChooseSpecialistFolderAsync()
     {
-        if(state==null)return;
         var folders=await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions{Title="Choose the supplied specialist ONNX model folder",AllowMultiple=false});
         if(folders.FirstOrDefault()?.TryGetLocalPath() is { } path)specialistModels.Text=path;
     }
     async Task SaveAsync()
     {if(state==null||projectPath==null)return;var result=await RunAsync("save",projectPath,ModelRequest());if(result!=null){dirty=false;await PresentAsync(projectPath,result,false);status.Text="Project saved.";}}
+    async Task CheckSpecialistSetupAsync()
+    {
+        var result=await RunAsync("preflight_recognition",projectPath??"",new JsonObject{
+            ["recognition_mode"]="specialist",["specialist_model_directory"]=specialistModels.Text});
+        if(result==null)return;
+        ShowRecognitionStatus(result);
+        status.Text=result["status"]?.GetValue<string>()=="complete"
+            ?"Specialist setup passed. Ready to detect elements."
+            :"Specialist setup unavailable: "+result["reason"]?.GetValue<string>();
+    }
     async Task CopyAsync()
     {
         if(state==null||projectPath==null)return;var destination=await PickProjectAsync("Save project and its data as a new copy");if(destination==null)return;
@@ -552,6 +603,7 @@ public sealed class MainWindow : Window
         if(state==null||projectPath==null||!RequireClean())return;
         if(zUp.IsChecked!=true){status.Text="Confirm Z is up before fitting. A missing CRS can remain explicitly unknown for local review.";return;}
         var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["confirm_z_up"]=true,["model_action"]=reconstructionAction.SelectedIndex==1?"add":"replace",["reconstruction_options"]=DetectionOptions(),["recognition_mode"]=recognitionMode.SelectedIndex switch{1=>"specialist",2=>"hybrid",_=>"classical"},["specialist_model_directory"]=string.IsNullOrWhiteSpace(specialistModels.Text)?null:specialistModels.Text,["compare_budgets"]=compareBudgets.IsChecked==true,["settings"]=new JsonObject{["surface_method"]=method.SelectedIndex==1?"region_growing":"contour"}};
+        recognitionStatus.Text=recognitionMode.SelectedIndex==0?"Requested: Classical · Awaiting reconstruction":"Requested: PunctoraSpecialistProvider · Actual: pending runtime and A-J preflight";
         var result=await RunAsync("reconstruct",projectPath,request);if(result!=null){dirty=false;undo.Clear();await RunAsync("cleanup",projectPath);await PresentAsync(projectPath,result,false);var r=result["recognition"];status.Text=r==null?"Candidates ready for review":$"Candidates ready · {r["requested_provider"]?.GetValue<string>()} requested · {r["actual_provider"]?.GetValue<string>()} actual{(r["fallback_reason"]?.GetValue<string>() is { } reason?$" · FALLBACK: {reason}":"")}";}
     }
     async Task AddProjectModelAsync()
@@ -591,6 +643,10 @@ public sealed class MainWindow : Window
         var output=Path.GetFullPath(args[Array.IndexOf(args,"--verify-ui")+1]);Directory.CreateDirectory(output);
         try
         {
+            specialistModels.Text=Path.Combine(output,"missing-specialist-models");
+            await CheckSpecialistSetupAsync();
+            if(state!=null||!status.Text!.StartsWith("Specialist setup unavailable:"))
+                throw new Exception("Scan-free setup did not report unavailable without a project");
             var path=Path.Combine(output,"walkthrough.punctora");var result=await RunAsync("demo",path,new JsonObject{["two_storeys"]=true});if(result==null)throw new Exception(status.Text);
             await PresentAsync(path,result,true);
             await Task.Delay(150);
@@ -601,6 +657,24 @@ public sealed class MainWindow : Window
             {legendBitmap.Render(this);using var legendStream=File.Create(Path.Combine(output,"height-legend.png"));legendBitmap.Save(legendStream,PngBitmapEncoderOptions.Default);}
             // Logical dimensions reproduce small displays and Windows scaling.
             Width=800;Height=500;await Task.Delay(150);
+            status.Text="Specialist setup unavailable: select the existing A-J model folder. Detection is blocked before opening the scan.";
+            ShowRecognitionStatus(new JsonObject{["requested_provider"]="PunctoraSpecialistProvider",
+                ["actual_provider"]="unavailable",["active_branches"]=new JsonArray(),
+                ["missing_branches"]=new JsonArray("A","B","C","D","E","F","G","H","I","J")});
+            await Task.Delay(100);
+            var statusPosition=statusBanner.TranslatePoint(new Point(0,0),this)??throw new Exception("Status has no layout position");
+            var viewportPosition=viewport.TranslatePoint(new Point(0,0),this)??throw new Exception("Viewport has no layout position");
+            if(statusPosition.Y<0||statusPosition.Y+statusBanner.Bounds.Height>viewportPosition.Y+1||viewport.Bounds.Height<50)
+                throw new Exception("Top status obscures the viewport or remains below it");
+            var errorColor=statusBanner.Background!.ToString();ShowRecognitionStatus(null);status.Text="Project saved.";
+            if(statusBanner.Background!.ToString()==errorColor)throw new Exception("Status state colors did not change");
+            status.Text="Specialist setup unavailable: select the existing A-J model folder. Detection is blocked before opening the scan.";
+            ShowRecognitionStatus(new JsonObject{["requested_provider"]="PunctoraSpecialistProvider",
+                ["actual_provider"]="unavailable",["active_branches"]=new JsonArray(),
+                ["missing_branches"]=new JsonArray("A","B","C","D","E","F","G","H","I","J")});
+            File.WriteAllText(Path.Combine(output,"provider-status-verification.json"),new JsonObject{
+                ["scan_free_setup"]=true,["top_status_visible"]=true,["state_colors_change"]=true,
+                ["requested_actual_and_missing_visible"]=recognitionStatus.Text!.Contains("Missing: A, B, C, D, E, F, G, H, I, J")}.ToJsonString());
             if(leftScroll.Extent.Height<=leftScroll.Viewport.Height)throw new Exception("Short window has no scrollable left panel");
             leftScroll.Offset=new Vector(0,leftScroll.Extent.Height-leftScroll.Viewport.Height);await Task.Delay(100);
             var elementPosition=elements.TranslatePoint(new Point(0,0),leftScroll)??throw new Exception("Element list has no layout position");

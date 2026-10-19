@@ -1,6 +1,8 @@
 # Run 4: PunctoraSpecialistProvider runtime and desktop orchestration
 
-**Current repair: 0.3.0a33.** See [the remaining stairwell profiles and diagnostic
+**Current repair: 0.3.0a34.** [Standalone inference, early preflight, top status and returned-case topology diagnostics](RUN_4_REPAIR_A34.md) now supersede the optional-runtime delivery instructions below. No software installation is required by the portable Windows package; external model assets remain user-selected.
+
+Previous repair: 0.3.0a33. See [the remaining stairwell profiles and diagnostic
 repair](RUN_4_REPAIR_A33.md), retaining [the positive-wall and section-alignment
 repair](RUN_4_REPAIR_A32.md) and [the CPU/runtime and 80% recognition RAM
 policy](RUN_4_REPAIR_A31.md). The user extended Run 4
