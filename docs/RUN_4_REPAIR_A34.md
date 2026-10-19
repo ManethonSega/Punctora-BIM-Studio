@@ -23,6 +23,12 @@ package-local C++ DLL load paths, reconstructs, exports/reopens validated IFC
 and rejects a deliberately invalid spatial containment relation. This is
 isolated runtime evidence on a CI host, not designated-computer qualification.
 
+The packaged `.exe` also runs a generated software-view walkthrough from a
+temporary copy outside the checkout, with an OS-only PATH, no worker overrides
+and unavailable external DOTNET_ROOT paths. Save/reopen, crop, provider status
+and IFC export must pass using the delivered files. This tests the complete
+portable app as well as its Python worker; it installs nothing on the test PC.
+
 Sources: [ONNX CPU installation](https://onnxruntime.ai/docs/install/#install-onnx-runtime-cpu),
 [session API](https://onnxruntime.ai/docs/api/python/api_summary.html#load-and-run-a-model),
 [embedded Python](https://docs.python.org/3.12/using/windows.html#the-embeddable-package),

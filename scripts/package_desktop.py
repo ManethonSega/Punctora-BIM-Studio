@@ -51,6 +51,41 @@ def copy_cpp_runtime(python):
     return result
 
 
+def verify_standalone_desktop(output):
+    """Launch the delivered EXE away from the checkout and developer runtimes."""
+    with tempfile.TemporaryDirectory(prefix="punctora-standalone-") as temporary:
+        directory = Path(temporary)
+        app = directory/"app"
+        shutil.copytree(output, app)
+        environment = os.environ.copy()
+        for name in ("PYTHONPATH", "PYTHONHOME", "PUNCTORA_PYTHON", "PUNCTORA_SPECIALIST_PYTHON",
+                     "PUNCTORA_SPECIALIST_MODELS"):
+            environment.pop(name, None)
+        environment["PATH"] = os.pathsep.join([str(Path(os.environ["SystemRoot"])/"System32"),
+                                               os.environ["SystemRoot"]])
+        environment["DOTNET_ROOT"] = str(directory/"no-system-dotnet")
+        environment["DOTNET_ROOT_X64"] = environment["DOTNET_ROOT"]
+        environment["DOTNET_MULTILEVEL_LOOKUP"] = "0"
+        evidence = directory/"checks"
+        process = subprocess.run([str(app/"Punctora.Desktop.exe"), "--software", "--verify-ui", str(evidence)],
+            cwd=directory, env=environment, capture_output=True, text=True, timeout=240)
+        error = evidence/"ui-error.txt"
+        if process.returncode or error.exists() or not (evidence/"ui-verification.json").is_file():
+            detail = error.read_text() if error.exists() else process.stdout+process.stderr
+            raise RuntimeError("Standalone EXE walkthrough failed:\n"+detail)
+        ui = json.loads((evidence/"ui-verification.json").read_text())
+        for name in ("edit_survived_reopen", "ifc_exists", "crop_survived_reopen",
+                     "feature_add_delete_passed", "small_window_scroll_passed"):
+            if ui.get(name) is not True:
+                raise RuntimeError("Standalone EXE check failed: "+name)
+        provider = json.loads((evidence/"provider-status-verification.json").read_text())
+        if not all(provider.values()):
+            raise RuntimeError("Standalone EXE provider status check failed")
+        return {"packaged_exe_launched": True, "outside_repository": True,
+                "os_only_path": True, "external_dotnet_root_disabled": True,
+                "bundled_worker_save_reopen_export": True, "provider_status": provider}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", default="artifacts/Punctora-BIM-Studio-M3-win-x64")
@@ -120,6 +155,8 @@ def main():
         manifest["runtime_verification"] = verify_runtime(python / "python.exe", output / "verification", specialist=True)
         (output / "package-manifest.json").write_text(json.dumps(manifest, indent=2)+"\n", encoding="utf-8")
         shutil.rmtree(output / "verification")
+        manifest["standalone_desktop_verification"] = verify_standalone_desktop(output)
+        (output / "package-manifest.json").write_text(json.dumps(manifest, indent=2)+"\n", encoding="utf-8")
     archive = shutil.make_archive(str(output), "zip", root_dir=output.parent, base_dir=output.name)
     print("Preview package:", archive)
 
