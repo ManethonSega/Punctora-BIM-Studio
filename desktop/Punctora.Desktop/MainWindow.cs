@@ -129,11 +129,14 @@ public sealed class MainWindow : Window
         options.Children.Add(sharedSurveyFrame);options.Children.Add(modelAlignment);
         options.Children.Add(Text("Add saved project uses shared survey coordinates or the explicit placement above. Existing edits and evidence are retained.",11));
         options.Children.Add(Text("ELEMENTS",12));left.Children.Add(options);elements.Height=220;elements.Margin=new Thickness(0,8,0,0);left.Children.Add(elements);
+        leftScroll.SizeChanged+=(_,_)=>elements.Height=Math.Min(220,Math.Max(60,leftScroll.Bounds.Height-32));
         leftScroll.Content=left;body.Children.Add(Panel(leftScroll));
         var center=new Grid{RowDefinitions=new RowDefinitions("*,Auto")};Grid.SetColumn(center,2);body.Children.Add(center);
         center.Children.Add(new Border{Child=viewport,CornerRadius=new CornerRadius(10),ClipToBounds=true});
         center.Children.Add(heightLegend);
-        var viewFooter=new StackPanel{Spacing=4,Margin=new Thickness(8,8,8,0)};viewFooter.Children.Add(counts);viewFooter.Children.Add(Text("Drag: orbit  ·  Right-drag: pan  ·  Wheel: zoom  ·  Click model: select",11));viewFooter.Children.Add(frameDiagnostics);viewFooter.Children.Add(backend);Grid.SetRow(viewFooter,1);center.Children.Add(viewFooter);
+        var viewFooter=new StackPanel{Spacing=4,Margin=new Thickness(8,8,8,0)};viewFooter.Children.Add(counts);viewFooter.Children.Add(Text("Drag: orbit  ·  Right-drag: pan  ·  Wheel: zoom  ·  Click model: select",11));viewFooter.Children.Add(frameDiagnostics);viewFooter.Children.Add(backend);
+        var viewDetails=new ScrollViewer{Content=viewFooter,MaxHeight=84,HorizontalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled};
+        Grid.SetRow(viewDetails,1);center.Children.Add(viewDetails);
         var inspector=new StackPanel{Spacing=10,Margin=new Thickness(14)};inspector.Children.Add(selectedTitle);inspector.Children.Add(fieldsPanel);inspector.Children.Add(Text("Review state",11));inspector.Children.Add(review);inspector.Children.Add(Text("Wall classification",11));inspector.Children.Add(classification);
         inspector.Children.Add(approveSlabCut);
         apply=Button("Apply correction",ApplyAsync);inspector.Children.Add(apply);
@@ -665,7 +668,7 @@ public sealed class MainWindow : Window
             var statusPosition=statusBanner.TranslatePoint(new Point(0,0),this)??throw new Exception("Status has no layout position");
             var viewportPosition=viewport.TranslatePoint(new Point(0,0),this)??throw new Exception("Viewport has no layout position");
             if(statusPosition.Y<0||statusPosition.Y+statusBanner.Bounds.Height>viewportPosition.Y+1||viewport.Bounds.Height<50)
-                throw new Exception("Top status obscures the viewport or remains below it");
+                throw new Exception($"Top status obscures the viewport or remains below it: status={statusPosition.Y}/{statusBanner.Bounds.Height}, viewport={viewportPosition.Y}/{viewport.Bounds.Height}");
             var errorColor=statusBanner.Background!.ToString();ShowRecognitionStatus(null);status.Text="Project saved.";
             if(statusBanner.Background!.ToString()==errorColor)throw new Exception("Status state colors did not change");
             status.Text="Specialist setup unavailable: select the existing A-J model folder. Detection is blocked before opening the scan.";
