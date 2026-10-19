@@ -12,6 +12,8 @@ from . import projects
 
 
 def dispatch(request, progress):
+    if request["command"] == "preflight_recognition":
+        return projects.preflight_recognition(request)
     command, path = request["command"], request["project"]
     if command == "demo":
         return projects.create_project(path, request["job_id"], two_storeys=request.get("two_storeys", False), progress=progress)

@@ -495,6 +495,12 @@ def create_project(path, job_id, source=None, two_storeys=False, progress=lambda
             return state
 
 
+def preflight_recognition(request):
+    """Public scan-free entry point, also used by the portable desktop worker."""
+    from .recognition.preflight import preflight_recognition as check
+    return check(request)
+
+
 def _desktop_recognition(state, cloud, model, request, stage, save_performance, progress):
     """Run immutable proposals, then validate original-point model candidates."""
     mode = request.get("recognition_mode", "classical")
@@ -518,7 +524,7 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
                 "proposal_manifest": None, "overlay_proposals": []}
     model_root = Path(model_root).resolve()
     specialist_python = request.get("specialist_python") or os.environ.get("PUNCTORA_SPECIALIST_PYTHON") or __import__("sys").executable
-    specialist_python = str(Path(specialist_python).resolve())
+    specialist_python = str(Path(specialist_python).absolute())
     if state.get("import_manifest") is None:
         return {"schema_version": 1, "requested_mode": mode, "actual_provider": "classical",
                 "requested_provider": "PunctoraSpecialistProvider", "provider_chain": ["classical"],
@@ -528,7 +534,6 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
                 "model_pack_manifest_sha256": None, "loaded_hashes": {},
                 "proposal_manifest": None, "overlay_proposals": []}
     from .annotation_io import read_json as annotation_read_json
-    from .recognition.classical_provider import ClassicalProvider
     from .recognition.hybrid import HybridProvider
     from .recognition.job import run_recognition
     from .recognition.contracts import safe_artifact_path
@@ -550,7 +555,6 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
     provider = PunctoraSpecialistProvider(
         PunctoraSpecialistAssets(specialist_python, str(model_root)),
         SpecialistSettings(level_bounds=levels))
-    fallback = ClassicalProvider(model=model)
     tiles = TileSettings(size_m=8., overlap_m=.06, normal_radius_m=.3, index_cell_m=.25,
                          maximum_context_points=1_500_000, maximum_tiles=4096,
                          adaptive_partition=True, vertical_overlap_m=.06, separate_normal_context=True,
@@ -570,7 +574,7 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
     progress(62, f"Running {mode} specialist evidence")
     proposal_directory, proposal, cache_hit = run_recognition(
         cloud, identity, provider, stage / "recognition", tile_settings=tiles,
-        fallback=fallback, diagnostics=diagnostic,
+        diagnostics=diagnostic,
         cpu_workers=ReconstructionSettings(**request.get('settings', {})).cpu_workers)
     specialist = proposal.get("extensions", {}).get("specialist_v1")
     fusion = None
@@ -666,6 +670,22 @@ def reconstruct_project(path, request, progress=lambda *_: None):
             token, "reconstruct", project_name=state["name"],
             e57_read_decompression={"seconds": 0.0,
                                     "scope": "not repeated; reconstruction reads the imported memory-mapped cache"}))
+        progress(1, "Checking requested recognition runtime and A-J assets before opening the scan")
+        preflight = preflight_recognition(request)
+        if preflight["status"] != "complete":
+            from .recognition.contracts import ProviderUnavailable
+            message = ("Specialist recognition blocked before reconstruction: " + preflight["reason"] +
+                       ". Select Classical explicitly to run without specialist AI.")
+            save_performance({"status": "failed", "error": message, "recognition_preflight": preflight,
+                              "requested_recognition_mode": request.get("recognition_mode", "classical")})
+            raise ProviderUnavailable(message)
+        if request.get("recognition_mode", "classical") != "classical" and state.get("import_manifest") is None:
+            from .recognition.contracts import ProviderUnavailable
+            message = "Specialist recognition requires an imported scan with original scan and record identities"
+            save_performance({"status": "failed", "error": message, "recognition_preflight": preflight})
+            raise ProviderUnavailable(message)
+        save_performance({"recognition_preflight": preflight})
+        progress(3, "Recognition preflight passed; " + preflight["actual_provider"] + " selected")
         with generation_stage(path, state["project_id"], token) as stage:
             progress(5, "Opening working cloud")
             source_cloud = load_cloud(path, state)

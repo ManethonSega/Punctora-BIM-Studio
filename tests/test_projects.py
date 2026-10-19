@@ -125,19 +125,19 @@ def test_reconstruction_uses_saved_crop_without_altering_source(project):
     assert not (generation / "crop-working").exists()
 
 
-def test_desktop_specialist_request_reports_truthful_classical_fallback(project):
+def test_desktop_specialist_without_model_folder_requires_explicit_classical_choice(project):
     path, state = project
+    from punctora_core.recognition.contracts import ProviderUnavailable
+    before = path.read_bytes()
+    with pytest.raises(ProviderUnavailable, match="Select Classical explicitly"):
+        projects.reconstruct_project(path, {"expected_revision": state["revision"],
+            "confirm_z_up": True, "job_id": token(), "settings": {},
+            "recognition_mode": "specialist"})
+    assert path.read_bytes() == before
     result = projects.reconstruct_project(path, {"expected_revision": state["revision"],
-        "confirm_z_up": True, "job_id": token(), "settings": {},
-        "recognition_mode": "specialist"})
-    recognition = result["recognition"]
-    assert recognition["requested_provider"] == "PunctoraSpecialistProvider"
-    assert recognition["actual_provider"] == "classical"
-    assert recognition["active_branches"] == [] and recognition["missing_branches"] == list("ABCDEFGHIJ")
-    assert "automatic downloads are disabled" in recognition["fallback_reason"]
-    assert recognition["proposal_manifest"] is None and recognition["overlay_proposals"] == []
-    assert result["model"]["metadata"]["recognition"]["requested_mode"] == "specialist"
-    assert projects.load_project(path)["recognition"] == recognition
+        "confirm_z_up": True, "job_id": token(), "settings": {}, "recognition_mode": "classical"})
+    assert result["recognition"]["requested_mode"] == result["recognition"]["actual_provider"] == "classical"
+    assert result["recognition"]["fallback_reason"] is None
 
 
 def test_project_rejects_overlay_without_content_bound_proposal(project):
