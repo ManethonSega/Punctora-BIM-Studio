@@ -1,6 +1,6 @@
 # Run 4: PunctoraSpecialistProvider runtime and desktop orchestration
 
-**Current repair: 0.3.0a36.** [Inline specialist worker requests](RUN_4_REPAIR_A36.md) remove the transient `request.json` handoff that failed on the submitted RS 138 EG Kita crop. This builds on [A35 bounded proposal stitching and measured opening heights](RUN_4_REPAIR_A35.md) and [A34 standalone inference, early preflight, top status and returned-case topology diagnostics](RUN_4_REPAIR_A34.md). These supersede the optional-runtime delivery instructions below. No software installation is required by the portable Windows package; external model assets remain user-selected.
+**Current repair: 0.3.0a37.** [Reconstruction RAM admission accounting](RUN_4_REPAIR_A37.md) stops subtracting the existing process working set from already-available physical RAM. It retains [A36 inline specialist worker requests](RUN_4_REPAIR_A36.md), [A35 bounded proposal stitching and measured opening heights](RUN_4_REPAIR_A35.md), and [A34 standalone inference, early preflight, top status and returned-case topology diagnostics](RUN_4_REPAIR_A34.md). These supersede the optional-runtime delivery instructions below. No software installation is required by the portable Windows package; external model assets remain user-selected.
 
 Previous repair: 0.3.0a33. See [the remaining stairwell profiles and diagnostic
 repair](RUN_4_REPAIR_A33.md), retaining [the positive-wall and section-alignment

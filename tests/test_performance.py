@@ -62,13 +62,15 @@ def test_insufficient_admission_reclaims_completed_memory_then_retains_ceiling(m
     from types import SimpleNamespace
     released = []
     monkeypatch.setattr(sampling, "release_completed_working_memory", lambda: released.append(True))
-    monkeypatch.setattr(performance, "available_memory_bytes", lambda: (1024 if released else 256) * 1024**2)
+    monkeypatch.setattr(performance, "available_memory_bytes", lambda: (1024 if released else 64) * 1024**2)
+    monkeypatch.setattr(performance, "total_memory_bytes", lambda: 1024 * 1024**2)
     monkeypatch.setattr(performance, "_process", lambda: SimpleNamespace(memory_info=lambda: SimpleNamespace(rss=(50 if released else 200) * 1024**2)))
     settings = ReconstructionSettings(cpu_workers=1)
     plan = ResourcePlan.create(settings, 10000)
     assert released == [True]
     assert plan.available_memory_fraction_limit == .70
-    assert plan.memory_bytes + plan.baseline_process_rss_bytes + plan.source_cloud_bytes_estimate <= int(plan.available_at_start * .70)
+    assert plan.memory_bytes + plan.source_cloud_bytes_estimate <= int(plan.available_at_start * .70)
+    assert plan.process_memory_limit_bytes <= int(plan.total_physical_memory_bytes * .70)
     released.clear()
     with __import__("pytest").raises(ValueError, match="Insufficient"):
         ResourcePlan.create(ReconstructionSettings(maximum_working_memory_gb=.01), 10000)
@@ -90,13 +92,56 @@ def test_mapped_source_reserve_is_bounded_without_editing_the_source(tmp_path,mo
 
 
 def test_automatic_resource_plan_never_exceeds_seventy_percent_available(monkeypatch):
+    from types import SimpleNamespace
     import punctora_core.performance as performance
     available = 10 * 1024**3
     monkeypatch.setattr(performance, "available_memory_bytes", lambda: available)
+    monkeypatch.setattr(performance, "total_memory_bytes", lambda: 16 * 1024**3)
+    monkeypatch.setattr(
+        performance,
+        "_process",
+        lambda: SimpleNamespace(memory_info=lambda: SimpleNamespace(rss=1024**3)),
+    )
     plan = ResourcePlan.create(ReconstructionSettings(maximum_working_memory_gb=0), 1_000)
-    accounted = plan.memory_bytes + plan.baseline_process_rss_bytes + plan.source_cloud_bytes_estimate
-    assert accounted <= int(available * .70)
+    working = plan.memory_bytes + plan.source_cloud_bytes_estimate
+    accounted = working + plan.baseline_process_rss_bytes
+    assert working <= int(available * .70)
+    assert accounted <= int(plan.total_physical_memory_bytes * .70)
+    assert accounted == plan.process_memory_limit_bytes
     assert plan.available_memory_fraction_limit == .70
+
+
+def test_resource_plan_does_not_subtract_existing_process_rss_from_available_ram(monkeypatch):
+    """Reproduce the A36 64 GiB EG Kita admission failure.
+
+    Windows available physical memory already excludes the current process RSS.
+    The planner must budget from that available amount without subtracting the
+    same 17.28 GiB working set a second time.
+    """
+    from types import SimpleNamespace
+    import punctora_core.performance as performance
+    import punctora_core.sampling as sampling
+
+    available = 24_298_508_288
+    baseline = 17_276_260_352
+    total = 64 * 1024**3
+    monkeypatch.setattr(performance, "available_memory_bytes", lambda: available)
+    monkeypatch.setattr(performance, "total_memory_bytes", lambda: total)
+    monkeypatch.setattr(sampling, "release_mapped_source_pages", lambda cloud: True)
+    monkeypatch.setattr(
+        performance,
+        "_process",
+        lambda: SimpleNamespace(memory_info=lambda: SimpleNamespace(rss=baseline)),
+    )
+
+    settings = ReconstructionSettings(processing_chunk_points=1_000_000)
+    plan = ResourcePlan.create(settings, 68_757_314, storeys=1, source_cloud=object())
+
+    expected_source_reserve = settings.processing_chunk_points * 24
+    expected_working_budget = int(available * .70) - expected_source_reserve
+    assert plan.memory_bytes == expected_working_budget
+    assert plan.memory_bytes > 15 * 1024**3
+    assert baseline + plan.memory_bytes + expected_source_reserve <= int(total * .70)
 
 
 def test_stage_profiler_records_cpu_ram_and_backend_fields():
