@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from pathlib import Path
 from threading import Barrier, Lock, get_ident
 
 import numpy as np
@@ -80,6 +81,21 @@ def test_wave_preserves_unavailability_but_never_swallows_contract_errors(monkey
     monkeypatch.setattr(worker, 'infer_image', malformed)
     with pytest.raises(ValueError, match='Nonfinite'):
         worker.infer_images(None, wave_request(), OrderedDict())
+
+
+def test_server_message_uses_inline_request_and_rejects_obsolete_path_contract(tmp_path, monkeypatch):
+    request = {'schema_version': 1, 'mode': 'preflight',
+               'response': str(tmp_path/'response.json')}
+    expected = {'schema_version': 1, 'status': 'complete', 'active_branches': []}
+    monkeypatch.setattr(worker, 'execute', lambda value, sessions: expected)
+
+    reply = worker.execute_server_message({'request_id': 7, 'request': request}, OrderedDict())
+
+    assert reply == {'schema_version': 1, 'status': 'complete', 'request_id': 7,
+                     'cached_sessions': 0}
+    assert worker.read_json(request['response']) == expected
+    with pytest.raises(ValueError, match='request identity'):
+        worker.execute_server_message({'request_id': 8, 'request': str(Path(request['response']))}, OrderedDict())
 
 
 def test_parallel_normal_queries_preserve_exact_neighbours_and_features():

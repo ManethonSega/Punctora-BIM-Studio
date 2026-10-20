@@ -166,7 +166,7 @@ def preflight(ort, request, sessions=None):
             "runtime": {"id": "onnxruntime", "version": metadata.version("onnxruntime"),
                         "requested_provider": "CPUExecutionProvider",
                         "actual_provider": "CPUExecutionProvider",
-                        "worker_protocol": "persistent-json-lines-v1",
+                        "worker_protocol": "persistent-json-lines-v2-inline-request",
                         "runtime_plan": request.get("runtime_plan"),
                         "maximum_cached_sessions": request.get("maximum_cached_sessions", 1)},
             "contracts": details}
@@ -346,6 +346,19 @@ def _failure(exc):
     return "invalid", "Invalid specialist worker contract: " + str(exc)
 
 
+def execute_server_message(message, sessions):
+    """Execute one inline request from the persistent host connection."""
+    if not isinstance(message, dict) or set(message) != {"request_id", "request"}:
+        raise ValueError("Malformed specialist server message")
+    request_id, request = message["request_id"], message["request"]
+    if not isinstance(request_id, int) or request_id < 1 or not isinstance(request, dict):
+        raise ValueError("Malformed specialist server request identity")
+    response = execute(request, sessions)
+    write_json(request["response"], response)
+    return {"schema_version": 1, "status": "complete", "request_id": request_id,
+            "cached_sessions": len(sessions)}
+
+
 def serve():
     sessions = OrderedDict()
     print(json.dumps({"schema_version": 1, "status": "ready"}, separators=(",", ":")), flush=True)
@@ -353,16 +366,8 @@ def serve():
         request_id = None
         try:
             message = json.loads(line)
-            if not isinstance(message, dict) or set(message) != {"request_id", "request"}:
-                raise ValueError("Malformed specialist server message")
-            request_id, path = message["request_id"], message["request"]
-            if not isinstance(request_id, int) or request_id < 1 or not isinstance(path, str):
-                raise ValueError("Malformed specialist server request identity")
-            request = read_json(path)
-            response = execute(request, sessions)
-            write_json(request["response"], response)
-            reply = {"schema_version": 1, "status": "complete", "request_id": request_id,
-                     "cached_sessions": len(sessions)}
+            request_id = message.get("request_id") if isinstance(message, dict) else None
+            reply = execute_server_message(message, sessions)
         except Exception as exc:
             status, error = _failure(exc)
             reply = {"schema_version": 1, "status": status,

@@ -11,7 +11,7 @@ from ..annotation_io import content_digest, file_digest, identifier, sha256
 
 
 SPECIALIST_PROVIDER_ID = "PunctoraSpecialistProvider"
-SPECIALIST_PROVIDER_VERSION = "4.2"
+SPECIALIST_PROVIDER_VERSION = "4.3"
 MODEL_PACK_ID = "punctora-supplied-specialists-a-j"
 MODEL_PACK_VERSION = "2"
 

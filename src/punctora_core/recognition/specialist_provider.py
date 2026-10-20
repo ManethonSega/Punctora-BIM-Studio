@@ -330,13 +330,15 @@ class PunctoraSpecialistProvider(RecognitionProvider):
 
     def _execute_request(self, request, directory, control):
         directory.mkdir(parents=True, exist_ok=True)
-        request_path = directory / "request.json"
-        write_report(request_path, request)
         try:
             self._start_worker(control)
             self.request_sequence += 1
             request_id = self.request_sequence
-            message = json.dumps({"request_id": request_id, "request": str(request_path.resolve())},
+            # The control envelope is small. Send it inline so the persistent
+            # worker never has to reopen a just-published JSON file through a
+            # long or Unicode project staging path. Large tensors and outputs
+            # remain file-backed and bounded by their existing lifecycle.
+            message = json.dumps({"request_id": request_id, "request": request},
                                  ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n"
             self.process.stdin.write(message.encode("utf-8"))
             self.process.stdin.flush()

@@ -1,6 +1,8 @@
 from copy import deepcopy
 from pathlib import Path
 import hashlib
+import json
+import queue
 import sys
 import time
 
@@ -70,14 +72,14 @@ def image(request,root):
             if branch=='B':outputs['labels'][0,0,1]=-3.
     np.savez(request['output'],**outputs)
     return {'schema_version':1,'status':'complete','branch':branch,'output':request['output']}
-def execute(path):
-    request=json.loads(pathlib.Path(path).read_text())
+def execute(value):
+    request=value if isinstance(value,dict) else json.loads(pathlib.Path(value).read_text())
     root=pathlib.Path(request["model_root"])
     if request["mode"]=="preflight":
         if (root/"slow").exists(): time.sleep(30)
         response={"schema_version":1,"status":"complete","active_branches":request["active_branches"],
                   "runtime":{"id":"onnxruntime","version":"1.23.2","requested_provider":"CPUExecutionProvider",
-                             "actual_provider":"CPUExecutionProvider","worker_protocol":"persistent-json-lines-v1",
+                             "actual_provider":"CPUExecutionProvider","worker_protocol":"persistent-json-lines-v2-inline-request",
                              "maximum_cached_sessions":request["maximum_cached_sessions"]},"contracts":{}}
     elif request["mode"]=="point":
         feed=json.loads(pathlib.Path(request["feed_manifest"]).read_text())
@@ -266,6 +268,52 @@ def test_branch_specific_image_preprocessing_shapes_polarity_and_bgr_order():
     assert np.allclose(tensor[0, :, 0, 0], expected, atol=2e-6)
 
 
+def test_persistent_worker_receives_inline_request_without_reopening_transient_json(tmp_path, monkeypatch):
+    """The control request must survive a delayed worker on long Unicode project paths."""
+    provider = make_provider(tmp_path, monkeypatch)
+    directory = tmp_path / ("Ronsdorfer Straße-" + "x" * 80) / "image-wave"
+    captured = []
+    provider.response_queue = queue.Queue()
+
+    class Input:
+        def write(self, payload):
+            message = json.loads(payload.decode("utf-8"))
+            captured.append(message)
+            request = message["request"]
+            if isinstance(request, str):
+                provider.response_queue.put({"schema_version": 1, "status": "invalid",
+                    "request_id": message["request_id"],
+                    "error": f"[Errno 2] No such file or directory: {request!r}"})
+                return
+            Path(request["response"]).parent.mkdir(parents=True, exist_ok=True)
+            Path(request["response"]).write_text(
+                json.dumps({"schema_version": 1, "status": "complete"}), encoding="utf-8")
+            provider.response_queue.put({"schema_version": 1, "status": "complete",
+                "request_id": message["request_id"], "cached_sessions": 0})
+
+        def flush(self):
+            pass
+
+    class Process:
+        stdin = Input()
+
+        @staticmethod
+        def poll():
+            return None
+
+    provider.process = Process()
+    monkeypatch.setattr(provider, "_start_worker", lambda control: None)
+    monkeypatch.setattr(provider, "close", lambda: None)
+    control = type("Control", (), {"check": staticmethod(lambda: None)})()
+    request = provider._base_request(directory, "preflight")
+
+    response = provider._execute_request(request, directory, control)
+
+    assert response == {"schema_version": 1, "status": "complete"}
+    assert isinstance(captured[0]["request"], dict)
+    assert not (directory / "request.json").exists()
+
+
 def test_isolated_specialist_provider_runs_point_graph_and_publishes_review_only(tmp_path, monkeypatch):
     provider = make_provider(tmp_path, monkeypatch)
     directory, report, hit = run_recognition(
@@ -274,7 +322,7 @@ def test_isolated_specialist_provider_runs_point_graph_and_publishes_review_only
     assert not hit and report["requested_provider"]["id"] == "PunctoraSpecialistProvider"
     assert provider.worker_start_count == 1
     assert report["provider"]["backend"] == "CPUExecutionProvider"
-    assert report["provider"]["runtime"]["worker_protocol"] == "persistent-json-lines-v1"
+    assert report["provider"]["runtime"]["worker_protocol"] == "persistent-json-lines-v2-inline-request"
     extension = report["extensions"]["specialist_v1"]
     assert extension["branches"]["I"]["status"] == "active"
     assert extension['runtime_profile']['I_worker']['calls']>0
