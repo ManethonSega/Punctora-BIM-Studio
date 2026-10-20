@@ -123,6 +123,8 @@ class PunctoraSpecialistProvider(RecognitionProvider):
         self.instances, self.warnings = [], []
         self.process = None
         self.control = None
+        self.exchange = None
+        self.exchange_root = None
         self.response_queue = None
         self.stdout_reader = self.stderr_reader = None
         self.stderr_tail = bytearray()
@@ -220,7 +222,7 @@ class PunctoraSpecialistProvider(RecognitionProvider):
     def descriptor(self):
         runtime = self.preflight.get("runtime") if isinstance(self.preflight, dict) else None
         value = {"id": SPECIALIST_PROVIDER_ID, "version": SPECIALIST_PROVIDER_VERSION,
-                 "adapter_version": "a31-bounded-parallel-views-v3",
+                 "adapter_version": "a38-owned-worker-exchange-v4",
                  "point_preprocessing": "source-key centring; one original-neighbour normal per fixed-0.06m voxel representative",
                  "view_point_limit_scope": "maximum_materialized_original_points_per_block; complete_physical_raster",
                  "backend": (runtime or {}).get("actual_provider", "CPUExecutionProvider pending"),
@@ -337,7 +339,7 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             # The control envelope is small. Send it inline so the persistent
             # worker never has to reopen a just-published JSON file through a
             # long or Unicode project staging path. Large tensors and outputs
-            # remain file-backed and bounded by their existing lifecycle.
+            # remain file-backed in the short provider-owned exchange.
             message = json.dumps({"request_id": request_id, "request": request},
                                  ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n"
             self.process.stdin.write(message.encode("utf-8"))
@@ -369,7 +371,9 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                 raise ValueError("Specialist worker returned an incomplete response")
             return response
         except BaseException:
-            self.close()
+            # Keep the exchange alive while caller contexts unwind; the outer
+            # recognition lifecycle removes it after stopping the worker.
+            self._stop_worker()
             raise
 
     def prepare(self, cloud, identity, directory, control):
@@ -377,6 +381,13 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             reason = (self.preflight or {}).get("reason", "Specialist preflight was not completed")
             raise ProviderUnavailable(reason)
         self.work = Path(directory)
+        # Worker-only tensors never cross the saved project's deep staging
+        # path.  Keep one short, provider-owned exchange alive until the
+        # persistent worker has stopped, then remove it in close().
+        if self.exchange is not None:
+            self.exchange.cleanup()
+        self.exchange = tempfile.TemporaryDirectory(prefix="punctora-specialist-exchange-")
+        self.exchange_root = Path(self.exchange.name).resolve()
         self.artifact_root = self.work / "specialist"
         self.artifact_root.mkdir()
         write_report(self.artifact_root / "model-pack-v1.json", self.manifest)
@@ -384,12 +395,13 @@ class PunctoraSpecialistProvider(RecognitionProvider):
         self.cloud = cloud
 
     def _point_request(self, view, tile, control):
-        directory = self.work / ("point-" + tile.id.replace(":", "_"))
-        directory.mkdir()
+        if self.exchange_root is None:
+            raise RuntimeError("Specialist worker exchange is not prepared")
+        directory = Path(tempfile.mkdtemp(prefix="point-", dir=self.exchange_root))
         feed_manifest = {}
         for name, value in view.feed.items():
             path = directory / (name + ".npy")
-            np.save(path, value, allow_pickle=False)
+            self._publish_exchange_array(path, value)
             feed_manifest[name] = str(path.resolve())
         write_report(directory / "feed.json", feed_manifest)
         output = directory / "logits.npy"
@@ -515,11 +527,12 @@ class PunctoraSpecialistProvider(RecognitionProvider):
 
 
     def _infer_image(self, branch, image, identifier, control):
-        directory = self.work / ("image-" + identifier)
-        directory.mkdir()
+        if self.exchange_root is None:
+            raise RuntimeError("Specialist worker exchange is not prepared")
+        directory = Path(tempfile.mkdtemp(prefix="image-", dir=self.exchange_root))
         tensor_path, output = directory / "tensor.npy", directory / "outputs.npz"
         tensor = image_tensor(branch, image)
-        np.save(tensor_path, tensor, allow_pickle=False)
+        self._publish_exchange_array(tensor_path, tensor)
         request = self._base_request(directory, "image")
         request.update(branch=branch, tensor=str(tensor_path.resolve()), output=str(output.resolve()))
         try:
@@ -550,12 +563,14 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             active = [(i, job) for i, job in enumerate(wave) if job[0] not in self.branch_failures]
             values = [None] * len(wave)
             if active:
-                with tempfile.TemporaryDirectory(prefix='image-wave-', dir=self.work) as temporary:
+                if self.exchange_root is None:
+                    raise RuntimeError("Specialist worker exchange is not prepared")
+                with tempfile.TemporaryDirectory(prefix='image-wave-', dir=self.exchange_root) as temporary:
                     directory = Path(temporary)
                     items = []
                     for index, (branch, image, identifier) in active:
                         tensor, output = directory/f'{index}-tensor.npy', directory/f'{index}-outputs.npz'
-                        np.save(tensor, image_tensor(branch, image), allow_pickle=False)
+                        self._publish_exchange_array(tensor, image_tensor(branch, image))
                         items.append({'branch': branch, 'tensor': str(tensor.resolve()), 'output': str(output.resolve())})
                     request = self._base_request(directory, 'image_batch')
                     request['jobs'] = items
@@ -581,6 +596,24 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                         values[index] = outputs, reply
             results.extend(values)
         return results
+
+    @staticmethod
+    def _publish_exchange_array(path, value):
+        """Publish a complete NPY name before exposing it to another process."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(prefix=".tensor-", suffix=".npy", dir=path.parent)
+        os.close(descriptor)
+        temporary = Path(temporary_name)
+        try:
+            with temporary.open("wb") as stream:
+                np.save(stream, value, allow_pickle=False)
+                stream.flush()
+            os.replace(temporary, path)
+            if not path.is_file() or path.stat().st_size <= 0:
+                raise OSError("Specialist exchange array publication failed")
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
     def _add_proposals(self, items):
@@ -975,7 +1008,7 @@ class PunctoraSpecialistProvider(RecognitionProvider):
                  "point_arrays": point_arrays, "artifacts": artifacts,
                  "accepted_geometry_changes": 0, "accepted_cuts": 0, "ifc_objects_written": 0}}
 
-    def close(self):
+    def _stop_worker(self):
         process = self.process
         if process is None:
             return
@@ -1028,3 +1061,10 @@ class PunctoraSpecialistProvider(RecognitionProvider):
             self.control = None
             self.response_queue = None
             self.stdout_reader = self.stderr_reader = None
+
+    def close(self):
+        self._stop_worker()
+        exchange, self.exchange = self.exchange, None
+        self.exchange_root = None
+        if exchange is not None:
+            exchange.cleanup()

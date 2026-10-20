@@ -59,6 +59,8 @@ import json, pathlib, sys, time
 import numpy as np
 def image(request,root):
     branch=request['branch']
+    tensor=np.load(request['tensor'],allow_pickle=False)
+    if tensor.dtype != np.float32 or not np.isfinite(tensor).all():raise ValueError('invalid image tensor')
     if branch in 'DEFGH':
         logits=np.zeros((1,3 if branch in 'DE' else 2,512,512),dtype=np.float32);logits[:,1]=1
         outputs={'logits':logits}
@@ -79,7 +81,7 @@ def execute(value):
         if (root/"slow").exists(): time.sleep(30)
         response={"schema_version":1,"status":"complete","active_branches":request["active_branches"],
                   "runtime":{"id":"onnxruntime","version":"1.23.2","requested_provider":"CPUExecutionProvider",
-                             "actual_provider":"CPUExecutionProvider","worker_protocol":"persistent-json-lines-v2-inline-request",
+                             "actual_provider":"CPUExecutionProvider","worker_protocol":"persistent-json-lines-v3-owned-exchange",
                              "maximum_cached_sessions":request["maximum_cached_sessions"]},"contracts":{}}
     elif request["mode"]=="point":
         feed=json.loads(pathlib.Path(request["feed_manifest"]).read_text())
@@ -314,6 +316,57 @@ def test_persistent_worker_receives_inline_request_without_reopening_transient_j
     assert not (directory / "request.json").exists()
 
 
+def test_image_payloads_use_owned_exchange_outside_project_staging_and_cleanup(tmp_path, monkeypatch):
+    """Worker-only arrays must not cross the deep project-staging path boundary."""
+    provider = make_provider(tmp_path, monkeypatch)
+    project = tmp_path / ("Ronsdorfer Straße-" + "x" * 80) / "recognition" / ".proposal-stage-test" / "attempt-0"
+    project.mkdir(parents=True)
+    provider.preflight = {"status": "complete", "runtime": {"actual_provider": "CPUExecutionProvider"}}
+    provider.prepare(cloud(), identity(), project, type("Control", (), {})())
+    exchange = provider.exchange_root
+    captured = []
+
+    def execute(request, directory, control):
+        captured.append((request, Path(directory)))
+        if request["mode"] == "point":
+            feed = read_json(request["feed_manifest"])
+            np.save(request["output"], np.zeros((len(np.load(feed["feat"])), 12), dtype=np.float32))
+            return {"schema_version": 1, "status": "complete", "branch": "I",
+                    "output": request["output"]}
+        replies = []
+        for item in request["jobs"]:
+            np.savez(item["output"], logits=np.zeros((1, 3, 512, 512), dtype=np.float32))
+            replies.append({"schema_version": 1, "status": "complete", "branch": item["branch"],
+                            "output": item["output"]})
+        return {"schema_version": 1, "status": "complete", "results": replies}
+
+    provider.runtime_plan = {**provider.runtime_plan, "image_workers": 2}
+    monkeypatch.setattr(provider, "_execute", execute)
+    control = type("Control", (), {})()
+    values = provider._try_images([
+        ("D", np.zeros((16, 16), dtype=np.uint8), "one"),
+        ("E", np.zeros((16, 16), dtype=np.uint8), "two"),
+    ], control)
+
+    assert all(value is not None for value in values)
+    request, directory = captured[0]
+    assert directory.is_relative_to(exchange) and not directory.is_relative_to(project)
+    assert Path(request["response"]).is_relative_to(exchange)
+    assert all(Path(item[name]).is_relative_to(exchange)
+               for item in request["jobs"] for name in ("tensor", "output"))
+    view = type("View", (), {"feed": {"feat": np.ones((3, 3), dtype=np.float32)}})()
+    tile = type("Tile", (), {"id": "0:0:0"})()
+    point_output, _ = provider._point_request(view, tile, control)
+    point_request, point_directory = captured[1]
+    assert point_directory.is_relative_to(exchange) and point_output.is_relative_to(exchange)
+    assert Path(point_request["feed_manifest"]).is_relative_to(exchange)
+    assert all(Path(path).is_relative_to(exchange)
+               for path in read_json(point_request["feed_manifest"]).values())
+    assert not list(project.rglob("*tensor.npy"))
+    provider.close()
+    assert not exchange.exists()
+
+
 def test_isolated_specialist_provider_runs_point_graph_and_publishes_review_only(tmp_path, monkeypatch):
     provider = make_provider(tmp_path, monkeypatch)
     directory, report, hit = run_recognition(
@@ -322,7 +375,7 @@ def test_isolated_specialist_provider_runs_point_graph_and_publishes_review_only
     assert not hit and report["requested_provider"]["id"] == "PunctoraSpecialistProvider"
     assert provider.worker_start_count == 1
     assert report["provider"]["backend"] == "CPUExecutionProvider"
-    assert report["provider"]["runtime"]["worker_protocol"] == "persistent-json-lines-v2-inline-request"
+    assert report["provider"]["runtime"]["worker_protocol"] == "persistent-json-lines-v3-owned-exchange"
     extension = report["extensions"]["specialist_v1"]
     assert extension["branches"]["I"]["status"] == "active"
     assert extension['runtime_profile']['I_worker']['calls']>0

@@ -166,7 +166,7 @@ def preflight(ort, request, sessions=None):
             "runtime": {"id": "onnxruntime", "version": metadata.version("onnxruntime"),
                         "requested_provider": "CPUExecutionProvider",
                         "actual_provider": "CPUExecutionProvider",
-                        "worker_protocol": "persistent-json-lines-v2-inline-request",
+                        "worker_protocol": "persistent-json-lines-v3-owned-exchange",
                         "runtime_plan": request.get("runtime_plan"),
                         "maximum_cached_sessions": request.get("maximum_cached_sessions", 1)},
             "contracts": details}
