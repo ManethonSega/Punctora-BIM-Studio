@@ -192,14 +192,14 @@ def test_failure_snapshot_retains_final_specialist_branch_heartbeat(tmp_path):
     ({'stage':'specialist_image_views','elapsed_seconds':3723.4,
       'source_read_stats':{'blocks':199387},
       'provider_timings':{'image_views':{'calls':5}}},
-     (68,'Stage 5 of 9: generating plan and section views · current view tile 6 · source blocks 199,387 · elapsed 1:02:03')),
+     (68,'Stage 5/9: plan/section views · view tile 6 · blocks 199,387 · elapsed 1:02:03')),
     ({'stage':'specialist_I_worker','elapsed_seconds':83.,
       'provider_timings':{'I_worker':{'calls':2}}},
-     (72,'Stage 6 of 9: running point-semantic branch I · current request 3 · elapsed 00:01:23')),
+     (72,'Stage 6/9: branch I point semantics · request 3 · elapsed 00:01:23')),
     ({'stage':'combine_tiles','elapsed_seconds':91.},
-     (74,'Stage 7 of 9: stitching proposals and validating source arrays · elapsed 00:01:31')),
+     (74,'Stage 7/9: stitching and source validation · elapsed 00:01:31')),
     ({'stage':'original_point_geometry_fusion','elapsed_seconds':102.},
-     (78,'Stage 8 of 9: refitting specialist candidates against original points · elapsed 00:01:42')),
+     (78,'Stage 8/9: original-point refit · elapsed 00:01:42')),
 ])
 def test_specialist_progress_uses_truthful_backend_stage_and_live_counters(diagnostic, expected):
     from punctora_core.projects import _specialist_progress

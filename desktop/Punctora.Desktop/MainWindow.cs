@@ -225,8 +225,8 @@ public sealed class MainWindow : Window
     void ApplyProgress(int value,string phase)
     {
         progress.IsIndeterminate=false;progress.Value=value;status.Text=phase;
-        if(phase.StartsWith("Stage 1 of 9: recognition preflight passed",StringComparison.Ordinal))
-            recognitionStatus.Text="Requested: PunctoraSpecialistProvider · Actual: PunctoraSpecialistProvider · Runtime: CPUExecutionProvider · A-J preflight passed";
+        if(phase.StartsWith("Stage 1/9: preflight passed",StringComparison.Ordinal))
+            recognitionStatus.Text="Provider: PunctoraSpecialistProvider · Runtime: CPUExecutionProvider · A-J ready";
         var key=phase.Split(" · ",2,StringSplitOptions.None)[0];
         if(phase.StartsWith("Stage ",StringComparison.Ordinal)&&key!=progressStageKey)
         {
@@ -630,7 +630,7 @@ public sealed class MainWindow : Window
         if(state==null||projectPath==null||!RequireClean())return;
         if(zUp.IsChecked!=true){status.Text="Confirm Z is up before fitting. A missing CRS can remain explicitly unknown for local review.";return;}
         var request=new JsonObject{["expected_revision"]=state["revision"]!.DeepClone(),["confirm_z_up"]=true,["model_action"]=reconstructionAction.SelectedIndex==1?"add":"replace",["reconstruction_options"]=DetectionOptions(),["recognition_mode"]=recognitionMode.SelectedIndex switch{1=>"specialist",2=>"hybrid",_=>"classical"},["specialist_model_directory"]=string.IsNullOrWhiteSpace(specialistModels.Text)?null:specialistModels.Text,["compare_budgets"]=compareBudgets.IsChecked==true,["settings"]=new JsonObject{["surface_method"]=method.SelectedIndex==1?"region_growing":"contour"}};
-        recognitionStatus.Text=recognitionMode.SelectedIndex==0?"Requested: Classical · Awaiting reconstruction":"Requested: PunctoraSpecialistProvider · Actual: validating runtime and A-J assets";
+        recognitionStatus.Text=recognitionMode.SelectedIndex==0?"Requested: Classical · Awaiting reconstruction":"Provider: PunctoraSpecialistProvider · validating runtime and A-J assets";
         var result=await RunAsync("reconstruct",projectPath,request);if(result!=null){dirty=false;undo.Clear();await RunAsync("cleanup",projectPath);await PresentAsync(projectPath,result,false);var r=result["recognition"];status.Text=r==null?"Candidates ready for review":$"Candidates ready · {r["requested_provider"]?.GetValue<string>()} requested · {r["actual_provider"]?.GetValue<string>()} actual{(r["fallback_reason"]?.GetValue<string>() is { } reason?$" · FALLBACK: {reason}":"")}";}
     }
     async Task AddProjectModelAsync()
@@ -696,11 +696,11 @@ public sealed class MainWindow : Window
                 throw new Exception($"Top status obscures the viewport or remains below it: status={statusPosition.Y}/{statusBanner.Bounds.Height}, viewport={viewportPosition.Y}/{viewport.Bounds.Height}");
             var errorColor=statusBanner.Background!.ToString();ShowRecognitionStatus(null);status.Text="Project saved.";
             if(statusBanner.Background!.ToString()==errorColor)throw new Exception("Status state colors did not change");
-            ApplyProgress(3,"Stage 1 of 9: recognition preflight passed · PunctoraSpecialistProvider · runtime CPUExecutionProvider");
-            if(!recognitionStatus.Text!.Contains("Runtime: CPUExecutionProvider")||!recognitionStatus.Text.Contains("A-J preflight passed"))
+            ApplyProgress(3,"Stage 1/9: preflight passed · PunctoraSpecialistProvider · runtime CPUExecutionProvider");
+            if(!recognitionStatus.Text!.Contains("Runtime: CPUExecutionProvider")||!recognitionStatus.Text.Contains("A-J ready"))
                 throw new Exception("Detailed specialist provider status was not displayed");
-            ApplyProgress(68,"Stage 5 of 9: generating plan and section views · current view tile 6 · source blocks 199,387 · elapsed 1:02:03");
-            if(progress.Value!=68||status.Text!="Stage 5 of 9: generating plan and section views · current view tile 6 · source blocks 199,387 · elapsed 1:02:03")
+            ApplyProgress(68,"Stage 5/9: plan/section views · view tile 6 · blocks 199,387 · elapsed 1:02:03");
+            if(progress.Value!=68||status.Text!="Stage 5/9: plan/section views · view tile 6 · blocks 199,387 · elapsed 1:02:03")
                 throw new Exception("Detailed live specialist stage was not displayed");
             var stageHighlight=statusBanner.Background!.ToString();
             await Task.Delay(500);
@@ -717,6 +717,7 @@ public sealed class MainWindow : Window
                 ["scan_free_setup"]=true,["top_status_visible"]=true,["state_colors_change"]=true,
                 ["detailed_live_stage_visible"]=true,["stage_change_highlight"]=true,["detailed_status_layout"]=true,
                 ["requested_actual_and_missing_visible"]=recognitionStatus.Text!.Contains("Missing: A, B, C, D, E, F, G, H, I, J")}.ToJsonString());
+            await Task.Delay(100); // Allow the restored status layout to reach the scroll viewport.
             if(leftScroll.Extent.Height<=leftScroll.Viewport.Height)throw new Exception("Short window has no scrollable left panel");
             leftScroll.Offset=new Vector(0,leftScroll.Extent.Height-leftScroll.Viewport.Height);await Task.Delay(100);
             var elementPosition=elements.TranslatePoint(new Point(0,0),leftScroll)??throw new Exception("Element list has no layout position");

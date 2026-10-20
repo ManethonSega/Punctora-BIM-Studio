@@ -532,32 +532,32 @@ def _specialist_progress(diagnostic):
     reads = diagnostic.get("source_read_stats") or {}
     details = []
     if stage == "original_point_geometry_fusion":
-        number, percent, label = 8, 78, "refitting specialist candidates against original points"
+        number, percent, label = 8, 78, "original-point refit"
     elif stage in {"combine_tiles", "validate_and_publish", "cache_hit"} or stage == "specialist_semantic_components":
-        number, percent, label = 7, 74, "stitching proposals and validating source arrays"
+        number, percent, label = 7, 74, "stitching and source validation"
     elif stage in {"infer_chunk", "specialist_I_preprocessing", "specialist_I_worker"}:
-        number, percent, label = 6, 72, "running point-semantic branch I"
+        number, percent, label = 6, 72, "branch I point semantics"
         if stage == "specialist_I_worker":
-            details.append(f"current request {int(timings.get('I_worker', {}).get('calls', 0)) + 1:,}")
+            details.append(f"request {int(timings.get('I_worker', {}).get('calls', 0)) + 1:,}")
     elif stage == "specialist_image_views":
-        number, percent, label = 5, 68, "generating plan and section views"
-        details.append(f"current view tile {int(timings.get('image_views', {}).get('calls', 0)) + 1:,}")
+        number, percent, label = 5, 68, "plan/section views"
+        details.append(f"view tile {int(timings.get('image_views', {}).get('calls', 0)) + 1:,}")
     elif stage.startswith("specialist_") and stage.endswith("_worker"):
         branch = stage.removeprefix("specialist_").removesuffix("_worker")
         if branch == "I":
-            number, percent, label = 6, 72, "running point-semantic branch I"
+            number, percent, label = 6, 72, "branch I point semantics"
         else:
-            number, percent, label = 5, 68, f"running image branch {branch}"
-        details.append(f"current request {int(timings.get(branch + '_worker', {}).get('calls', 0)) + 1:,}")
+            number, percent, label = 5, 68, f"image branch {branch}"
+        details.append(f"request {int(timings.get(branch + '_worker', {}).get('calls', 0)) + 1:,}")
     elif stage == "prepare_instances":
-        number, percent, label = 5, 67, "scheduling plan and section views"
+        number, percent, label = 5, 67, "schedule plan/section views"
     else:
-        number, percent, label = 4, 64, "preparing specialist identity and spatial tiles"
+        number, percent, label = 4, 64, "prepare identity and spatial tiles"
     blocks = int(reads.get("blocks") or 0)
     if blocks:
-        details.append(f"source blocks {blocks:,}")
+        details.append(f"blocks {blocks:,}")
     details.append("elapsed " + _elapsed_clock(diagnostic.get("elapsed_seconds")))
-    return percent, f"Stage {number} of 9: {label} · " + " · ".join(details)
+    return percent, f"Stage {number}/9: {label} · " + " · ".join(details)
 
 
 def _desktop_recognition(state, cloud, model, request, stage, save_performance, progress):
@@ -628,7 +628,7 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
             recognition_progress=_specialist_progress(latest)
             if recognition_pass == 'hybrid':
                 detail=recognition_progress[1].split(': ',1)[-1]
-                progress(79, 'Stage 8 of 9: hybrid proposal pass · '+detail)
+                progress(79, 'Stage 8/9: hybrid proposal pass · '+detail)
             else:
                 progress(*recognition_progress)
             performance = deepcopy(model.metadata.get("performance", {}))
@@ -639,7 +639,7 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
             performance.setdefault("status", "running")
             if latest.get('status') in {'failed','cancelled'}:performance['status']=latest['status']
             save_performance(performance)
-    progress(64, "Stage 4 of 9: preparing specialist identity and spatial tiles · elapsed 00:00:00")
+    progress(64, "Stage 4/9: prepare identity and spatial tiles · elapsed 00:00:00")
     proposal_directory, proposal, cache_hit = run_recognition(
         cloud, identity, provider, stage / "recognition", tile_settings=tiles,
         diagnostics=diagnostic,
@@ -651,7 +651,7 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
         from .recognition.job import RecognitionControl
         from .spatial_index import SpatialPointIndex
         settings = ReconstructionSettings(**request.get('settings',{}))
-        progress(78, 'Stage 8 of 9: refitting specialist candidates against original points')
+        progress(78, 'Stage 8/9: original-point refit')
         with RecognitionControl(int(latest.get('memory_limit_bytes',0)),65536,diagnostics=diagnostic) as control:
             control.stage='original_point_geometry_fusion'
             fusion_index=SpatialPointIndex.build(cloud,.2,control.working_budget//4,control.chunk_points,
@@ -685,7 +685,7 @@ def _desktop_recognition(state, cloud, model, request, stage, save_performance, 
     provider_chain = [proposal["provider"]["id"]]
     final_directory, final_proposal, final_hit = proposal_directory, proposal, cache_hit
     if mode == "hybrid":
-        progress(79, "Stage 8 of 9: fusing specialist and projected review-only evidence")
+        progress(79, "Stage 8/9: fuse specialist and projected evidence")
         recognition_pass='hybrid'
         final_directory, final_proposal, final_hit = run_recognition(
             cloud, identity, HybridProvider(proposal_directory), stage / "hybrid-recognition",
@@ -732,7 +732,7 @@ def reconstruct_project(path, request, progress=lambda *_: None):
         recognition_mode=request.get('recognition_mode','classical')
         specialist_run=recognition_mode != 'classical'
         def stage_label(number, label):
-            return f"Stage {number} of 9: {label}" if specialist_run else label
+            return f"Stage {number}/9: {label}" if specialist_run else label
         previous_model=BuildingModel.from_dict(state['model']) if mode=='add' and state.get('model') else None
         previous_generations=list(state['generations'])
         if not request.get("confirm_z_up"):
@@ -743,7 +743,7 @@ def reconstruct_project(path, request, progress=lambda *_: None):
             token, "reconstruct", project_name=state["name"],
             e57_read_decompression={"seconds": 0.0,
                                     "scope": "not repeated; reconstruction reads the imported memory-mapped cache"}))
-        progress(1, stage_label(1, "validating requested recognition runtime and A-J assets"))
+        progress(1, stage_label(1, "validate specialist runtime and A-J assets"))
         preflight = preflight_recognition(request)
         if preflight["status"] != "complete":
             from .recognition.contracts import ProviderUnavailable
@@ -760,9 +760,9 @@ def reconstruct_project(path, request, progress=lambda *_: None):
         save_performance({"recognition_preflight": preflight})
         runtime_provider=(preflight.get('runtime') or {}).get('actual_provider')
         runtime_detail=f" · runtime {runtime_provider}" if runtime_provider else ""
-        progress(3, stage_label(1, "recognition preflight passed · " + preflight["actual_provider"] + runtime_detail))
+        progress(3, stage_label(1, "preflight passed · " + preflight["actual_provider"] + runtime_detail))
         with generation_stage(path, state["project_id"], token) as stage:
-            progress(5, stage_label(2, "opening working point cloud"))
+            progress(5, stage_label(2, "open working point cloud"))
             source_cloud = load_cloud(path, state)
             cloud = source_cloud
             settings = ReconstructionSettings(**request.get("settings", {}))
@@ -776,13 +776,13 @@ def reconstruct_project(path, request, progress=lambda *_: None):
             crop_directory = stage / "crop-working"
             try:
                 if crop_active(state["crop"]):
-                    progress(10, stage_label(2, "applying non-destructive project crop"))
+                    progress(10, stage_label(2, "apply non-destructive crop"))
                     cloud, crop_report = materialize_crop(
                         source_cloud, state["crop"], crop_directory, settings.processing_chunk_points)
                 else:
                     crop_report = {"active": False, "source_points": len(source_cloud.points),
                                    "selected_points": len(source_cloud.points), "crop": state["crop"]}
-                progress(20, stage_label(3, "finding surfaces and fitting base elements"))
+                progress(20, stage_label(3, "fit base geometry"))
                 reconstruction_progress=(lambda percent, phase: progress(
                     percent, stage_label(3, phase))) if specialist_run else progress
                 if request.get("compare_budgets"):
@@ -822,7 +822,7 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                     model._spatial_index=None
                 release_completed_working_memory()
                 recognition = _desktop_recognition(state, cloud, model, request, stage, save_performance, progress)
-                progress(82, stage_label(9, "retaining final source evidence"))
+                progress(82, stage_label(9, "retain source evidence"))
                 evidence_started=time.perf_counter()
                 evidence = stage / "evidence" / "records"
                 evidence.parent.mkdir()
@@ -841,7 +841,7 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                 if recognition.get("fallback_reason"):
                     model.warnings.append("Recognition fallback: " + recognition["fallback_reason"])
                 state["recognition"] = recognition
-                progress(88, stage_label(9, "validating model candidates"))
+                progress(88, stage_label(9, "validate model candidates"))
                 model.warnings = [w for w in model.warnings if "No desktop review" not in w]
                 model.warnings.append("Whole-cloud deviation reporting remains pending; review observed and inferred geometry separately.")
                 if previous_model is not None:
@@ -885,7 +885,7 @@ def reconstruct_project(path, request, progress=lambda *_: None):
                 close_cloud(source_cloud)
                 shutil.rmtree(crop_directory, ignore_errors=True)
             try:
-                progress(94, stage_label(9, "publishing the saved model and diagnostics"))
+                progress(94, stage_label(9, "publish model and diagnostics"))
                 publish_generation(path, token, stage)
                 atomic_json(path, state)
             except BaseException as exc:
