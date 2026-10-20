@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import threading
+import time
 import uuid
 
 import ifcopenshell
@@ -29,6 +31,65 @@ def project(tmp_path):
 
 def request(state, **extra):
     return {"expected_revision": state["revision"], "model": deepcopy(state["model"]), **extra}
+
+
+def test_atomic_json_retries_transient_destination_sharing_violation(tmp_path, monkeypatch):
+    path = tmp_path / "last-performance.json"
+    real_replace = projects.os.replace
+    attempts = []
+    delays = []
+
+    def temporarily_locked(source, destination):
+        attempts.append((Path(source), Path(destination)))
+        if len(attempts) < 3:
+            raise PermissionError(13, "simulated Windows sharing violation", str(destination))
+        real_replace(source, destination)
+
+    monkeypatch.setattr(projects.os, "replace", temporarily_locked)
+    monkeypatch.setattr(projects.time, "sleep", delays.append)
+
+    projects.atomic_json(path, {"status": "running", "stage": "specialist_image_views"})
+
+    assert projects.read_json(path) == {"status": "running", "stage": "specialist_image_views"}
+    assert len(attempts) == 3
+    assert delays == [0.025, 0.05]
+
+
+def test_performance_writer_serializes_concurrent_heartbeats(tmp_path, monkeypatch):
+    path = tmp_path / "case.punctora"
+    projects.assets_for(path).mkdir()
+    active = 0
+    maximum_active = 0
+    calls = []
+    guard = threading.Lock()
+    start = threading.Barrier(3)
+
+    def observed_write(destination, value):
+        nonlocal active, maximum_active
+        with guard:
+            active += 1
+            maximum_active = max(maximum_active, active)
+        time.sleep(0.02)
+        calls.append((Path(destination).name, value["recognition"]["stage"]))
+        with guard:
+            active -= 1
+
+    monkeypatch.setattr(projects, "atomic_json", observed_write)
+    write, _ = projects._performance_writer(path, "a" * 32, "reconstruct")
+
+    def emit(stage):
+        start.wait()
+        write({"status": "running", "recognition": {"stage": stage}})
+
+    threads = [threading.Thread(target=emit, args=(stage,)) for stage in ("specialist_D_worker", "specialist_image_views")]
+    for thread in threads:
+        thread.start()
+    start.wait()
+    for thread in threads:
+        thread.join()
+
+    assert maximum_active == 1
+    assert len(calls) == 4
 
 
 def test_edit_save_reopen_copy_and_ifc_identity(project, tmp_path):
