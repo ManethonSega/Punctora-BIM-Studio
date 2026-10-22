@@ -41,6 +41,19 @@ def array_descriptor(path, relative, array, cancelled=lambda: False):
             "sha256": file_digest(path, cancelled=cancelled)}
 
 
+def open_proposal_array(directory, descriptor):
+    """Read contained immutable NPY or hard-linked original raw ID buffers."""
+    path = safe_artifact_path(directory, descriptor['path'])
+    if descriptor.get('storage') == 'original_raw_hardlink':
+        dtype = np.dtype(descriptor['dtype'])
+        if dtype.str not in {'<u4','<u8','<i8'} or path.stat().st_size != dtype.itemsize * int(np.prod(descriptor['shape'])):
+            raise ValueError('Malformed original traceability reference')
+        return np.memmap(path, mode='r', dtype=dtype, shape=tuple(descriptor['shape']))
+    if descriptor.get('storage') is not None:
+        raise ValueError('Unsupported proposal array storage')
+    return np.load(path, mmap_mode='r', allow_pickle=False)
+
+
 def validate_proposal_set(manifest, directory, verify_arrays=True, cancelled=lambda: False):
     if not isinstance(manifest, dict) or manifest.get("schema_version") != 1:
         raise ValueError("ProposalSet requires schema version 1")
@@ -87,16 +100,18 @@ def validate_proposal_set(manifest, directory, verify_arrays=True, cancelled=lam
         raise ValueError("ProposalSet lacks exact source identity/label arrays")
     for name, expected in ARRAY_TYPES.items():
         descriptor = arrays[name]
-        if descriptor.get("dtype") != expected or descriptor.get("shape") != [count]:
+        raw_identity = name in {'scan_ids','record_ids','working_rows'} and descriptor.get('storage') == 'original_raw_hardlink'
+        valid_dtype = descriptor.get('dtype') in {'<u4','<u8','<i8'} if raw_identity else descriptor.get('dtype') == expected
+        if not valid_dtype or descriptor.get("shape") != [count]:
             raise ValueError("Malformed ProposalSet array descriptor")
         sha256(descriptor.get("sha256"), "array digest")
         path = safe_artifact_path(directory, descriptor["path"])
         if verify_arrays:
             if file_digest(path, cancelled=cancelled) != descriptor["sha256"]:
                 raise ValueError("ProposalSet array digest changed")
-            array = np.load(path, mmap_mode="r", allow_pickle=False)
+            array = open_proposal_array(directory, descriptor)
             try:
-                if array.shape != (count,) or array.dtype.str != expected:
+                if array.shape != (count,) or array.dtype.str != descriptor['dtype']:
                     raise ValueError("ProposalSet array layout disagrees with descriptor")
                 if name in {"labels", "scores", "selected"}:
                     selected_actual = 0
@@ -118,7 +133,7 @@ def validate_proposal_set(manifest, directory, verify_arrays=True, cancelled=lam
         maps = {}
         try:
             for name in ("selected", "labels", "scores", "scan_ids", "record_ids", "working_rows"):
-                maps[name] = np.load(safe_artifact_path(directory, arrays[name]["path"]), mmap_mode="r", allow_pickle=False)
+                maps[name] = open_proposal_array(directory, arrays[name])
             import hashlib
             digests = {name: hashlib.sha256() for name in ("scan_ids", "record_ids", "working_rows")}
             for begin in range(0, count, 65536):
@@ -130,7 +145,10 @@ def validate_proposal_set(manifest, directory, verify_arrays=True, cancelled=lam
                 if np.any(labels[~selected] != -1) or np.any(scores[labels < 0] != 0):
                     raise ValueError("Unselected/unknown source rows cannot carry model labels/scores")
                 for name, digest in digests.items():
-                    digest.update(maps[name][begin:begin + 65536].tobytes())
+                    values = maps[name][begin:begin + 65536]
+                    if np.any(values < 0):
+                        raise ValueError('Original traceability identifiers must be nonnegative')
+                    digest.update(np.asarray(values,dtype='<u8').tobytes())
             if any(digest.hexdigest() != manifest["input_digests"][name] for name, digest in digests.items()):
                 raise ValueError("Proposal source IDs no longer round-trip original input")
         finally:
@@ -177,11 +195,14 @@ def validate_proposal_set(manifest, directory, verify_arrays=True, cancelled=lam
     if not isinstance(manifest.get("warnings"), list) or any(not isinstance(w, str) for w in manifest["warnings"]):
         raise ValueError("Proposal warnings must be strings")
     extensions = manifest.get("extensions", {})
-    if not isinstance(extensions, dict) or set(extensions) - {"hybrid_v1"}:
+    if not isinstance(extensions, dict) or set(extensions) - {"hybrid_v1", "specialist_v1"}:
         raise ValueError("Unknown ProposalSet extension")
     if "hybrid_v1" in extensions:
         from .element_graph import validate_hybrid_artifacts
         validate_hybrid_artifacts(manifest, directory, verify_arrays, cancelled)
+    if "specialist_v1" in extensions:
+        from .specialist_contracts import validate_specialist_artifacts
+        validate_specialist_artifacts(manifest, directory, verify_arrays, cancelled)
     return manifest
 
 

@@ -16,6 +16,8 @@ for argument in sys.argv[1:]:
     assert report["preview_failure_recovery_passed"], report
     assert report["small_window_scroll_passed"], report
     assert report["interactive_preview_passed"], report
+    provider_status=json.loads((directory/'provider-status-verification.json').read_text())
+    assert all(provider_status.values()),provider_status
     manual=json.loads((directory/'manual-level-verification.json').read_text())
     assert all(manual.values()),manual
     additive=json.loads((directory/'additive-verification.json').read_text())

@@ -14,7 +14,7 @@ try:
     import psutil
 except ImportError:  # optional diagnostic enhancement; /proc/Windows fallbacks remain usable
     psutil = None
-from .sampling import available_memory_bytes, resolved_cpu_workers
+from .sampling import available_memory_bytes, resolved_cpu_workers, total_memory_bytes
 
 
 def _utc_now():
@@ -56,6 +56,8 @@ class ResourcePlan:
     available_at_start: int
     baseline_process_rss_bytes: int
     source_cloud_bytes_estimate: int
+    total_physical_memory_bytes: int
+    process_memory_limit_bytes: int
     available_memory_fraction_limit: float
 
     @classmethod
@@ -64,29 +66,32 @@ class ResourcePlan:
         if source_cloud is not None:
             from .sampling import release_mapped_source_pages
             mapped=release_mapped_source_pages(source_cloud)
-        available = available_memory_bytes()
-        baseline = _process().memory_info().rss
         source_reserve = (min(int(source_points),settings.processing_chunk_points)*24
                           if mapped else int(source_points)*24)
-        # Zero means automatic. The process may use at most 70% of the memory
-        # that was available when planning began; the remaining 30% protects
-        # the desktop, OS and other applications. A non-zero user ceiling can
-        # only lower that automatic budget.
-        automatic = int(available*.70)
-        policy = (automatic if settings.maximum_working_memory_gb == 0 else
-                  min(automatic, int(settings.maximum_working_memory_gb*1024**3)))
-        memory = policy-baseline-source_reserve
+        def resolve_budget():
+            available = available_memory_bytes()
+            baseline = _process().memory_info().rss
+            total = total_memory_bytes()
+            # Available physical memory already excludes the current process
+            # working set. Add 70% of that available amount to the baseline,
+            # then retain an independent 70%-of-total process ceiling. The old
+            # calculation subtracted baseline RSS from available RAM a second
+            # time and falsely rejected the A36 64 GiB EG Kita crop.
+            process_limit = min(baseline + int(available*.70), int(total*.70))
+            if settings.maximum_working_memory_gb != 0:
+                process_limit = min(process_limit, int(settings.maximum_working_memory_gb*1024**3))
+            memory = process_limit-baseline-source_reserve
+            return available, baseline, total, process_limit, memory
+        available, baseline, total, process_limit, memory = resolve_budget()
         if memory < 64*1024**2:
             from .sampling import release_completed_working_memory
             release_completed_working_memory()
-            available = available_memory_bytes()
-            baseline = _process().memory_info().rss
-            automatic = int(available*.70)
-            policy = (automatic if settings.maximum_working_memory_gb == 0 else
-                      min(automatic, int(settings.maximum_working_memory_gb*1024**3)))
-            memory = policy-baseline-source_reserve
+            available, baseline, total, process_limit, memory = resolve_budget()
         if memory < 64*1024**2:
-            raise ValueError("Insufficient available RAM for reconstruction; close other applications")
+            raise ValueError(
+                "Insufficient RAM within reconstruction's 70% safety ceiling "
+                f"(available {available/1024**3:.2f} GiB, Punctora {baseline/1024**3:.2f} GiB, "
+                f"total {total/1024**3:.2f} GiB); close other applications or reduce the crop")
         workers = resolved_cpu_workers(settings.cpu_workers)
         concurrent = min(max(1, int(storeys)), workers, max(1, memory//(256*1024**2)))
         workers_per_storey = max(1, workers//concurrent)
@@ -102,12 +107,12 @@ class ResourcePlan:
         point_limit = max(30, min(int(source_points), settings.maximum_detection_points,
                                   int(spare//bytes_per_point)))
         return cls(workers, concurrent, workers_per_storey, memory, point_limit, int(chunk), available,
-                   baseline, source_reserve, .70)
+                   baseline, source_reserve, total, process_limit, .70)
 
     def report(self):
         return {**self.__dict__,
                 "temporary_parallel_wave_bytes_estimate": self.concurrent_storeys*self.workers_per_storey*self.chunk_points*768,
-                "memory_scope": "shared working-set ceiling, not an OS allocation request or guarantee"}
+                "memory_scope": "baseline plus at most 70% of currently available RAM, also capped at 70% of total physical RAM; not an OS allocation request or guarantee"}
 
 
 class StageProfiler:

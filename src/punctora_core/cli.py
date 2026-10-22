@@ -72,9 +72,10 @@ def main(argv=None):
     recognition = commands.add_parser("recognition-propose", help="Run review-only recognition on fingerprinted original arrays; never write IFC")
     recognition.add_argument("manifest", type=Path)
     recognition.add_argument("--cache-dir", type=Path, required=True)
-    recognition.add_argument("--provider", choices=["classical", "cloud2bim_experimental"], default="classical")
-    recognition.add_argument("--assets", type=Path, help="Explicit isolated runtime/checkpoint/config JSON; no downloads")
+    recognition.add_argument("--provider", choices=["classical", "cloud2bim_experimental", "punctora_specialist"], default="classical")
+    recognition.add_argument("--assets", type=Path, help="Explicit isolated provider asset JSON; no downloads")
     recognition.add_argument("--settings", type=Path, help="Classical ReconstructionSettings JSON")
+    recognition.add_argument("--specialist-settings", type=Path, help="PunctoraSpecialistProvider settings JSON")
     recognition.add_argument("--tiles", type=Path, help="TileSettings JSON")
     recognition.add_argument("--ram-gb", type=float, default=0.)
     recognition.add_argument("--diagnostics", type=Path, help="Persistent diagnostics outside cache staging")
@@ -149,16 +150,24 @@ def main(argv=None):
             from .recognition.contracts import safe_artifact_path
             if not __import__("math").isfinite(args.ram_gb) or args.ram_gb < 0:
                 raise ValueError("Recognition RAM cap must be finite and nonnegative")
-            protected = [args.manifest, *[p for p in (args.assets, args.settings, args.tiles) if p]]
+            protected = [args.manifest, *[p for p in (args.assets, args.settings, args.specialist_settings, args.tiles) if p]]
             input_manifest = read_json(args.manifest)
             protected.extend(safe_artifact_path(args.manifest.parent, descriptor["path"])
                              for descriptor in input_manifest.get("arrays", {}).values())
             if args.assets:
                 asset_manifest = read_json(args.assets)
-                protected.extend(Path(asset_manifest[key]) for key in ("python", "checkpoint", "model_config", "runtime_manifest"))
-            if args.diagnostics and (args.diagnostics.resolve() in {p.resolve() for p in protected}
-                                     or args.diagnostics.resolve().is_relative_to(args.cache_dir.resolve())):
-                raise ValueError("Recognition diagnostics must be outside inputs and the immutable cache")
+                if args.provider == "cloud2bim_experimental":
+                    if args.specialist_settings:
+                        raise ValueError("--specialist-settings only applies to Punctora specialist recognition")
+                    protected.extend(Path(asset_manifest[key]) for key in ("python", "checkpoint", "model_config", "runtime_manifest"))
+                elif args.provider == "punctora_specialist":
+                    protected.extend(Path(asset_manifest[key]) for key in ("python", "model_root"))
+            if args.diagnostics:
+                diagnostic = args.diagnostics.resolve()
+                protected_paths = [p.resolve() for p in protected]
+                if (diagnostic in protected_paths or diagnostic.is_relative_to(args.cache_dir.resolve())
+                        or any(path.is_dir() and diagnostic.is_relative_to(path) for path in protected_paths)):
+                    raise ValueError("Recognition diagnostics must be outside inputs, model roots and the immutable cache")
             settings = ReconstructionSettings(**read_json(args.settings)) if args.settings else ReconstructionSettings()
             classical = ClassicalProvider(settings)
             if args.provider == "cloud2bim_experimental":
@@ -166,18 +175,30 @@ def main(argv=None):
                     raise ValueError("Experimental recognition requires explicit local --assets; no automatic download")
                 provider = Cloud2BIMProvider(Cloud2BIMAssets(**asset_manifest))
                 fallback = classical
+            elif args.provider == "punctora_specialist":
+                from .recognition.specialist_provider import (PunctoraSpecialistAssets,
+                    PunctoraSpecialistProvider, SpecialistSettings)
+                if args.assets is None:
+                    raise ValueError("Punctora specialist recognition requires explicit local --assets; no automatic download")
+                specialist_settings = SpecialistSettings(**read_json(args.specialist_settings)) if args.specialist_settings else SpecialistSettings()
+                provider = PunctoraSpecialistProvider(PunctoraSpecialistAssets(**asset_manifest), specialist_settings)
+                fallback = classical
             else:
-                if args.assets:
-                    raise ValueError("Model --assets only apply to cloud2bim_experimental")
+                if args.assets or args.specialist_settings:
+                    raise ValueError("Model assets/settings only apply to learned providers")
                 provider, fallback = classical, None
             tiles = TileSettings(**read_json(args.tiles)) if args.tiles else TileSettings()
             with load_input(args.manifest) as (cloud, identity):
                 directory, report, hit = run_recognition(cloud, identity, provider, args.cache_dir,
                     tile_settings=tiles, fallback=fallback, memory_limit_bytes=int(args.ram_gb * 1024**3),
                     diagnostics=(lambda r: write_report(args.diagnostics, r)) if args.diagnostics else None)
+            specialist = report.get("extensions", {}).get("specialist_v1")
             print(json.dumps({"status": report["status"], "requested_provider": args.provider,
                               "provider_used": report["provider"]["id"], "cache_hit": hit, "directory": str(directory),
-                              "geometry_authority": report["geometry_authority"], "warnings": report["warnings"]}, indent=2))
+                              "geometry_authority": report["geometry_authority"],
+                              "active_branches": [name for name, value in (specialist or {}).get("branches", {}).items() if value["status"] == "active"],
+                              "missing_or_failed_branches": {name: value["status"] for name, value in (specialist or {}).get("branches", {}).items() if value["status"] != "active"},
+                              "warnings": report["warnings"]}, indent=2))
             return 0
         if args.command == "quality-freeze-artifacts":
             from .quality_benchmark import freeze_artifact_baseline

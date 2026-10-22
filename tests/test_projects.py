@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import threading
+import time
 import uuid
 
 import ifcopenshell
@@ -29,6 +31,65 @@ def project(tmp_path):
 
 def request(state, **extra):
     return {"expected_revision": state["revision"], "model": deepcopy(state["model"]), **extra}
+
+
+def test_atomic_json_retries_transient_destination_sharing_violation(tmp_path, monkeypatch):
+    path = tmp_path / "last-performance.json"
+    real_replace = projects.os.replace
+    attempts = []
+    delays = []
+
+    def temporarily_locked(source, destination):
+        attempts.append((Path(source), Path(destination)))
+        if len(attempts) < 3:
+            raise PermissionError(13, "simulated Windows sharing violation", str(destination))
+        real_replace(source, destination)
+
+    monkeypatch.setattr(projects.os, "replace", temporarily_locked)
+    monkeypatch.setattr(projects.time, "sleep", delays.append)
+
+    projects.atomic_json(path, {"status": "running", "stage": "specialist_image_views"})
+
+    assert projects.read_json(path) == {"status": "running", "stage": "specialist_image_views"}
+    assert len(attempts) == 3
+    assert delays == [0.025, 0.05]
+
+
+def test_performance_writer_serializes_concurrent_heartbeats(tmp_path, monkeypatch):
+    path = tmp_path / "case.punctora"
+    projects.assets_for(path).mkdir()
+    active = 0
+    maximum_active = 0
+    calls = []
+    guard = threading.Lock()
+    start = threading.Barrier(3)
+
+    def observed_write(destination, value):
+        nonlocal active, maximum_active
+        with guard:
+            active += 1
+            maximum_active = max(maximum_active, active)
+        time.sleep(0.02)
+        calls.append((Path(destination).name, value["recognition"]["stage"]))
+        with guard:
+            active -= 1
+
+    monkeypatch.setattr(projects, "atomic_json", observed_write)
+    write, _ = projects._performance_writer(path, "a" * 32, "reconstruct")
+
+    def emit(stage):
+        start.wait()
+        write({"status": "running", "recognition": {"stage": stage}})
+
+    threads = [threading.Thread(target=emit, args=(stage,)) for stage in ("specialist_D_worker", "specialist_image_views")]
+    for thread in threads:
+        thread.start()
+    start.wait()
+    for thread in threads:
+        thread.join()
+
+    assert maximum_active == 1
+    assert len(calls) == 4
 
 
 def test_edit_save_reopen_copy_and_ifc_identity(project, tmp_path):
@@ -125,6 +186,33 @@ def test_reconstruction_uses_saved_crop_without_altering_source(project):
     assert not (generation / "crop-working").exists()
 
 
+def test_desktop_specialist_without_model_folder_requires_explicit_classical_choice(project):
+    path, state = project
+    from punctora_core.recognition.contracts import ProviderUnavailable
+    before = path.read_bytes()
+    with pytest.raises(ProviderUnavailable, match="Select Classical explicitly"):
+        projects.reconstruct_project(path, {"expected_revision": state["revision"],
+            "confirm_z_up": True, "job_id": token(), "settings": {},
+            "recognition_mode": "specialist"})
+    assert path.read_bytes() == before
+    result = projects.reconstruct_project(path, {"expected_revision": state["revision"],
+        "confirm_z_up": True, "job_id": token(), "settings": {}, "recognition_mode": "classical"})
+    assert result["recognition"]["requested_mode"] == result["recognition"]["actual_provider"] == "classical"
+    assert result["recognition"]["fallback_reason"] is None
+
+
+def test_project_rejects_overlay_without_content_bound_proposal(project):
+    path, state = project
+    state["recognition"] = {"schema_version": 1, "requested_mode": "specialist",
+        "actual_provider": "classical", "proposal_manifest": None,
+        "overlay_proposals": [{"id": "unbound", "status": "proposed", "class": "wall",
+            "geometry_authority": "review_only", "polygon_xy_m": [[0, 0], [1, 0], [1, 1]],
+            "z_min_m": 0, "z_max_m": 3}]}
+    projects.atomic_json(path, state)
+    with pytest.raises(ValueError, match="published ProposalSet"):
+        projects.load_project(path)
+
+
 def test_cancelled_job_keeps_and_marks_latest_diagnostic(project):
     path, _ = project
     job_id = token()
@@ -144,6 +232,56 @@ def test_cancelled_job_keeps_and_marks_latest_diagnostic(project):
     assert projects.read_json(projects.assets_for(path) / "last-performance.json")["job_id"] == job_id
     assert not index_directory.exists()
     assert (stage/"other.txt").read_text(encoding="utf-8")=="keep"
+
+
+def test_failure_snapshot_retains_reconstruction_heartbeat_and_settings(tmp_path):
+    path = tmp_path/'diagnostic.punctora'
+    write,history = projects._performance_writer(path,'failure-trace','reconstruct')
+    heartbeat = {'status':'running','source_points':39068825,'total_seconds':42.5,
+                 'reconstruction_settings':{'compute_backend':'auto','cpu_workers':0},
+                 'resource_plan':{'workers':31},
+                 'stages':[{'stage':'level_detection','status':'complete','sample_points':120441}],
+                 'events':[{'event':'stage_finished','stage':'level_detection'}]}
+    write(heartbeat)
+    write({'status':'failed','error':'Profile repair would change components or introduce holes',
+           'error_context':{'exception_type':'ValueError','profile_geometry':{'input_vertices':10}}})
+    report = projects.read_json(history)
+    assert report['source_points']==heartbeat['source_points']
+    assert report['geometry_and_evidence_seconds']==42.5
+    assert report['resource_plan']==heartbeat['resource_plan']
+    assert report['reconstruction_settings']==heartbeat['reconstruction_settings']
+    assert report['stages']==heartbeat['stages']
+    assert report['events'][0]==heartbeat['events'][0]
+    assert report['events'][-1]['event']=='job_failed'
+    assert report['status']=='failed' and report['error_context']['profile_geometry']['input_vertices']==10
+    assert projects.read_json(projects.assets_for(path)/'last-performance.json')==report
+    assert heartbeat['events']==[{'event':'stage_finished','stage':'level_detection'}]
+
+
+def test_profile_failure_retains_exact_contour_and_request_without_changing_project(project,monkeypatch):
+    from shapely.geometry import Polygon
+    from punctora_core.profile_geometry import clean_profiles
+    path,state = project
+    saved = path.read_bytes()
+    vertices = [(0,0),(4,4),(0,4),(3,0)]
+    def fail(*args,**kwargs):
+        clean_profiles(vertices)
+    monkeypatch.setattr(projects,'reconstruct',fail)
+    with pytest.raises(ValueError):
+        projects.reconstruct_project(path,request(state,job_id=token(),confirm_z_up=True,
+            settings={'cpu_workers':1,'compute_backend':'cpu'}))
+    report = projects.read_json(projects.assets_for(path)/'last-performance.json')
+    diagnostic = report['error_context']['profile_geometry']
+    assert diagnostic['original_wkb_hex']==Polygon(vertices).wkb_hex
+    assert diagnostic['capture']=='complete'
+    assert diagnostic['input_vertices']==len(vertices)
+    assert diagnostic['reason']=='meaningful_geometry_change'
+    assert report['reconstruction_settings']['cpu_workers']==1
+    assert report['reconstruction_settings']['compute_backend']=='cpu'
+    assert report['requested_recognition_mode']=='classical'
+    assert report['source_points']>0
+    assert path.read_bytes()==saved
+    assert not list((projects.assets_for(path)/'staging').iterdir())
 
 
 @pytest.mark.parametrize("changes", [{"thickness": -1}, {"height": float("nan")}, {"start": [0, 0, 0]}, {"review_state": "approved"}, {"thickness": True}])

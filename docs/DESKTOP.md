@@ -9,19 +9,24 @@ processing. Cancelling a job keeps the latest valid snapshot and marks it
 `cancelled`. Backend fields report actual Punctora compute use; viewport GPU
 rendering is separate and is not reported as reconstruction acceleration.
 
-The cumulative `run2/interactive-preview` candidate is now 0.3.0a24 and contains
-Runs 1 through 4. Adaptive preview draws 75,000 to 100,000 points during movement
-and restores up to 500,000 after it settles. Height mode includes the fixed
-complete-cloud **Local height Z [m]** legend. Glazed façade candidates and their
-IFC window/curtain-wall fallback are described in [Run 4 glazing](RUN_4_GLAZING.md).
-Physical Intel UHD and the two target survey projects remain acceptance checks.
+The current Run 4 repair is **0.3.0a34**. It bundles CPU specialist inference,
+checks the selected runtime and A-J model assets before opening the source, and
+shows operation/provider status at the top. Original-point geometry validation
+can add unreviewed candidates; model proposals never approve geometry or cuts.
+See [the A34 repair and its limits](RUN_4_REPAIR_A34.md).
+
+Adaptive preview draws 75,000 to 100,000 points during movement and restores up
+to 500,000 after it settles. Height mode includes the fixed complete-cloud
+**Local height Z [m]** legend. Physical computer and scan quality checks remain
+separate from generated walkthrough verification.
 
 ## Windows preview
 
-Download `Punctora-BIM-Studio-M3-win-x64` from a successful **M3 desktop preview** run on [GitHub Actions](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/workflows/desktop.yml). Extract the artifact, then extract the contained ZIP. Keep all extracted files together and run **Punctora.Desktop.exe**. The portable preview includes .NET 10.0.0, Python 3.12.10 and pinned worker dependencies; it does not need developer tools. This is a preview build. Clean-machine installer acceptance remains M4 work.
+Download `Punctora-BIM-Studio-M3-win-x64` from a successful **M3 desktop preview** run on [GitHub Actions](https://github.com/ManethonSega/Punctora-BIM-Studio/actions/workflows/desktop.yml). Extract the artifact, then extract the contained ZIP. Keep all extracted files together and run **Punctora.Desktop.exe**. The standalone package includes .NET 10.0.0, Python 3.12.10, ONNX Runtime 1.23.2 CPU, pinned Python dependencies and application-local C++ runtime DLLs. **No Python, .NET, ONNX Runtime, C++ redistributable or developer-tool installation is needed on the destination Windows 10/11 x64 PC.** Keep the entire extracted folder together. Your scan and external A-J models are user data; model weights are not downloaded or bundled. This is a preview build; final designated-computer qualification remains pending.
 
 1. Choose **Example** for the generated two-storey walkthrough, or **Import E57** for an already registered scan. Choose a new `.punctora` filename.
 2. Check the coordinate and pose warnings. Confirm **Z is up** before **Detect elements**. Missing CRS and vertical datum remain unknown; this checkbox does not establish either.
+   For Run 4 specialist review, choose the external A-J model folder and **Check specialist setup**, which also works before opening a project. This checks the actual interpreter, pinned CPU engine, native inference and all graph/companion hashes without a scan. Then choose **Punctora specialist** or **Hybrid specialist + projected evidence**. Missing runtime/assets block detection before source processing; **Classical** must be selected explicitly to run without AI. The top status shows requested/actual provider and active/missing branches. Original-point refitting may add unreviewed candidates. See [Run 4 specialist provider](RUN_4_SPECIALIST_PROVIDER.md).
 3. Orbit by dragging, pan by right-dragging, zoom with the wheel, and use **Fit view**. Toggle the cloud/model, choose height, original or monochrome point colours, adjust point size and model opacity, select a storey, or lower the temporary section height. For a persistent processing crop, optionally enter lower or upper Z limits, choose **Draw polygon**, left-click at least three XY vertices, then choose **Apply crop**. Right-click removes the last draft vertex. **Cancel polygon** abandons the draft and **Clear crop** restores the full cloud. Save a changed crop before running detection.
 4. Select a candidate in the element list or 3D view. Edit wall endpoints/base/height/thickness/classification, slab base/thickness, wall-opening host/class/dimensions, stair geometry, landing base/thickness, slab-opening host/footprint/width, or storey name/floor/ceiling. Choose a review state and **Apply correction**. The feature controls add a door/window to a selected wall, a flight to a selected storey, a landing to a selected flight, or a void to a selected slab; **Delete selected candidate** removes only supported feature candidates. Ctrl-click collinear wall rows to merge them, or split one wall by local distance. **Undo edit** restores the preceding draft; **Revert** reloads the saved model.
 5. **Save** retains corrections. **Save copy** copies the project and required assets to a new filename. Keep the `.punctora` file and its sibling `.assets` folder together when moving a project.
@@ -55,11 +60,13 @@ dotnet run --project desktop/Punctora.Desktop -c Release
 
 `PUNCTORA_PYTHON` can point to a compatible worker Python executable. The bundled worker takes precedence over a developer virtual environment. `--software` forces the bounded software view. A `.punctora` path passed on the command line opens that project.
 
+The portable default uses its own embedded Python for specialist inference. No environment variables or separate Python installation are needed. Advanced/developer users may override it with `PUNCTORA_SPECIALIST_PYTHON` pointing to a compatible environment containing `requirements-specialist-cpu.txt`; the check reports the actual selected interpreter. External A-J models remain explicitly selected user data.
+
 Build a Windows package with Python 3.11/3.12 and the pinned .NET SDK:
 
 ```sh
 python scripts/package_desktop.py
 ```
 
-The script checks the embedded Python archive and Windows wheel hashes, retains licences and records a package manifest. On Windows it also runs the embedded worker from the package directory. Build output is in `artifacts/` and is excluded from source control. Runtime replacements and source locations are documented in `WINDOWS_RUNTIME_NOTICES.md`.
+The script checks the embedded Python archive and Windows wheel hashes, retains licences and records a package manifest. On Windows it also runs the embedded worker from outside the repository with an OS-only PATH. Verification includes native CPU inference and asserts that all four C++ runtime DLLs load from the package, plus reconstruction, immediate validated IFC export and rejection of an invalid IFC relation. Building requires the Visual Studio x64 redistributable files on the build machine; the destination PC does not. Build output is in `artifacts/` and is excluded from source control. Runtime replacements and source locations are documented in `WINDOWS_RUNTIME_NOTICES.md`.
 

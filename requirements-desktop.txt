@@ -1,0 +1,3 @@
+# Complete portable worker, not a prerequisite installation on the user's PC.
+-r requirements-core.txt
+-r requirements-specialist-cpu.txt

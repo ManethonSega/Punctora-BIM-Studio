@@ -1,0 +1,13 @@
+# Pinned CPU inference runtime. Included in the portable desktop package.
+# Model files remain external and are never downloaded by Punctora.
+numpy==2.3.5
+onnxruntime==1.23.2
+coloredlogs==15.0.1
+flatbuffers==25.12.19
+packaging==26.3
+protobuf==7.36.2
+sympy==1.14.0
+humanfriendly==10.0
+mpmath==1.3.0
+# Windows humanfriendly dependency; explicit for cross-platform wheel downloads.
+pyreadline3==3.5.6

@@ -84,6 +84,18 @@ def available_memory_bytes():
         return 4 * 1024**3
 
 
+def total_memory_bytes():
+    """Physical RAM, bounded by the container limit when present."""
+    import psutil
+    total = psutil.virtual_memory().total
+    try:
+        with open('/sys/fs/cgroup/memory.max', encoding='ascii') as stream:
+            limit = stream.read().strip()
+        if limit != 'max': total = min(total, int(limit))
+    except (OSError, ValueError): pass
+    return total
+
+
 def adaptive_point_limit(requested, maximum_working_memory_gb=20.0, bytes_per_point=192):
     """Cap a requested working set by both user policy and available RAM."""
     automatic = int(available_memory_bytes() * .70)

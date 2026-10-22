@@ -1,6 +1,6 @@
 # Dependency and research inventory
 
-Reviewed on 2026-10-09. This register distinguishes selected M2/M3 dependencies from future candidates. Cloud2BIM geometry helpers are included as source; NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57, pyquaternion, psutil, threadpoolctl and pyopencl are external Python dependencies. pye57 compiles libE57Format and links or bundles Xerces-C++; libE57Format vendors CRC++. Exact direct versions are pinned in pyproject.toml; requirements-core.txt records the tested runtime dependencies. No model weights are bundled. Linux and exact Windows wheel notices are retained; the final installer audit remains M4. The machine-readable source is [dependency-inventory.json](../dependency-inventory.json). Component credits and notices are in [ATTRIBUTIONS.md](../ATTRIBUTIONS.md).
+Reviewed on 2026-10-13. This register distinguishes selected M2/M3 dependencies from future candidates. Cloud2BIM geometry helpers are included as source; NumPy, SciPy, Shapely, OpenCV headless, Pillow, IfcOpenShell, pye57, pyquaternion, psutil, threadpoolctl and pyopencl are external Python dependencies. ONNX Runtime is isolated in the optional Run 4 specialist environment. pye57 compiles libE57Format and links or bundles Xerces-C++; libE57Format vendors CRC++. Exact direct versions are pinned in pyproject.toml; requirements-core.txt and requirements-specialist-cpu.txt record the tested runtime dependencies. No model weights are bundled. Linux and exact Windows wheel notices are retained; the final installer audit remains Run 13. The machine-readable source is [dependency-inventory.json](../dependency-inventory.json). Component credits and notices are in [ATTRIBUTIONS.md](../ATTRIBUTIONS.md).
 
 Top-level review identifies published licence evidence, not all-file/transitive clearance. `pending` means the component's terms still need inspection; it is not approved for inclusion. Source links with a commit identify the inspected upstream revision. All chosen package versions must be pinned during implementation.
 
@@ -26,6 +26,8 @@ Top-level review identifies published licence evidence, not all-file/transitive 
 | [shapely](https://github.com/shapely/shapely) | code: Planar geometry | BSD-3-Clause; GEOS LGPL-2.1-or-later | installed_license_reviewed | 2.1.2 |
 | [scikit-image](https://github.com/scikit-image/scikit-image/blob/main/LICENSE.txt) | code: Image-based reconstruction where retained | BSD-3-Clause overall; file-specific terms vary | top_level_reviewed | Future candidate |
 | [opencv](https://github.com/opencv/opencv) | code: Image processing where retained | Apache-2.0 (OpenCV), MIT (Python packaging); native wheel terms vary | installed_license_reviewed | 4.11.0.86 (opencv-python-headless) |
+| [Pillow](https://github.com/python-pillow/Pillow) | code: Exact branch-J bilinear image preprocessing | HPND; bundled native components retain their terms | runtime_selected_final_notice_review_run_13 | 12.0.0 |
+| [ONNX Runtime](https://github.com/microsoft/onnxruntime) | isolated runtime: Supplied A-J specialist graphs, CPU provider only | MIT; bundled/runtime components retain their terms | optional_runtime_selected_final_notice_review_run_13 | 1.23.2 |
 | [SpatialLM repository code](https://github.com/manycore-research/SpatialLM/blob/8913c44d84a450c53e9340b13317f8cf7144a738/LICENSE.txt) | code: Future structured layout proposal adapter | Component-specific: Llama-3.2, Apache-2.0, MIT and CC-BY-NC-4.0 | component_declarations_reviewed | Future candidate |
 | [SpatialLM paper, arXiv v2](https://arxiv.org/abs/2506.07491v2) | research: Structured wall/opening proposals; [detailed assessment](research/SPATIALLM.md) | CC-BY-4.0 (publication only) | publication_reviewed | 5 November 2025 revision |
 | [SpatialLM1.1-Qwen-0.5B weights](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B) | model: Optional layout proposals | CC-BY-NC-4.0 | restricted | Future candidate |
@@ -70,7 +72,7 @@ The released SpatialLM1.1-Qwen-0.5B checkpoint remains CC-BY-NC-4.0 according to
 
 ## Incorporation decisions
 
-Cloud2BIM, NumPy, SciPy, Shapely, OpenCV headless, IfcOpenShell, pye57, pyquaternion, libE57Format, Xerces-C++, CRC++, psutil and threadpoolctl are selected for the current core. pyopencl is included as the optional GPU arithmetic path when a compatible driver is installed. Open3D CUDA is an optional NVIDIA-only path and is not bundled in the default package. Avalonia 12.1.3 and .NET 10.0.0 are now selected for the M3 desktop. PDAL is optional and is not part of direct E57 import.
+Cloud2BIM, NumPy, SciPy, Shapely, OpenCV headless, Pillow, IfcOpenShell, pye57, pyquaternion, libE57Format, Xerces-C++, CRC++, psutil and threadpoolctl are selected for the current core. ONNX Runtime 1.23.2 is selected only for the isolated CPU specialist environment; the supplied A-J graphs remain external and content-bound. pyopencl is included as the optional GPU arithmetic path when a compatible driver is installed. Open3D CUDA is an optional NVIDIA-only path and is not bundled in the default package. Avalonia 12.1.3 and .NET 10.0.0 are now selected for the M3 desktop. PDAL is optional and is not part of direct E57 import.
 
 SpatialLM can inform an independently written element/proposal contract now, but its source-code terms are not assumed permissive. Pointcept's reviewed MIT root licence does not cover every associated pretrained asset. Model weights and datasets remain separate inventory entries.
 
@@ -78,7 +80,7 @@ The ACM and May 2026 arXiv references are recorded together as PointLLM-R, not c
 
 ## M3 desktop dependencies
 
-[Desktop runtime notices](WINDOWS_RUNTIME_NOTICES.md) list Avalonia, ANGLE, SkiaSharp, HarfBuzzSharp, MicroCom, build services, Linux DBus, .NET and CPython versions, attributions and complete retained texts. `desktop/packages.lock.json` pins the NuGet graph; `desktop/windows-wheel-hashes.json` pins the Windows worker wheels. No additional AI component is incorporated. See [High Performance reconstruction](HIGH_PERFORMANCE.md) for backend selection and measurement scope.
+[Desktop runtime notices](WINDOWS_RUNTIME_NOTICES.md) list Avalonia, ANGLE, SkiaSharp, HarfBuzzSharp, MicroCom, build services, Linux DBus, .NET and CPython versions, attributions and complete retained texts. `desktop/packages.lock.json` pins the NuGet graph; `desktop/windows-wheel-hashes.json` pins the Windows worker wheels, including Pillow. The A-J model assets and isolated ONNX Runtime environment are not bundled by Run 4; final packaging belongs to Run 13. See [High Performance reconstruction](HIGH_PERFORMANCE.md) for backend selection and measurement scope.
 
 ## IFC validation runtime
 
