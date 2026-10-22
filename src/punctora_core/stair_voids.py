@@ -13,10 +13,30 @@ def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headro
     No blanket stair bounding rectangle is used to enlarge an observed hole.
     """
     result = list(observed)
+    openings_by_id = {}
+    for opening in result:
+        if opening.id in openings_by_id:
+            raise ValueError(f"Existing slab opening ID is duplicated: {opening.id}")
+        openings_by_id[opening.id] = opening
+    regenerated_ids = set()
     report = []
-    for opening in candidates:
-        polygon = Polygon(slab_opening_footprint(opening))
-        previous = [o for o in observed if o.host_slab_id == opening.host_slab_id
+    for candidate in candidates:
+        regenerated_ids.add(candidate.id)
+        polygon = Polygon(slab_opening_footprint(candidate))
+        opening = openings_by_id.get(candidate.id)
+        if opening is not None:
+            existing_polygon = Polygon(slab_opening_footprint(opening))
+            if (opening.host_slab_id != candidate.host_slab_id
+                    or existing_polygon.symmetric_difference(polygon).area > 1e-8):
+                raise ValueError(f"Regenerated slab opening changed identity geometry: {candidate.id}")
+            polygon = existing_polygon
+            opening.evidence.update(candidate.evidence)
+        else:
+            opening = candidate
+            openings_by_id[opening.id] = opening
+            result.append(opening)
+        previous = [o for o in observed if o.id != opening.id
+                    and o.host_slab_id == opening.host_slab_id
                     and slab_opening_is_validated(o, flights, landings)]
         observed_shape = unary_union([Polygon(slab_opening_footprint(o)) for o in previous])
         overlap = polygon.intersection(observed_shape).area
@@ -28,15 +48,15 @@ def reconcile_stair_voids(slabs, observed, candidates, flights, landings, headro
             'boundary_justification': {'flights': opening.evidence['source_stair_ids'],
                                        'landings': opening.evidence['source_landing_ids']}})
         for hole in observed:
-            if (hole.host_slab_id == opening.host_slab_id
+            if (hole.id != opening.id and hole.host_slab_id == opening.host_slab_id
                     and polygon.intersects(Polygon(slab_opening_footprint(hole)))):
                 hole.evidence['stair_validation'] = 'supported_by_stair_envelope'
                 systems = hole.evidence.setdefault('supporting_system_ids', [])
                 if opening.source_system_id not in systems:
                     systems.append(opening.source_system_id)
-        result.append(opening)
     for hole in observed:
-        hole.evidence.setdefault('stair_validation', 'pending_manual_review')
+        if hole.id not in regenerated_ids:
+            hole.evidence.setdefault('stair_validation', 'pending_manual_review')
     # Independent tread-by-tread collision check against the final cut union.
     # Check physical treads and headroom separately; report both residuals.
     for slab in slabs:

@@ -106,6 +106,29 @@ def test_observed_partial_hole_is_preserved_and_headroom_is_cut_and_exported(tmp
     assert json.loads(psets['Punctora_Reconstruction']['GeometricEvidence'])['inferred_missing_step_indices'] == [4]
 
 
+def test_revalidating_same_stair_opening_is_idempotent_and_preserves_review():
+    footprint = [(0,0),(10,0),(10,10),(0,10)]
+    storeys = [Storey('lower','Lower',0,3,footprint),Storey('upper','Upper',3.2,6,footprint)]
+    stair = Stair('flight','lower',(2,2),(6,2),0,1,.2,.25,16,system_id='system',flight_index=1,
+                  evidence={'method':'global_tread_riser_lattice','observed_step_indices':[0,1,2],
+                            'tread_support_counts':[20,20,20]}, review_state='reviewed')
+    slab = Slab('slab','upper',footprint,3,.2)
+    first,_ = derive_stair_slab_openings([stair],[slab])
+    assert len(first) == 1
+    first[0].review_state = 'reviewed'
+    first[0].ifc_cut_approved = True
+    repeated,_ = derive_stair_slab_openings([stair],[slab])
+
+    openings,_ = reconcile_stair_voids([slab],first,repeated,[stair],[])
+
+    assert len(openings) == 1
+    assert openings[0] is first[0]
+    assert openings[0].review_state == 'reviewed'
+    assert openings[0].ifc_cut_approved is True
+    assert openings[0].evidence.get('stair_validation') != 'pending_manual_review'
+    BuildingModel('Revalidated stairs',storeys,stairs=[stair],slabs=[slab],slab_openings=openings).validate()
+
+
 def test_collision_check_reports_missing_void_instead_of_claiming_success():
     stair = Stair('f','s',(0,0),(2,0),0,1,.2,.25,8, review_state='reviewed')
     slab = Slab('slab','s',[(-1,-1),(4,-1),(4,2),(-1,2)],1,.2)
